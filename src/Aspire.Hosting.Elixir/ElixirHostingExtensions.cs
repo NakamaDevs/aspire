@@ -53,8 +53,109 @@ public static class ElixirHostingExtensions
         ArgumentException.ThrowIfNullOrEmpty(appDirectory);
 
         appDirectory = Path.GetFullPath(appDirectory, builder.AppHostDirectory);
-        var resource = new ElixirAppResource(name, appDirectory);
 
+        return ConfigureElixirApp(builder, new ElixirAppResource(name, appDirectory), appDirectory);
+    }
+
+    /// <summary>
+    /// Adds a Phoenix web application to the application model. Elixir and the Mix build tool must be
+    /// available on the PATH.
+    /// </summary>
+    /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/> to add the resource to.</param>
+    /// <param name="name">The name of the resource.</param>
+    /// <param name="appDirectory">The path to the directory that contains <c>mix.exs</c>.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// This method runs the application with <c>mix phx.server</c> and adds one HTTP endpoint. Phoenix
+    /// reads the port of that endpoint from the <c>PORT</c> environment variable. Use
+    /// <see cref="WithMixTask{T}"/> to run a different Mix task.
+    /// </para>
+    /// <para>
+    /// The method sets <c>PHX_SERVER</c> to <c>true</c>, which tells a Mix release to start the
+    /// endpoint. It also sets <c>PHX_HOST</c> to the host of the HTTP endpoint.
+    /// </para>
+    /// <para>
+    /// In publish mode the method sets <c>SECRET_KEY_BASE</c> from a generated secret parameter with
+    /// the name <c>{name}-secret-key-base</c>. The parameter has 64 characters, which is the minimum
+    /// length that Phoenix accepts. In run mode the method does not set the variable, because
+    /// <c>config/dev.exs</c> holds the development value.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// Add a Phoenix application to the application model:
+    /// <code lang="csharp">
+    /// var builder = DistributedApplication.CreateBuilder(args);
+    ///
+    /// builder.AddPhoenixApp("web", "../phoenix-web")
+    ///        .WithExternalHttpEndpoints();
+    ///
+    /// builder.Build().Run();
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<PhoenixAppResource> AddPhoenixApp(
+        this IDistributedApplicationBuilder builder,
+        [ResourceName] string name,
+        string appDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrEmpty(appDirectory);
+
+        appDirectory = Path.GetFullPath(appDirectory, builder.AppHostDirectory);
+        var resource = new PhoenixAppResource(name, appDirectory);
+
+        // `mix phx.server` starts the Phoenix endpoint. WithMixTask replaces this annotation, so the
+        // developer keeps control of the task.
+        resource.Annotations.Add(new ElixirMixTaskAnnotation("phx.server", []));
+
+        var rb = ConfigureElixirApp(builder, resource, appDirectory)
+            .WithHttpEndpoint(env: "PORT");
+
+        var endpoint = rb.GetEndpoint("http");
+
+        // In publish mode Phoenix refuses to start without a secret of at least 64 characters.
+        // In run mode config/dev.exs holds the value, so a generated parameter is not necessary.
+        var secretKeyBase = builder.ExecutionContext.IsPublishMode
+            ? ParameterResourceBuilderExtensions.CreateGeneratedParameter(
+                builder,
+                $"{name}-secret-key-base",
+                secret: true,
+                new GenerateParameterDefault { MinLength = 64, Special = false })
+            : null;
+
+        rb.WithEnvironment(ctx =>
+        {
+            // PHX_SERVER tells a Mix release to start the endpoint.
+            ctx.EnvironmentVariables["PHX_SERVER"] = "true";
+
+            // Phoenix builds its URLs from PHX_HOST, so the value must match the allocated endpoint.
+            ctx.EnvironmentVariables["PHX_HOST"] = endpoint.Property(EndpointProperty.Host);
+
+            if (secretKeyBase is not null)
+            {
+                ctx.EnvironmentVariables["SECRET_KEY_BASE"] = secretKeyBase;
+            }
+        });
+
+        return rb;
+    }
+
+    /// <summary>
+    /// Adds the shared Elixir configuration to a new application resource and returns its builder.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AddElixirApp"/> and <see cref="AddPhoenixApp"/> both call this method, so both get the
+    /// same arguments, required commands, telemetry, certificate trust, and Mix setup siblings.
+    /// </remarks>
+    private static IResourceBuilder<T> ConfigureElixirApp<T>(
+        IDistributedApplicationBuilder builder,
+        T resource,
+        string appDirectory)
+        where T : ElixirAppResource
+    {
         var rb = builder.AddResource(resource)
             .WithIconName("Code")
             .WithArgs(ctx =>
@@ -93,6 +194,32 @@ public static class ElixirHostingExtensions
             .WithRequiredCommand("mix", "https://elixir-lang.org/install.html")
             .WithRequiredCommand("elixir", "https://elixir-lang.org/install.html")
             .WithOtlpExporter();
+
+        // The Erlang :ssl application replaces its trust set with the file that SSL_CERT_FILE names.
+        // It cannot add to the trust set, so the default scope is System. That scope makes Aspire put
+        // the system authorities and the custom authorities in one bundle.
+        rb.WithCertificateTrustScope(CertificateTrustScope.System)
+            .WithCertificateTrustConfiguration(ctx =>
+            {
+                // Aspire applies custom certificate trust in run mode only.
+                if (ctx.ExecutionContext.IsPublishMode)
+                {
+                    return Task.CompletedTask;
+                }
+
+                // The OTLP exporter of the Erlang SDK reads its own certificate bundle. The value is
+                // safe in every scope, because the dashboard uses one of the custom authorities.
+                ctx.EnvironmentVariables["OTEL_EXPORTER_OTLP_CERTIFICATE"] = ctx.CertificateBundlePath;
+
+                if (ctx.Scope != CertificateTrustScope.Append)
+                {
+                    // SSL_CERT_FILE replaces the complete trust set, so it must not receive an Append
+                    // bundle. An Append bundle holds the custom authorities only.
+                    ctx.EnvironmentVariables["SSL_CERT_FILE"] = ctx.CertificateBundlePath;
+                }
+
+                return Task.CompletedTask;
+            });
 
         // MIX_ENV selects the Mix environment. Local work uses dev, and publish output uses prod.
         rb.WithEnvironment("MIX_ENV", builder.ExecutionContext.IsRunMode ? "dev" : "prod");
@@ -463,6 +590,151 @@ public static class ElixirHostingExtensions
     }
 
     /// <summary>
+    /// Sets the <c>DATABASE_URL</c> environment variable from a database resource, so Ecto can connect.
+    /// </summary>
+    /// <typeparam name="T">The type of the Elixir application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Elixir application.</param>
+    /// <param name="database">The resource builder for the database.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// Ecto reads a URI, for example <c>postgresql://user:password@host:port/database</c>. The method
+    /// uses the <c>Uri</c> connection property of the database when the database has one. If the
+    /// database has no <c>Uri</c> property, the method uses the connection string of the database, and
+    /// the developer must confirm that Ecto accepts that format.
+    /// </para>
+    /// <para>
+    /// The method also adds a reference to the database and makes the application wait for it.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// Connect an Elixir application to a PostgreSQL database:
+    /// <code lang="csharp">
+    /// var db = builder.AddPostgres("pg").AddDatabase("appdb");
+    ///
+    /// builder.AddElixirApp("api", "../elixir-api")
+    ///        .WithEctoDatabase(db);
+    /// </code>
+    /// </example>
+    // The database parameter makes the default capability id collide across integrations,
+    // so give the capability a unique id and keep the polyglot method name.
+    [AspireExport("withElixirEctoDatabase", MethodName = "withEctoDatabase")]
+    public static IResourceBuilder<T> WithEctoDatabase<T>(
+        this IResourceBuilder<T> builder,
+        IResourceBuilder<IResourceWithConnectionString> database)
+        where T : ElixirAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(database);
+
+        builder.WithAnnotation(new ElixirEctoDatabaseAnnotation(database), ResourceAnnotationMutationBehavior.Replace);
+
+        return builder
+            .WithReference(database)
+            .WaitFor(database)
+            .WithEnvironment(ctx =>
+            {
+                ctx.EnvironmentVariables["DATABASE_URL"] = BuildEctoDatabaseUrl(database.Resource);
+            });
+    }
+
+    /// <summary>
+    /// Runs <c>mix ecto.migrate</c> before the application starts, so the database schema is current.
+    /// </summary>
+    /// <typeparam name="T">The type of the Elixir application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Elixir application.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// The method creates one sibling resource with the name <c>{app}-ecto-migrate</c>. More calls do
+    /// not create more resources. The step runs only in run mode and stays out of the manifest.
+    /// </para>
+    /// <para>
+    /// The step gets the same <c>DATABASE_URL</c> value as the application. It waits for the database
+    /// from <see cref="WithEctoDatabase{T}"/> and for the Mix setup siblings. The application waits for
+    /// the step to complete. <see cref="WithEctoDatabase{T}"/> and this method can run in either order.
+    /// </para>
+    /// <para>
+    /// In publish mode a Mix release has no Mix tasks. Run the migration from the release script, for
+    /// example <c>bin/my_app eval "MyApp.Release.migrate"</c>.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// Migrate the database before the application starts:
+    /// <code lang="csharp">
+    /// var db = builder.AddPostgres("pg").AddDatabase("appdb");
+    ///
+    /// builder.AddElixirApp("api", "../elixir-api")
+    ///        .WithEctoDatabase(db)
+    ///        .WithEctoMigrate();
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<T> WithEctoMigrate<T>(this IResourceBuilder<T> builder)
+        where T : ElixirAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        // A Mix release has no Mix tasks, so the migration sibling has no meaning during publish.
+        if (!builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        {
+            return builder;
+        }
+
+        var migrateName = $"{builder.Resource.Name}-ecto-migrate";
+
+        if (builder.ApplicationBuilder.TryCreateResourceBuilder<ElixirEctoMigrateResource>(migrateName, out _))
+        {
+            return builder;
+        }
+
+        var migrate = new ElixirEctoMigrateResource(migrateName, builder.Resource);
+        migrate.Annotations.Add(NameValidationPolicyAnnotation.None);
+
+        builder.ApplicationBuilder.AddResource(migrate)
+            .WithArgs("ecto.migrate")
+            .WithParentRelationship(builder.Resource)
+            .ExcludeFromManifest()
+            .WithCertificateTrustScope(CertificateTrustScope.None)
+            .WithRequiredCommand("mix", "https://elixir-lang.org/install.html")
+            .WithEnvironment(ctx =>
+            {
+                // WithEctoDatabase can run after this method, so read the database from the parent
+                // when the environment is evaluated instead of when the sibling is created.
+                if (migrate.Parent.TryGetLastAnnotation<ElixirEctoDatabaseAnnotation>(out var databaseAnnotation))
+                {
+                    ctx.EnvironmentVariables["DATABASE_URL"] = BuildEctoDatabaseUrl(databaseAnnotation.Database.Resource);
+                }
+            });
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Builds the value of <c>DATABASE_URL</c> for a database resource.
+    /// </summary>
+    /// <remarks>
+    /// Ecto accepts <c>ecto://</c>, <c>postgres://</c>, and <c>postgresql://</c>. The <c>Uri</c>
+    /// connection property already has that shape, so the method uses it when the resource has one.
+    /// </remarks>
+    private static object BuildEctoDatabaseUrl(IResourceWithConnectionString database)
+    {
+        foreach (var property in database.GetConnectionProperties())
+        {
+            if (string.Equals(property.Key, "Uri", StringComparison.OrdinalIgnoreCase))
+            {
+                return property.Value;
+            }
+        }
+
+        // The resource exposes no URI property. The connection string is the only value left, and the
+        // developer must confirm that Ecto accepts its format.
+        return new ConnectionStringReference(database, optional: false);
+    }
+
+    /// <summary>
     /// Wires the wait relationships between an Elixir application and its Mix setup siblings.
     /// </summary>
     /// <remarks>
@@ -478,10 +750,15 @@ public static class ElixirHostingExtensions
 
         builder.TryCreateResourceBuilder<ElixirMixDepsResource>($"{resource.Name}-mix-deps", out var depsBuilder);
         builder.TryCreateResourceBuilder<ElixirMixCompileResource>($"{resource.Name}-mix-compile", out var compileBuilder);
+        builder.TryCreateResourceBuilder<ElixirEctoMigrateResource>($"{resource.Name}-ecto-migrate", out var migrateBuilder);
 
         // The developer starts an explicit-start step by hand, so nothing must wait for it.
         var depsRunsAutomatically = depsBuilder is not null
             && !depsBuilder.Resource.TryGetLastAnnotation<ExplicitStartupAnnotation>(out _);
+
+        // The Mix setup steps run in order: deps.get, then compile. The last one is the step that the
+        // migration, or the application when there is no migration, must wait for.
+        IResourceBuilder<IResource>? lastSetupStep = null;
 
         if (compileBuilder is not null)
         {
@@ -491,11 +768,35 @@ public static class ElixirHostingExtensions
                 compileBuilder.WaitForCompletion(depsBuilder!);
             }
 
-            appBuilder.WaitForCompletion(compileBuilder);
+            lastSetupStep = compileBuilder;
         }
         else if (depsRunsAutomatically)
         {
-            appBuilder.WaitForCompletion(depsBuilder!);
+            lastSetupStep = depsBuilder;
         }
+
+        if (migrateBuilder is null)
+        {
+            if (lastSetupStep is not null)
+            {
+                appBuilder.WaitForCompletion(lastSetupStep);
+            }
+
+            return;
+        }
+
+        if (lastSetupStep is not null)
+        {
+            // `mix ecto.migrate` compiles the application, so the dependencies must be present first.
+            migrateBuilder.WaitForCompletion(lastSetupStep);
+        }
+
+        if (resource.TryGetLastAnnotation<ElixirEctoDatabaseAnnotation>(out var databaseAnnotation))
+        {
+            // The migration cannot run before the database accepts connections.
+            migrateBuilder.WaitFor(databaseAnnotation.Database);
+        }
+
+        appBuilder.WaitForCompletion(migrateBuilder);
     }
 }

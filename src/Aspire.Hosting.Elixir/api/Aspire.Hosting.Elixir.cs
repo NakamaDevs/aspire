@@ -14,7 +14,18 @@ namespace Aspire.Hosting
         public static ApplicationModel.IResourceBuilder<Elixir.ElixirAppResource> AddElixirApp(this IDistributedApplicationBuilder builder, string name, string appDirectory) { throw null; }
 
         [AspireExport]
+        public static ApplicationModel.IResourceBuilder<Elixir.PhoenixAppResource> AddPhoenixApp(this IDistributedApplicationBuilder builder, string name, string appDirectory) { throw null; }
+
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<T> WithAppArgs<T>(this ApplicationModel.IResourceBuilder<T> builder, params object[] args)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport("withElixirEctoDatabase", MethodName = "withEctoDatabase")]
+        public static ApplicationModel.IResourceBuilder<T> WithEctoDatabase<T>(this ApplicationModel.IResourceBuilder<T> builder, ApplicationModel.IResourceBuilder<ApplicationModel.IResourceWithConnectionString> database)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithEctoMigrate<T>(this ApplicationModel.IResourceBuilder<T> builder)
             where T : Elixir.ElixirAppResource { throw null; }
 
         [AspireExport]
@@ -53,5 +64,11 @@ namespace Aspire.Hosting.Elixir
     public partial class ElixirAppResource : ApplicationModel.ExecutableResource, IResourceWithServiceDiscovery, ApplicationModel.IResourceWithEndpoints, ApplicationModel.IResource, ApplicationModel.IContainerFilesDestinationResource
     {
         public ElixirAppResource(string name, string workingDirectory) : base(default!, default!, default!) { }
+    }
+
+    [AspireExport(ExposeProperties = true)]
+    public partial class PhoenixAppResource : ElixirAppResource
+    {
+        public PhoenixAppResource(string name, string workingDirectory) : base(default!, default!) { }
     }
 }
