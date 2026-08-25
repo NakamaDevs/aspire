@@ -15,11 +15,12 @@ This document describes how the Aspire CLI supports non-.NET app hosts using the
 5. [JSON-RPC Protocol](#json-rpc-protocol)
 6. [Code Generation](#code-generation)
 7. [TypeScript Implementation](#typescript-implementation)
-8. [CLI Integration](#cli-integration)
-9. [Configuration](#configuration)
-10. [Adding New Guest Languages](#adding-new-guest-languages)
-11. [Local Development Workflow](#local-development-workflow)
-12. [Security](#security)
+8. [Elixir Implementation](#elixir-implementation)
+9. [CLI Integration](#cli-integration)
+10. [Configuration](#configuration)
+11. [Adding New Guest Languages](#adding-new-guest-languages)
+12. [Local Development Workflow](#local-development-workflow)
+13. [Security](#security)
 
 ---
 
@@ -98,7 +99,7 @@ The Aspire CLI has evolved through several stages:
 
 1. **v1: dotnet CLI Wrapper** — Initially, the CLI was a thin wrapper around `dotnet run`, adding Aspire-specific features like dashboard integration, certificate management, and `aspire add` for NuGet packages.
 
-2. **v2: Polyglot Support (Current)** — The CLI now supports non-.NET app hosts. It orchestrates an AppHost Server (.NET) alongside guest runtimes (Node.js, Python). Language-specific logic is moving to the server via `ILanguageSupport` implementations.
+2. **v2: Polyglot Support (Current)** — The CLI now supports non-.NET app hosts. It orchestrates an AppHost Server (.NET) alongside guest runtimes (Node.js, Python, Go, Java, Rust, Elixir). Language-specific logic is moving to the server via `ILanguageSupport` implementations.
 
 3. **v3: Thin Shell (Vision)** — The goal is for the CLI to become a pure orchestrator with no language-specific logic. All detection, scaffolding, and execution details will be provided by the server via `RuntimeSpec`. The CLI will simply interpret and execute these specs.
 
@@ -1264,6 +1265,213 @@ class EndpointReference {
 
 ---
 
+## Elixir Implementation
+
+The Elixir SDK targets Elixir 1.19 and Erlang/OTP 28. `Aspire.Hosting.CodeGeneration.Elixir` generates it. The AppHost file is `apphost.exs`. The CLI runs it with `elixir apphost.exs`. Elixir compiles the script in memory, so there is no build step and no lock file.
+
+### Generated SDK Usage
+
+```elixir
+Code.require_file(".aspire/modules/aspire.ex", __DIR__)
+
+alias Aspire.DistributedApplicationBuilder, as: Builder
+alias Aspire.Elixir.ElixirAppResource
+alias Aspire.Elixir.PhoenixAppResource
+alias Aspire.PostgreSQL.PostgresServerResource
+
+builder = Aspire.create_builder!()
+
+appdb =
+  builder
+  |> Builder.add_postgres!("db")
+  |> PostgresServerResource.add_database!("appdb")
+
+cache = Builder.add_redis!(builder, "cache")
+
+builder
+|> Builder.add_phoenix_app!("web", "./phoenix_web")
+|> tap(&PhoenixAppResource.with_ecto_database!(&1, appdb))
+|> tap(&PhoenixAppResource.with_external_http_endpoints!/1)
+
+builder
+|> Aspire.build!()
+|> Aspire.run!()
+```
+
+### SDK Shape
+
+Elixir has no inheritance, so the generator writes one module for each handle type. Each module holds a struct and every capability that targets that type. An inherited capability is copied into each module. The module name comes from the assembly, for example `Aspire.Hosting.Redis.RedisResource` becomes `Aspire.Redis.RedisResource`.
+
+```elixir
+defmodule Aspire.Redis.RedisResource do
+  @enforce_keys [:handle]
+  defstruct [:handle, :transport]
+
+  @type t :: %__MODULE__{handle: Aspire.Handle.t(), transport: GenServer.server() | nil}
+end
+```
+
+The receiver is always the first parameter, so the pipe operator works.
+
+Each capability has two functions:
+
+| Form | Returns |
+|------|---------|
+| `add_redis/3` | `{:ok, value}` or `{:error, %Aspire.Error{}}` |
+| `add_redis!/3` | `value`, or raises `Aspire.Error` |
+
+`Aspire.Error` is an exception struct with the fields `:code`, `:message`, `:data`, and `:capability`. The `:code` value comes from the host (`CAPABILITY_NOT_FOUND`, `HANDLE_NOT_FOUND`, `TYPE_MISMATCH`, `INVALID_ARGUMENT`, `ARGUMENT_OUT_OF_RANGE`, `CALLBACK_ERROR`, `INTERNAL_ERROR`) or from the guest transport (`MISSING_SOCKET_PATH`, `CONNECTION_FAILED`, `CONNECTION_CLOSED`, `AUTHENTICATION_FAILED`, `TRANSPORT_ERROR`).
+
+An optional parameter becomes a keyword option. The generated function validates the option keys and names the function in the error message:
+
+```elixir
+Builder.add_redis!(builder, "cache", port: 6380)
+```
+
+`Aspire.create_builder!/1` is the entry point. `Aspire.build!/1` and `Aspire.run!/1` delegate to the module of the builder struct.
+
+### Enums
+
+An enum becomes a module below `Aspire.Enums`. A value is an atom in snake case. The wire form stays the .NET member name.
+
+```elixir
+Aspire.ContainerResource.with_lifetime!(container, :persistent)
+```
+
+The module holds `values/0`, `to_wire!/1`, and `from_wire/1`. `to_wire!/1` accepts a string, so an unknown future member still passes. An unknown atom raises `ArgumentError`, and the message names every value the enum accepts.
+
+### DTOs
+
+A DTO becomes a struct module with `new/1`, `to_wire/1`, and `from_wire/1`. `new/1` accepts a keyword list, so a capability that flattens an options argument can build the struct. `to_wire/1` removes the nil properties. `from_wire/1` keeps the wire value of a property it cannot convert, so one unknown shape never fails the whole struct.
+
+### Callbacks
+
+A callback parameter takes an anonymous function. The generated code wraps the function. The wrapper decodes each argument into the correct struct before it calls the function:
+
+```elixir
+configure_wrapper = fn callback ->
+  fn a0 ->
+    a0 = Aspire.Runtime.decode(a0, {:handle, Aspire.Docker.ComposeFile}, transport)
+    Aspire.Runtime.callback_writeback(callback.(a0), [])
+  end
+end
+```
+
+A callback that receives a DTO must **return the changed struct**. The host cannot see a change that the guest makes to a local copy. `Aspire.Runtime.callback_writeback/2` reads the return value. It sends a struct of the correct module back to the host as the new argument value. A callback with more than one DTO argument returns a list in the argument order. A callback that returns any other value changes nothing.
+
+The transport runs each host callback in a separate task. A callback can therefore invoke a capability without a deadlock.
+
+### Context Types
+
+A context type is a handle type, so it becomes a module with functions. A property getter becomes `name/1`. A property setter becomes `set_name/2`.
+
+```elixir
+{:ok, editor} = Aspire.EnvironmentCallbackContext.environment(ctx)
+{:ok, network} = Aspire.Docker.Network.set_name(network, "backend")
+```
+
+Every property function has a bang variant.
+
+### Reference Expressions
+
+`Aspire.ref/1` builds a reference expression from a list of strings and handles:
+
+```elixir
+{:ok, endpoint} = Aspire.Redis.RedisResource.get_endpoint(cache, "tcp")
+url = Aspire.ref(["redis://", endpoint])
+```
+
+`Aspire.ReferenceExpression` holds either a host handle or a format string with value providers. `get_value_async/2` resolves an expression that the host owns.
+
+### Cancellation
+
+`Aspire.CancellationToken.new/0` creates a token. A capability that accepts a token takes it as the `:cancellation_token` option. `Aspire.CancellationToken.cancel/2` stops the call. The host also returns a token as a handle, so the token keeps its identity when it passes through other generated calls.
+
+```elixir
+token = Aspire.CancellationToken.new()
+Task.start(fn -> Aspire.CancellationToken.cancel(token) end)
+{:error, error} = Aspire.EndpointReference.get_value_async(endpoint, cancellation_token: token)
+```
+
+### Collection Wrappers
+
+A mutable host collection becomes `Aspire.List` or `Aspire.Dict`. Each operation is one RPC call, so the guest never holds a stale copy.
+
+| Module | Functions |
+|--------|-----------|
+| `Aspire.List` | `to_list/1`, `count/1`, `get/2`, `add/2`, `put/3`, `insert/3`, `index_of/2`, `remove_at/2`, `clear/1` |
+| `Aspire.Dict` | `to_map/1`, `count/1`, `get/2`, `put/3`, `has_key?/2`, `delete/2`, `keys/1`, `values/1`, `clear/1` |
+
+A read-only collection becomes a plain Elixir list or map instead.
+
+### Transport
+
+`Aspire.Transport` is a `GenServer`. It connects with `:gen_tcp` to the Unix domain socket in `REMOTE_APP_HOST_SOCKET_PATH`:
+
+```elixir
+:gen_tcp.connect({:local, path}, 0, [:binary, active: false, packet: :raw], 10_000)
+```
+
+The frame format is the LSP format:
+
+```
+Content-Length: <byte count>\r\n\r\n<utf8 json>
+```
+
+The process owns the socket. `handle_call/3` stores the caller in a pending map and never blocks. `GenServer.reply/2` answers when the response frame arrives.
+
+The transport sends `authenticate` first when `ASPIRE_REMOTE_APPHOST_TOKEN` is set. The CLI sets that variable. It then sends `invokeCapability` and `cancelToken`. It answers `invokeCallback` from the host.
+
+The transport has no Hex dependency. `base.ex`, `transport.ex`, and `aspire_runtime.ex` are copied verbatim from the code generation package.
+
+### Watch
+
+`RuntimeSpec.WatchExecute` runs `elixir .aspire/modules/watch.exs <apphost file>`. The script polls the modification time of every `*.ex` and `*.exs` file below the AppHost directory. On a change it stops the AppHost and starts it again. It writes `[aspire-watch] restarting: <file>` to standard error. The `--once` option stops the script after the first run.
+
+### Output
+
+`.aspire/modules/` holds the generated SDK:
+
+| File | Content |
+|------|---------|
+| `aspire.ex` | The entry point. It requires every other file in dependency order and defines the `Aspire` facade. |
+| `base.ex` | `Aspire.Handle`, `Aspire.Error`, `Aspire.CancellationToken`, `Aspire.ReferenceExpression`, `Aspire.Marshal` |
+| `transport.ex` | `Aspire.Transport` |
+| `aspire_runtime.ex` | `Aspire.Runtime`, `Aspire.List`, `Aspire.Dict` |
+| `aspire_generated.ex`, `aspire_generated_2.ex`, … | The generated modules. The generator splits them so no file grows too large. |
+| `watch.exs` | The watch script |
+
+`apphost.exs` loads the SDK with one line:
+
+```elixir
+Code.require_file(".aspire/modules/aspire.ex", __DIR__)
+```
+
+### Type Mapping
+
+| ATS Type | Elixir |
+|----------|--------|
+| `string`, `char`, `guid`, `uri`, `dateTime`, `dateOnly`, `timeOnly`, `timeSpan` | `String.t()` |
+| `number` | `number()` |
+| `boolean` | `boolean()` |
+| `void` | `nil`, in `{:ok, nil}` |
+| Handle | A struct with `:handle` and `:transport` |
+| DTO | A struct with `new/1`, `to_wire/1`, `from_wire/1` |
+| Enum | An atom in a module below `Aspire.Enums` |
+| Callback | An anonymous function |
+| Mutable list | `Aspire.List` |
+| Mutable dictionary | `Aspire.Dict` |
+| Any other type | `term()` |
+
+### Known Limits
+
+- **A fluent function returns the declared base handle.** The generator does not read `AtsCapabilityInfo.ReturnsBuilder`. A generic fluent capability such as `IResourceBuilder<T> WithEctoDatabase<T>(this IResourceBuilder<T>, …)` therefore returns the struct of the constraint type, not the struct of the receiver. The base handle modules hold no functions, so a plain pipe stops after one step. The handle identity does not change, so `tap/2` is a correct workaround. The TypeScript, Python, and Java generators read `ReturnsBuilder` and do not have this problem.
+- **Windows named pipes are not supported.** The transport uses a `:gen_tcp` Unix domain socket only. See NAK-519.
+- **A guest AppHost cannot select a launch profile.** `GuestAppHostProject.SupportsLaunchProfiles` is `false`. The CLI reads the `https` profile of `apphost.run.json` when one exists, and the first profile otherwise.
+- **Erlang TLS refuses the Aspire development certificate.** The `:ssl` application does not accept a self-signed leaf certificate, even when `SSL_CERT_FILE` names a bundle that holds the same certificate. An OTLP exporter in a guest Elixir application therefore needs an HTTP endpoint.
+
+---
+
 ## CLI Integration
 
 The CLI is responsible for:
@@ -1494,6 +1702,13 @@ private static readonly LanguageInfo[] s_allLanguages =
         DetectionPatterns: ["apphost.py"],
         CodeGenerator: "Python",
         AppHostFileName: "apphost.py"),
+    new LanguageInfo(
+        LanguageId: new LanguageId("elixir"),
+        DisplayName: "Elixir",
+        PackageName: "Aspire.Hosting.CodeGeneration.Elixir",
+        DetectionPatterns: ["apphost.exs"],
+        CodeGenerator: "Elixir",
+        AppHostFileName: "apphost.exs"),
 ];
 ```
 
@@ -1647,6 +1862,9 @@ dotnet run --project /path/to/aspire/src/Aspire.Cli/Aspire.Cli.csproj -- init --
 
 # Create a new TypeScript app
 dotnet run --project /path/to/aspire/src/Aspire.Cli/Aspire.Cli.csproj -- init --language typescript
+
+# Create a new Elixir app
+dotnet run --project /path/to/aspire/src/Aspire.Cli/Aspire.Cli.csproj -- init --language elixir
 ```
 
 The `-l` (or `--language`) flag specifies the target language for scaffolding.
@@ -1679,6 +1897,7 @@ The `-d` (or `--debug`) flag enables additional diagnostic output, useful when d
 |------|---------|
 | Scaffold Python app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- init --language python` |
 | Scaffold TypeScript app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- init --language typescript` |
+| Scaffold Elixir app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- init --language elixir` |
 | Run app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- run` |
 | Run with debug output | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- run -d` |
 | Add integration | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- add` |

@@ -27,7 +27,7 @@ The polyglot testing approach provides a way to write integration tests for Aspi
 3. Wait for resources to reach desired states
 4. Stop the AppHost when done
 
-Each language (TypeScript, Python, Go, etc.) provides a thin wrapper library that spawns CLI commands and parses the structured JSON output.
+Each language (TypeScript, Python, Elixir, Go, etc.) provides a thin wrapper library that spawns CLI commands and parses the structured JSON output.
 
 ---
 
@@ -615,6 +615,35 @@ async with AspireApp.start(project='./MyApp.AppHost') as app:
         assert response.status_code == 200
 ```
 
+### Elixir
+
+The Elixir wrapper is an ExUnit case template. `Aspire.Testing` starts the AppHost with
+`aspire start --format json`, reads `aspire describe --follow --format json`, and stops the
+AppHost with `aspire stop`. Every function has a bang variant, as in the generated SDK.
+
+```elixir
+defmodule MyApp.ApiTest do
+  use ExUnit.Case, async: false
+  alias Aspire.Testing.App
+
+  setup_all do
+    app = App.start!(project: "./apphost.exs")
+    on_exit(fn -> App.stop!(app) end)
+    %{app: app}
+  end
+
+  test "the API answers", %{app: app} do
+    App.wait_for_resource!(app, "cache", state: "Running", healthy: true)
+    App.wait_for_resource!(app, "api", state: "Running", healthy: true)
+
+    url = App.endpoint_url!(app, "api", "http")
+    {:ok, response} = Req.get(url <> "/api/products")
+
+    assert response.status == 200
+  end
+end
+```
+
 ### .NET
 
 For .NET tests that want CLI-based testing (instead of `Aspire.Hosting.Testing`):
@@ -752,6 +781,7 @@ async def test_list_products(api_url):
 
 ### Phase 3: Additional Languages
 - [ ] Python wrapper (`aspire-testing` pip package)
+- [ ] Elixir wrapper (an `aspire_testing` Hex package)
 - [ ] Go wrapper
 - [ ] .NET wrapper (for non-`TEntryPoint` scenarios)
 

@@ -201,6 +201,7 @@ playground/**/_build/
 playground/**/deps/
 playground/**/.elixir_ls/
 playground/**/erl_crash.dump
+playground/**/apphost.log
 tests/PolyglotAppHosts/**/Elixir/**/_build/
 tests/PolyglotAppHosts/**/Elixir/**/deps/
 
