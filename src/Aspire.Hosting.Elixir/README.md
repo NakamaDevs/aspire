@@ -47,7 +47,7 @@ await builder.build().run();
 ```
 
 The method runs the application as `mix run --no-halt` from the directory that contains `mix.exs`.
-In run mode the resource sets `MIX_ENV` to `dev`.
+The resource sets `MIX_ENV` to `dev` in run mode and to `prod` in publish mode.
 
 Pass extra application arguments with `.WithAppArgs(...)`. The arguments go after the `--` separator:
 
@@ -55,6 +55,72 @@ Pass extra application arguments with `.WithAppArgs(...)`. The arguments go afte
 builder.AddElixirApp("api", "../elixir-api")
     .WithAppArgs("--port", "4000");
 // mix run --no-halt -- --port 4000
+```
+
+### Fetch dependencies with `WithMixDeps`
+
+`.WithMixDeps()` adds a setup resource named `{app}-mix-deps` that runs `mix deps.get`.
+The application waits for the step to complete. The step runs only in run mode and stays out of the manifest.
+
+`AddElixirApp` calls this method automatically when the application directory contains `mix.exs`.
+Call `.WithMixDeps(install: false)` to keep the step but start it by hand from the dashboard:
+
+```csharp
+builder.AddElixirApp("api", "../elixir-api")
+    .WithMixDeps(install: false);
+```
+
+### Compile with `WithMixCompile`
+
+`.WithMixCompile()` adds a setup resource named `{app}-mix-compile` that runs `mix compile`.
+The compile step waits for the dependency step when both exist, and the application waits for the compile step:
+
+```csharp
+builder.AddElixirApp("api", "../elixir-api")
+    .WithMixDeps()
+    .WithMixCompile();
+```
+
+### Select the Mix environment with `WithMixEnv`
+
+`.WithMixEnv("test")` sets `MIX_ENV`. The value replaces the default, which is `dev` in run mode and `prod` in publish mode:
+
+```csharp
+builder.AddElixirApp("api", "../elixir-api")
+    .WithMixEnv("test");
+```
+
+### Run a different task with `WithMixTask`
+
+`.WithMixTask("phx.server")` replaces the default `run --no-halt` arguments. Arguments from `.WithAppArgs(...)` stay after the `--` separator:
+
+```csharp
+builder.AddElixirApp("api", "../elixir-api")
+    .WithMixTask("phx.server");
+// mix phx.server
+```
+
+### Set Erlang virtual machine flags with `WithErlFlags` and `WithElixirErlOptions`
+
+`.WithErlFlags("+S 4:4")` sets `ERL_FLAGS`. `.WithElixirErlOptions("+K true")` sets `ELIXIR_ERL_OPTIONS`:
+
+```csharp
+builder.AddElixirApp("api", "../elixir-api")
+    .WithErlFlags("+S 4:4")
+    .WithElixirErlOptions("+K true");
+```
+
+### Name the node with `WithNodeName`
+
+`.WithNodeName("api")` adds `--sname api` and `--cookie <value>` to `ELIXIR_ERL_OPTIONS`, after any options from `.WithElixirErlOptions(...)`.
+The method also sets `RELEASE_NODE` and `RELEASE_COOKIE`, which a Mix release reads.
+When you give no cookie, the method creates a secret parameter with the name `{app}-cookie`:
+
+```csharp
+var cookie = builder.AddParameter("cookie", secret: true);
+
+builder.AddElixirApp("api", "../elixir-api")
+    .WithNodeName("api", cookie);
 ```
 
 ## Feedback & contributing

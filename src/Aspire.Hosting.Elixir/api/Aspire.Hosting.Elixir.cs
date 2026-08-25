@@ -16,6 +16,34 @@ namespace Aspire.Hosting
         [AspireExport]
         public static ApplicationModel.IResourceBuilder<T> WithAppArgs<T>(this ApplicationModel.IResourceBuilder<T> builder, params object[] args)
             where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithElixirErlOptions<T>(this ApplicationModel.IResourceBuilder<T> builder, string options)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithErlFlags<T>(this ApplicationModel.IResourceBuilder<T> builder, string flags)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithMixCompile<T>(this ApplicationModel.IResourceBuilder<T> builder)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithMixDeps<T>(this ApplicationModel.IResourceBuilder<T> builder, bool install = true)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithMixEnv<T>(this ApplicationModel.IResourceBuilder<T> builder, string env)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithMixTask<T>(this ApplicationModel.IResourceBuilder<T> builder, string task, params object[] args)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport("withElixirNodeName", MethodName = "withNodeName")]
+        public static ApplicationModel.IResourceBuilder<T> WithNodeName<T>(this ApplicationModel.IResourceBuilder<T> builder, string name, ApplicationModel.IResourceBuilder<ApplicationModel.ParameterResource>? cookie = null)
+            where T : Elixir.ElixirAppResource { throw null; }
     }
 }
 

@@ -124,28 +124,8 @@ public class AddElixirAppTests
 
     // ---- MIX_ENV --------------------------------------------------------------
 
-    [Fact]
-    public async Task AddElixirApp_SetsMixEnvDevInRunMode()
-    {
-        using var builder = TestDistributedApplicationBuilder.Create();
-        var app = builder.AddElixirApp("api", builder.AppHostDirectory);
-
-        var env = await EnvironmentVariableEvaluator.GetEnvironmentVariablesAsync(app.Resource);
-
-        Assert.Equal("dev", env["MIX_ENV"]);
-    }
-
-    [Fact]
-    public async Task AddElixirApp_DoesNotSetMixEnvInPublishMode()
-    {
-        using var builder = TestDistributedApplicationBuilder.Create(DistributedApplicationOperation.Publish);
-        var app = builder.AddElixirApp("api", builder.AppHostDirectory);
-
-        var env = await EnvironmentVariableEvaluator.GetEnvironmentVariablesAsync(
-            app.Resource, DistributedApplicationOperation.Publish);
-
-        Assert.False(env.ContainsKey("MIX_ENV"));
-    }
+    // The MIX_ENV defaults now live in MixEnvAndTaskTests:
+    // DefaultMixEnv_IsDevInRunMode and DefaultMixEnv_IsProdInPublishMode.
 
     // ---- Container files destination ------------------------------------------
 
