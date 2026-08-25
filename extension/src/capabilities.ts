@@ -18,6 +18,8 @@ export type Capability =
     | 'rust' // Support for running Rust projects
     | 'ms-vscode.cpptools' // Rust debug adapter extension identifier on Windows (cppvsdbg)
     | 'vadimcn.vscode-lldb' // Rust debug adapter extension identifier on macOS/Linux (CodeLLDB)
+    | 'elixir' // Support for running Elixir projects
+    | 'JakeBecker.elixir-ls' // ElixirLS debug adapter extension identifier
     | 'node' // Support for running Node.js projects
     | 'bun' // Support for running Bun projects
     | 'oven.bun-vscode' // Bun debug adapter extension identifier
@@ -43,6 +45,7 @@ export const csharpExtensionId = 'ms-dotnettools.csharp';
 export const azureFunctionsExtensionId = 'ms-azuretools.vscode-azurefunctions';
 export const mauiExtensionId = 'ms-dotnettools.dotnet-maui';
 export const codeLldbExtensionId = 'vadimcn.vscode-lldb';
+export const elixirLSExtensionId = 'JakeBecker.elixir-ls';
 
 export function isCsharpInstalled() {
     return isExtensionInstalled(csharpExtensionId);
@@ -76,6 +79,10 @@ export function getRustExtensionId(
 
 export function isRustInstalled(platform: NodeJS.Platform = process.platform) {
     return isExtensionInstalled(getRustExtensionId(platform, isExtensionInstalled));
+}
+
+export function isElixirInstalled() {
+    return isExtensionInstalled(elixirLSExtensionId);
 }
 
 export function isAzureFunctionsExtensionInstalled() {
@@ -141,6 +148,11 @@ export function getSupportedCapabilities(platform: NodeJS.Platform = process.pla
         const rustExtensionId = getRustExtensionId(platform, isExtensionInstalled);
         capabilities.push("rust");
         capabilities.push(rustExtensionId);
+    }
+
+    if (isElixirInstalled()) {
+        capabilities.push("elixir");
+        capabilities.push(elixirLSExtensionId);
     }
 
     if (isNodeInstalled()) {

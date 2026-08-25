@@ -316,6 +316,12 @@
     <trans-unit id="aspire-vscode.strings.dontShowAgainLabel">
       <source xml:lang="en">Don&apos;t show again</source>
     </trans-unit>
+    <trans-unit id="aspire-vscode.strings.elixirLabel">
+      <source xml:lang="en">Elixir</source>
+    </trans-unit>
+    <trans-unit id="aspire-vscode.strings.elixirDisplayName">
+      <source xml:lang="en">Elixir: {0}</source>
+    </trans-unit>
     <trans-unit id="configuration.aspire.enableSettingsFileCreationPromptOnStartup">
       <source xml:lang="en">Enable AppHost discovery on extension activation and prompt to setup .aspire/settings.json.appHostPath if it does not exist in the workspace.</source>
     </trans-unit>
@@ -814,6 +820,9 @@
     <trans-unit id="aspire-vscode.strings.debuggerSetupNotification">
       <source xml:lang="en">Set up {0} debugging support to debug resources in this app.</source>
     </trans-unit>
+    <trans-unit id="aspire-vscode.strings.elixirLSNotInstalledHint">
+      <source xml:lang="en">Set up {0} in the Extensions view to debug Elixir resources started by this app.</source>
+    </trans-unit>
     <trans-unit id="configuration.aspire.enableCodeLens">
       <source xml:lang="en">Show CodeLens actions (state, restart, stop, logs) inline above resource declarations in AppHost files.</source>
     </trans-unit>
@@ -921,6 +930,9 @@
     </trans-unit>
     <trans-unit id="views.appHosts.errorWelcome">
       <source xml:lang="en">The Aspire panel workspace view requires Aspire CLI 13.2.0 or newer and an AppHost that references Aspire.Hosting 13.2.0 or newer. Install or update the Aspire CLI and update your AppHost package to get started.&#10;[Update Aspire CLI](command:aspire-vscode.updateSelf)&#10;[Refresh](command:aspire-vscode.globalRefreshAppHosts)</source>
+    </trans-unit>
+    <trans-unit id="aspire-vscode.strings.elixirAppHostRunningWithoutDebugger">
+      <source xml:lang="en">The Elixir AppHost script is not a Mix project, so it starts without a debugger attached.</source>
     </trans-unit>
     <trans-unit id="aspire-vscode.strings.javaAppHostCommandNotRecognized">
       <source xml:lang="en">The Java AppHost launch command was not recognized and cannot be debugged.</source>
