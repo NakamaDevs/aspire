@@ -40,6 +40,10 @@ namespace Aspire.Hosting
             where T : Elixir.ElixirAppResource { throw null; }
 
         [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithLiveReload<T>(this ApplicationModel.IResourceBuilder<T> builder, bool enabled = true)
+            where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<T> WithMixCompile<T>(this ApplicationModel.IResourceBuilder<T> builder)
             where T : Elixir.ElixirAppResource { throw null; }
 

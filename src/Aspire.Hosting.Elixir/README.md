@@ -123,6 +123,54 @@ builder.AddElixirApp("api", "../elixir-api")
     .WithNodeName("api", cookie);
 ```
 
+## Live reload
+
+`mix run` does not reload code, so a change to a source file has no effect until the application
+restarts. `AddElixirApp` therefore adds live reload by default in run mode. Aspire looks at the
+`lib` and `config` directories of the application, accepts the `.ex`, `.exs`, `.heex`, and `.eex`
+extensions, and ignores `_build`, `deps`, and `.elixir_ls`. A compiler writes many files at one
+time, so Aspire waits 500 milliseconds after the last change and then restarts the resource one
+time. The resource log shows the reason:
+
+```text
+Restarting api: /work/elixir-api/lib/api.ex changed
+```
+
+`AddPhoenixApp` does not add live reload, because the Phoenix code reloader does the same work
+without a restart. Add it when you want the restart as well:
+
+```csharp
+builder.AddPhoenixApp("web", "../phoenix-web")
+    .WithLiveReload();
+```
+
+Stop the automatic restart with `.WithLiveReload(false)`:
+
+```csharp
+builder.AddElixirApp("api", "../elixir-api")
+    .WithLiveReload(false);
+```
+
+Live reload applies in run mode only. `aspire publish` builds a Mix release, and that image holds no
+source, so the method does nothing in publish mode.
+
+## Debugging
+
+Aspire lets an IDE start an Elixir or Phoenix resource under a debugger. `AddElixirApp` and
+`AddPhoenixApp` both add the support in run mode, so no extra call is necessary.
+
+Aspire sends the IDE a launch configuration of the type `elixir`. The fields follow the ElixirLS
+`mix_task` debug adapter: the project directory, the Mix task, the task arguments, the Mix
+environment, and the working directory. That adapter runs `mix <task> <taskArgs>` itself, so Aspire
+does not give it the `mix` command.
+
+Install [ElixirLS](https://marketplace.visualstudio.com/items?itemName=JakeBecker.elixir-ls) in VS
+Code before you start a debug session. An IDE that cannot start an `elixir` launch configuration
+makes Aspire start the resource as a plain process instead, so the application still runs.
+
+The command line of the resource does not change in a debug session. The dashboard shows the same
+`mix` arguments in a debug session and in a plain run.
+
 ## Phoenix
 
 `AddPhoenixApp` adds a Phoenix web application. The method runs the application as `mix phx.server`
@@ -475,7 +523,7 @@ endpoint belongs in the configuration file.
 Attach the instrumentation when the application starts, in `application.ex`:
 
 ```elixir
-:opentelemetry_bandit.setup()
+OpentelemetryBandit.setup()
 OpentelemetryPhoenix.setup(adapter: :bandit)
 OpentelemetryEcto.setup([:my_app, :repo])
 ```

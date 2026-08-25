@@ -3,9 +3,12 @@
 
 #pragma warning disable ASPIREDOCKERFILEBUILDER001
 #pragma warning disable ASPIREPIPELINES001
+#pragma warning disable ASPIREEXTENSION001 // WithDebugSupport is experimental but used internally for debug support.
 
+using System.Globalization;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Elixir;
+using Aspire.Hosting.Lifecycle;
 using Aspire.Hosting.Pipelines;
 
 namespace Aspire.Hosting;
@@ -197,7 +200,8 @@ public static class ElixirHostingExtensions
             })
             .WithRequiredCommand("mix", "https://elixir-lang.org/install.html")
             .WithRequiredCommand("elixir", "https://elixir-lang.org/install.html")
-            .WithOtlpExporter();
+            .WithOtlpExporter()
+            .WithVSCodeDebugging();
 
         // The Erlang :ssl application replaces its trust set with the file that SSL_CERT_FILE names.
         // It cannot add to the trust set, so the default scope is System. That scope makes Aspire put
@@ -284,6 +288,13 @@ public static class ElixirHostingExtensions
             {
                 rb.WithMixDeps();
             }
+
+            if (resource is not PhoenixAppResource)
+            {
+                // `mix run` does not reload code, so a change needs a restart. Phoenix has its own
+                // code reloader, so AddPhoenixApp keeps the restart off.
+                rb.WithLiveReload();
+            }
         }
 
         // `aspire publish` turns the executable into a container image. The generated Dockerfile builds
@@ -305,6 +316,155 @@ public static class ElixirHostingExtensions
         AddContainerFilesBuildDependencies(rb);
 
         return rb;
+    }
+
+    /// <summary>
+    /// Restarts the Elixir application when its source files change.
+    /// </summary>
+    /// <typeparam name="T">The type of the Elixir application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Elixir application.</param>
+    /// <param name="enabled">
+    /// <see langword="true"/> to restart the application on a change.
+    /// <see langword="false"/> to stop the automatic restart.
+    /// </param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// Aspire looks at the <c>lib</c> and <c>config</c> directories below the application directory. It
+    /// accepts the <c>.ex</c>, <c>.exs</c>, <c>.heex</c>, and <c>.eex</c> extensions, and it ignores
+    /// <c>_build</c>, <c>deps</c>, and <c>.elixir_ls</c>. A compiler writes many files at one time, so
+    /// Aspire waits 500 milliseconds after the last change and then runs the restart command once.
+    /// </para>
+    /// <para>
+    /// <see cref="AddElixirApp"/> calls this method, because <c>mix run</c> does not reload code.
+    /// <see cref="AddPhoenixApp"/> does not, because the Phoenix code reloader does the same work
+    /// without a restart. Call the method to add the restart to a Phoenix application.
+    /// </para>
+    /// <para>
+    /// The method does nothing in publish mode, because the image holds a Mix release and no source.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// Restart a Phoenix application on a change:
+    /// <code lang="csharp">
+    /// builder.AddPhoenixApp("web", "../phoenix-web")
+    ///        .WithLiveReload();
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<T> WithLiveReload<T>(this IResourceBuilder<T> builder, bool enabled = true)
+        where T : ElixirAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
+        {
+            return builder;
+        }
+
+        if (!enabled)
+        {
+            foreach (var annotation in builder.Resource.Annotations.OfType<ElixirLiveReloadAnnotation>().ToArray())
+            {
+                builder.Resource.Annotations.Remove(annotation);
+            }
+
+            return builder;
+        }
+
+        // The subscriber is a singleton that watches every resource with the annotation, so one
+        // registration is enough for the complete application.
+        builder.ApplicationBuilder.Services.TryAddEventingSubscriber<ElixirLiveReloadSubscriber>();
+
+        return builder.WithAnnotation(new ElixirLiveReloadAnnotation(), ResourceAnnotationMutationBehavior.Replace);
+    }
+
+    /// <summary>
+    /// Lets an IDE start the Elixir application under the ElixirLS debug adapter.
+    /// </summary>
+    /// <typeparam name="T">The type of the Elixir application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Elixir application.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// <see cref="AddElixirApp"/> and <see cref="AddPhoenixApp"/> call this method, so debugging is
+    /// available by default. The method does nothing in publish mode, because
+    /// <c>WithDebugSupport</c> adds its annotation in run mode only.
+    /// </para>
+    /// <para>
+    /// The launch configuration type is <c>elixir</c>. An IDE that can start ElixirLS advertises that
+    /// type. An IDE that does not advertise it makes Aspire start the resource as a plain process.
+    /// </para>
+    /// <para>
+    /// The configuration follows the ElixirLS <c>mix_task</c> debug adapter. That adapter runs
+    /// <c>mix &lt;task&gt; &lt;taskArgs&gt;</c> in <c>projectDir</c> itself, so the launch configuration carries
+    /// the Mix task and its arguments, and not the <c>mix</c> command. The resource command line does
+    /// not change: the Mix arguments stay in the application model, so the dashboard shows the same
+    /// command line in a debug session and in a plain run.
+    /// </para>
+    /// </remarks>
+    [System.Diagnostics.CodeAnalysis.Experimental("ASPIREEXTENSION001", UrlFormat = "https://aka.ms/aspire/diagnostics/{0}")]
+    internal static IResourceBuilder<T> WithVSCodeDebugging<T>(this IResourceBuilder<T> builder)
+        where T : ElixirAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        var resource = builder.Resource;
+
+        return builder.WithDebugSupport(
+            context =>
+            {
+                // Resolve the annotations when DCP creates the launch configuration, so later
+                // mutations such as WithMixTask(...) or WithWorkingDirectory(...) are reflected.
+                var workingDirectory = Path.GetFullPath(resource.WorkingDirectory);
+
+                var hasTask = resource.TryGetLastAnnotation<ElixirMixTaskAnnotation>(out var taskAnnotation);
+
+                // `mix run --no-halt` is the default that ConfigureElixirApp puts on the command line.
+                var task = hasTask ? taskAnnotation!.Task : "run";
+                var taskArgs = new List<string>();
+
+                if (hasTask)
+                {
+                    AppendArguments(taskArgs, taskAnnotation!.Args);
+                }
+                else
+                {
+                    taskArgs.Add("--no-halt");
+                }
+
+                if (resource.TryGetLastAnnotation<ElixirAppArgsAnnotation>(out var appArgsAnnotation)
+                    && appArgsAnnotation.Args.Length > 0)
+                {
+                    // Mix passes everything after `--` to the application instead of parsing it itself.
+                    taskArgs.Add("--");
+                    AppendArguments(taskArgs, appArgsAnnotation.Args);
+                }
+
+                // MIX_ENV comes from the resolved environment, so WithMixEnv(...) is reflected.
+                var mixEnv = context.EnvironmentVariables.TryGetValue("MIX_ENV", out var value) ? value : null;
+
+                return Task.FromResult(new ElixirLaunchConfiguration
+                {
+                    Mode = context.Mode,
+                    ProjectDir = workingDirectory,
+                    Task = task,
+                    TaskArgs = [.. taskArgs],
+                    MixEnv = mixEnv,
+                    WorkingDirectory = workingDirectory
+                });
+            },
+            "elixir");
+
+        static void AppendArguments(List<string> target, object[] args)
+        {
+            foreach (var arg in args)
+            {
+                // WithMixTask and WithAppArgs take literal arguments, so a plain text form is correct.
+                target.Add(arg as string ?? Convert.ToString(arg, CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+        }
     }
 
     /// <summary>
