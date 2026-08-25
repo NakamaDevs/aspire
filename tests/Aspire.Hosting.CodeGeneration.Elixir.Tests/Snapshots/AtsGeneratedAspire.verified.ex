@@ -590,7 +590,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `dependency`
   """
-  @spec test_wait_for(t(), Aspire.Resource.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec test_wait_for(t(), Aspire.Resource.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def test_wait_for(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -600,13 +600,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/testWaitFor", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `test_wait_for/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec test_wait_for!(t(), Aspire.Resource.t()) :: Aspire.Resource.t()
+  @spec test_wait_for!(t(), Aspire.Resource.t()) :: t()
   def test_wait_for!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(test_wait_for(target, dependency))
   end
@@ -618,7 +618,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `callback`
   """
-  @spec test_with_environment_callback(t(), function()) :: {:ok, Aspire.ResourceWithEnvironment.t()} | {:error, Aspire.Error.t()}
+  @spec test_with_environment_callback(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def test_with_environment_callback(%__MODULE__{} = target, callback) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -635,13 +635,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/testWithEnvironmentCallback", args)
-    |> Aspire.Runtime.result({:handle, Aspire.ResourceWithEnvironment}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `test_with_environment_callback/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec test_with_environment_callback!(t(), function()) :: Aspire.ResourceWithEnvironment.t()
+  @spec test_with_environment_callback!(t(), function()) :: t()
   def test_with_environment_callback!(%__MODULE__{} = target, callback) do
     Aspire.Runtime.ok!(test_with_environment_callback(target, callback))
   end
@@ -653,7 +653,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `operation`
   """
-  @spec with_cancellable_operation(t(), function()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_cancellable_operation(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_cancellable_operation(%__MODULE__{} = target, operation) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -669,13 +669,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCancellableOperation", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_cancellable_operation/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_cancellable_operation!(t(), function()) :: Aspire.Resource.t()
+  @spec with_cancellable_operation!(t(), function()) :: t()
   def with_cancellable_operation!(%__MODULE__{} = target, operation) do
     Aspire.Runtime.ok!(with_cancellable_operation(target, operation))
   end
@@ -687,7 +687,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `config`
   """
-  @spec with_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_config(%__MODULE__{} = target, config) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -697,13 +697,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withConfig", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_config/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: Aspire.Resource.t()
+  @spec with_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: t()
   def with_config!(%__MODULE__{} = target, config) do
     Aspire.Runtime.ok!(with_config(target, config))
   end
@@ -715,7 +715,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `correlation_id`
   """
-  @spec with_correlation_id(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_correlation_id(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_correlation_id(%__MODULE__{} = target, correlation_id) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -725,13 +725,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCorrelationId", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_correlation_id/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_correlation_id!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_correlation_id!(t(), String.t()) :: t()
   def with_correlation_id!(%__MODULE__{} = target, correlation_id) do
     Aspire.Runtime.ok!(with_correlation_id(target, correlation_id))
   end
@@ -743,7 +743,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `created_at`
   """
-  @spec with_created_at(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_created_at(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_created_at(%__MODULE__{} = target, created_at) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -753,13 +753,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCreatedAt", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_created_at/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_created_at!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_created_at!(t(), String.t()) :: t()
   def with_created_at!(%__MODULE__{} = target, created_at) do
     Aspire.Runtime.ok!(with_created_at(target, created_at))
   end
@@ -771,7 +771,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `:name`
   """
-  @spec with_data_volume(t(), keyword()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_data_volume(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_data_volume(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:name], "Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource.with_data_volume/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -782,13 +782,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withDataVolume", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_data_volume/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_data_volume!(t(), keyword()) :: Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource.t()
+  @spec with_data_volume!(t(), keyword()) :: t()
   def with_data_volume!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_data_volume(target, opts))
   end
@@ -800,7 +800,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `dependency`
   """
-  @spec with_dependency(t(), Aspire.ResourceWithConnectionString.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_dependency(t(), Aspire.ResourceWithConnectionString.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_dependency(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -810,13 +810,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withDependency", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_dependency/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_dependency!(t(), Aspire.ResourceWithConnectionString.t()) :: Aspire.Resource.t()
+  @spec with_dependency!(t(), Aspire.ResourceWithConnectionString.t()) :: t()
   def with_dependency!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(with_dependency(target, dependency))
   end
@@ -828,7 +828,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `endpoints`
   """
-  @spec with_endpoints(t(), [String.t()]) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_endpoints(t(), [String.t()]) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_endpoints(%__MODULE__{} = target, endpoints) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -838,13 +838,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withEndpoints", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_endpoints/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_endpoints!(t(), [String.t()]) :: Aspire.Resource.t()
+  @spec with_endpoints!(t(), [String.t()]) :: t()
   def with_endpoints!(%__MODULE__{} = target, endpoints) do
     Aspire.Runtime.ok!(with_endpoints(target, endpoints))
   end
@@ -856,7 +856,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `variables`
   """
-  @spec with_environment_variables(t(), map()) :: {:ok, Aspire.ResourceWithEnvironment.t()} | {:error, Aspire.Error.t()}
+  @spec with_environment_variables(t(), map()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_environment_variables(%__MODULE__{} = target, variables) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -866,13 +866,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withEnvironmentVariables", args)
-    |> Aspire.Runtime.result({:handle, Aspire.ResourceWithEnvironment}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_environment_variables/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_environment_variables!(t(), map()) :: Aspire.ResourceWithEnvironment.t()
+  @spec with_environment_variables!(t(), map()) :: t()
   def with_environment_variables!(%__MODULE__{} = target, variables) do
     Aspire.Runtime.ok!(with_environment_variables(target, variables))
   end
@@ -885,7 +885,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
     * `endpoint_name`
     * `port`
   """
-  @spec with_merge_endpoint(t(), String.t(), number()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_endpoint(t(), String.t(), number()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_endpoint(%__MODULE__{} = target, endpoint_name, port) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -896,13 +896,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeEndpoint", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_endpoint/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_endpoint!(t(), String.t(), number()) :: Aspire.Resource.t()
+  @spec with_merge_endpoint!(t(), String.t(), number()) :: t()
   def with_merge_endpoint!(%__MODULE__{} = target, endpoint_name, port) do
     Aspire.Runtime.ok!(with_merge_endpoint(target, endpoint_name, port))
   end
@@ -916,7 +916,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
     * `port`
     * `scheme`
   """
-  @spec with_merge_endpoint_scheme(t(), String.t(), number(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_endpoint_scheme(t(), String.t(), number(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_endpoint_scheme(%__MODULE__{} = target, endpoint_name, port, scheme) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -928,13 +928,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeEndpointScheme", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_endpoint_scheme/4`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_endpoint_scheme!(t(), String.t(), number(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_endpoint_scheme!(t(), String.t(), number(), String.t()) :: t()
   def with_merge_endpoint_scheme!(%__MODULE__{} = target, endpoint_name, port, scheme) do
     Aspire.Runtime.ok!(with_merge_endpoint_scheme(target, endpoint_name, port, scheme))
   end
@@ -946,7 +946,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `label`
   """
-  @spec with_merge_label(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_label(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_label(%__MODULE__{} = target, label) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -956,13 +956,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLabel", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_label/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_label!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_label!(t(), String.t()) :: t()
   def with_merge_label!(%__MODULE__{} = target, label) do
     Aspire.Runtime.ok!(with_merge_label(target, label))
   end
@@ -975,7 +975,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
     * `label`
     * `category`
   """
-  @spec with_merge_label_categorized(t(), String.t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_label_categorized(t(), String.t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_label_categorized(%__MODULE__{} = target, label, category) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -986,13 +986,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLabelCategorized", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_label_categorized/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_label_categorized!(t(), String.t(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_label_categorized!(t(), String.t(), String.t()) :: t()
   def with_merge_label_categorized!(%__MODULE__{} = target, label, category) do
     Aspire.Runtime.ok!(with_merge_label_categorized(target, label, category))
   end
@@ -1009,7 +1009,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
     * `:enable_console`
     * `:max_files`
   """
-  @spec with_merge_logging(t(), String.t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_logging(t(), String.t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_logging(%__MODULE__{} = target, log_level, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:enable_console, :max_files], "Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource.with_merge_logging/3")
     transport = Aspire.Runtime.transport_of(target)
@@ -1022,13 +1022,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLogging", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_logging/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_logging!(t(), String.t(), keyword()) :: Aspire.Resource.t()
+  @spec with_merge_logging!(t(), String.t(), keyword()) :: t()
   def with_merge_logging!(%__MODULE__{} = target, log_level, opts \\ []) do
     Aspire.Runtime.ok!(with_merge_logging(target, log_level, opts))
   end
@@ -1046,7 +1046,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
     * `:enable_console`
     * `:max_files`
   """
-  @spec with_merge_logging_path(t(), String.t(), String.t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_logging_path(t(), String.t(), String.t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_logging_path(%__MODULE__{} = target, log_level, log_path, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:enable_console, :max_files], "Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource.with_merge_logging_path/4")
     transport = Aspire.Runtime.transport_of(target)
@@ -1060,13 +1060,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLoggingPath", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_logging_path/4`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_logging_path!(t(), String.t(), String.t(), keyword()) :: Aspire.Resource.t()
+  @spec with_merge_logging_path!(t(), String.t(), String.t(), keyword()) :: t()
   def with_merge_logging_path!(%__MODULE__{} = target, log_level, log_path, opts \\ []) do
     Aspire.Runtime.ok!(with_merge_logging_path(target, log_level, log_path, opts))
   end
@@ -1081,7 +1081,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
     * `handler`
     * `priority`
   """
-  @spec with_merge_route(t(), String.t(), String.t(), String.t(), number()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_route(t(), String.t(), String.t(), String.t(), number()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_route(%__MODULE__{} = target, path, method, handler, priority) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1094,13 +1094,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeRoute", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_route/5`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_route!(t(), String.t(), String.t(), String.t(), number()) :: Aspire.Resource.t()
+  @spec with_merge_route!(t(), String.t(), String.t(), String.t(), number()) :: t()
   def with_merge_route!(%__MODULE__{} = target, path, method, handler, priority) do
     Aspire.Runtime.ok!(with_merge_route(target, path, method, handler, priority))
   end
@@ -1116,7 +1116,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
     * `priority`
     * `middleware`
   """
-  @spec with_merge_route_middleware(t(), String.t(), String.t(), String.t(), number(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_route_middleware(t(), String.t(), String.t(), String.t(), number(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_route_middleware(%__MODULE__{} = target, path, method, handler, priority, middleware) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1130,13 +1130,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeRouteMiddleware", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_route_middleware/6`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_route_middleware!(t(), String.t(), String.t(), String.t(), number(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_route_middleware!(t(), String.t(), String.t(), String.t(), number(), String.t()) :: t()
   def with_merge_route_middleware!(%__MODULE__{} = target, path, method, handler, priority, middleware) do
     Aspire.Runtime.ok!(with_merge_route_middleware(target, path, method, handler, priority, middleware))
   end
@@ -1148,7 +1148,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `modified_at`
   """
-  @spec with_modified_at(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_modified_at(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_modified_at(%__MODULE__{} = target, modified_at) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1158,13 +1158,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withModifiedAt", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_modified_at/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_modified_at!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_modified_at!(t(), String.t()) :: t()
   def with_modified_at!(%__MODULE__{} = target, modified_at) do
     Aspire.Runtime.ok!(with_modified_at(target, modified_at))
   end
@@ -1176,7 +1176,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `config`
   """
-  @spec with_nested_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_nested_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_nested_config(%__MODULE__{} = target, config) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1186,13 +1186,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withNestedConfig", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_nested_config/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_nested_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: Aspire.Resource.t()
+  @spec with_nested_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: t()
   def with_nested_config!(%__MODULE__{} = target, config) do
     Aspire.Runtime.ok!(with_nested_config(target, config))
   end
@@ -1204,7 +1204,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `:callback`
   """
-  @spec with_optional_callback(t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_optional_callback(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_optional_callback(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:callback], "Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource.with_optional_callback/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -1222,13 +1222,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withOptionalCallback", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_optional_callback/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_optional_callback!(t(), keyword()) :: Aspire.Resource.t()
+  @spec with_optional_callback!(t(), keyword()) :: t()
   def with_optional_callback!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_optional_callback(target, opts))
   end
@@ -1241,7 +1241,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
     * `:value`
     * `:enabled`
   """
-  @spec with_optional_string(t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_optional_string(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_optional_string(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:value, :enabled], "Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource.with_optional_string/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -1253,13 +1253,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withOptionalString", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_optional_string/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_optional_string!(t(), keyword()) :: Aspire.Resource.t()
+  @spec with_optional_string!(t(), keyword()) :: t()
   def with_optional_string!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_optional_string(target, opts))
   end
@@ -1271,7 +1271,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `status`
   """
-  @spec with_status(t(), Aspire.Enums.TestResourceStatus.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_status(t(), Aspire.Enums.TestResourceStatus.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_status(%__MODULE__{} = target, status) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1281,13 +1281,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withStatus", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_status/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_status!(t(), Aspire.Enums.TestResourceStatus.t()) :: Aspire.Resource.t()
+  @spec with_status!(t(), Aspire.Enums.TestResourceStatus.t()) :: t()
   def with_status!(%__MODULE__{} = target, status) do
     Aspire.Runtime.ok!(with_status(target, status))
   end
@@ -1299,7 +1299,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `dependency`
   """
-  @spec with_union_dependency(t(), term()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_union_dependency(t(), term()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_union_dependency(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1309,13 +1309,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withUnionDependency", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_union_dependency/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_union_dependency!(t(), term()) :: Aspire.Resource.t()
+  @spec with_union_dependency!(t(), term()) :: t()
   def with_union_dependency!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(with_union_dependency(target, dependency))
   end
@@ -1327,7 +1327,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     * `validator`
   """
-  @spec with_validator(t(), function()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_validator(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_validator(%__MODULE__{} = target, validator) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1344,13 +1344,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withValidator", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_validator/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_validator!(t(), function()) :: Aspire.Resource.t()
+  @spec with_validator!(t(), function()) :: t()
   def with_validator!(%__MODULE__{} = target, validator) do
     Aspire.Runtime.ok!(with_validator(target, validator))
   end
@@ -1875,7 +1875,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `dependency`
   """
-  @spec test_wait_for(t(), Aspire.Resource.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec test_wait_for(t(), Aspire.Resource.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def test_wait_for(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1885,13 +1885,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/testWaitFor", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `test_wait_for/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec test_wait_for!(t(), Aspire.Resource.t()) :: Aspire.Resource.t()
+  @spec test_wait_for!(t(), Aspire.Resource.t()) :: t()
   def test_wait_for!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(test_wait_for(target, dependency))
   end
@@ -1903,7 +1903,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `callback`
   """
-  @spec test_with_environment_callback(t(), function()) :: {:ok, Aspire.ResourceWithEnvironment.t()} | {:error, Aspire.Error.t()}
+  @spec test_with_environment_callback(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def test_with_environment_callback(%__MODULE__{} = target, callback) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1920,13 +1920,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/testWithEnvironmentCallback", args)
-    |> Aspire.Runtime.result({:handle, Aspire.ResourceWithEnvironment}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `test_with_environment_callback/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec test_with_environment_callback!(t(), function()) :: Aspire.ResourceWithEnvironment.t()
+  @spec test_with_environment_callback!(t(), function()) :: t()
   def test_with_environment_callback!(%__MODULE__{} = target, callback) do
     Aspire.Runtime.ok!(test_with_environment_callback(target, callback))
   end
@@ -1972,7 +1972,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `operation`
   """
-  @spec with_cancellable_operation(t(), function()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_cancellable_operation(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_cancellable_operation(%__MODULE__{} = target, operation) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -1988,13 +1988,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCancellableOperation", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_cancellable_operation/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_cancellable_operation!(t(), function()) :: Aspire.Resource.t()
+  @spec with_cancellable_operation!(t(), function()) :: t()
   def with_cancellable_operation!(%__MODULE__{} = target, operation) do
     Aspire.Runtime.ok!(with_cancellable_operation(target, operation))
   end
@@ -2010,7 +2010,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
   The Redis resource builder.
   """
-  @spec with_concrete_vault_resource(t(), Aspire.CodeGeneration.Elixir.Tests.TestVaultResource.t()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_concrete_vault_resource(t(), Aspire.CodeGeneration.Elixir.Tests.TestVaultResource.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_concrete_vault_resource(%__MODULE__{} = target, resource) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2020,13 +2020,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withConcreteVaultResource", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_concrete_vault_resource/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_concrete_vault_resource!(t(), Aspire.CodeGeneration.Elixir.Tests.TestVaultResource.t()) :: Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()
+  @spec with_concrete_vault_resource!(t(), Aspire.CodeGeneration.Elixir.Tests.TestVaultResource.t()) :: t()
   def with_concrete_vault_resource!(%__MODULE__{} = target, resource) do
     Aspire.Runtime.ok!(with_concrete_vault_resource(target, resource))
   end
@@ -2038,7 +2038,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `config`
   """
-  @spec with_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_config(%__MODULE__{} = target, config) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2048,13 +2048,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withConfig", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_config/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: Aspire.Resource.t()
+  @spec with_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: t()
   def with_config!(%__MODULE__{} = target, config) do
     Aspire.Runtime.ok!(with_config(target, config))
   end
@@ -2066,7 +2066,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `connection_string`
   """
-  @spec with_connection_string(t(), Aspire.ReferenceExpression.t()) :: {:ok, Aspire.ResourceWithConnectionString.t()} | {:error, Aspire.Error.t()}
+  @spec with_connection_string(t(), Aspire.ReferenceExpression.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_connection_string(%__MODULE__{} = target, connection_string) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2076,13 +2076,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withConnectionString", args)
-    |> Aspire.Runtime.result({:handle, Aspire.ResourceWithConnectionString}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_connection_string/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_connection_string!(t(), Aspire.ReferenceExpression.t()) :: Aspire.ResourceWithConnectionString.t()
+  @spec with_connection_string!(t(), Aspire.ReferenceExpression.t()) :: t()
   def with_connection_string!(%__MODULE__{} = target, connection_string) do
     Aspire.Runtime.ok!(with_connection_string(target, connection_string))
   end
@@ -2094,7 +2094,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `connection_string`
   """
-  @spec with_connection_string_direct(t(), String.t()) :: {:ok, Aspire.ResourceWithConnectionString.t()} | {:error, Aspire.Error.t()}
+  @spec with_connection_string_direct(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_connection_string_direct(%__MODULE__{} = target, connection_string) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2104,13 +2104,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withConnectionStringDirect", args)
-    |> Aspire.Runtime.result({:handle, Aspire.ResourceWithConnectionString}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_connection_string_direct/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_connection_string_direct!(t(), String.t()) :: Aspire.ResourceWithConnectionString.t()
+  @spec with_connection_string_direct!(t(), String.t()) :: t()
   def with_connection_string_direct!(%__MODULE__{} = target, connection_string) do
     Aspire.Runtime.ok!(with_connection_string_direct(target, connection_string))
   end
@@ -2122,7 +2122,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `correlation_id`
   """
-  @spec with_correlation_id(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_correlation_id(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_correlation_id(%__MODULE__{} = target, correlation_id) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2132,13 +2132,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCorrelationId", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_correlation_id/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_correlation_id!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_correlation_id!(t(), String.t()) :: t()
   def with_correlation_id!(%__MODULE__{} = target, correlation_id) do
     Aspire.Runtime.ok!(with_correlation_id(target, correlation_id))
   end
@@ -2150,7 +2150,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `created_at`
   """
-  @spec with_created_at(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_created_at(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_created_at(%__MODULE__{} = target, created_at) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2160,13 +2160,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCreatedAt", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_created_at/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_created_at!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_created_at!(t(), String.t()) :: t()
   def with_created_at!(%__MODULE__{} = target, created_at) do
     Aspire.Runtime.ok!(with_created_at(target, created_at))
   end
@@ -2179,7 +2179,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `:name`
     * `:is_read_only`
   """
-  @spec with_data_volume(t(), keyword()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_data_volume(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_data_volume(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:name, :is_read_only], "Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.with_data_volume/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -2191,13 +2191,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withDataVolume", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_data_volume/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_data_volume!(t(), keyword()) :: Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()
+  @spec with_data_volume!(t(), keyword()) :: t()
   def with_data_volume!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_data_volume(target, opts))
   end
@@ -2209,7 +2209,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `dependency`
   """
-  @spec with_dependency(t(), Aspire.ResourceWithConnectionString.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_dependency(t(), Aspire.ResourceWithConnectionString.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_dependency(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2219,13 +2219,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withDependency", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_dependency/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_dependency!(t(), Aspire.ResourceWithConnectionString.t()) :: Aspire.Resource.t()
+  @spec with_dependency!(t(), Aspire.ResourceWithConnectionString.t()) :: t()
   def with_dependency!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(with_dependency(target, dependency))
   end
@@ -2237,7 +2237,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `endpoints`
   """
-  @spec with_endpoints(t(), [String.t()]) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_endpoints(t(), [String.t()]) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_endpoints(%__MODULE__{} = target, endpoints) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2247,13 +2247,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withEndpoints", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_endpoints/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_endpoints!(t(), [String.t()]) :: Aspire.Resource.t()
+  @spec with_endpoints!(t(), [String.t()]) :: t()
   def with_endpoints!(%__MODULE__{} = target, endpoints) do
     Aspire.Runtime.ok!(with_endpoints(target, endpoints))
   end
@@ -2265,7 +2265,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `variables`
   """
-  @spec with_environment_variables(t(), map()) :: {:ok, Aspire.ResourceWithEnvironment.t()} | {:error, Aspire.Error.t()}
+  @spec with_environment_variables(t(), map()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_environment_variables(%__MODULE__{} = target, variables) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2275,13 +2275,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withEnvironmentVariables", args)
-    |> Aspire.Runtime.result({:handle, Aspire.ResourceWithEnvironment}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_environment_variables/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_environment_variables!(t(), map()) :: Aspire.ResourceWithEnvironment.t()
+  @spec with_environment_variables!(t(), map()) :: t()
   def with_environment_variables!(%__MODULE__{} = target, variables) do
     Aspire.Runtime.ok!(with_environment_variables(target, variables))
   end
@@ -2294,7 +2294,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `endpoint_name`
     * `port`
   """
-  @spec with_merge_endpoint(t(), String.t(), number()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_endpoint(t(), String.t(), number()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_endpoint(%__MODULE__{} = target, endpoint_name, port) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2305,13 +2305,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeEndpoint", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_endpoint/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_endpoint!(t(), String.t(), number()) :: Aspire.Resource.t()
+  @spec with_merge_endpoint!(t(), String.t(), number()) :: t()
   def with_merge_endpoint!(%__MODULE__{} = target, endpoint_name, port) do
     Aspire.Runtime.ok!(with_merge_endpoint(target, endpoint_name, port))
   end
@@ -2325,7 +2325,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `port`
     * `scheme`
   """
-  @spec with_merge_endpoint_scheme(t(), String.t(), number(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_endpoint_scheme(t(), String.t(), number(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_endpoint_scheme(%__MODULE__{} = target, endpoint_name, port, scheme) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2337,13 +2337,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeEndpointScheme", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_endpoint_scheme/4`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_endpoint_scheme!(t(), String.t(), number(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_endpoint_scheme!(t(), String.t(), number(), String.t()) :: t()
   def with_merge_endpoint_scheme!(%__MODULE__{} = target, endpoint_name, port, scheme) do
     Aspire.Runtime.ok!(with_merge_endpoint_scheme(target, endpoint_name, port, scheme))
   end
@@ -2355,7 +2355,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `label`
   """
-  @spec with_merge_label(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_label(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_label(%__MODULE__{} = target, label) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2365,13 +2365,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLabel", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_label/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_label!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_label!(t(), String.t()) :: t()
   def with_merge_label!(%__MODULE__{} = target, label) do
     Aspire.Runtime.ok!(with_merge_label(target, label))
   end
@@ -2384,7 +2384,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `label`
     * `category`
   """
-  @spec with_merge_label_categorized(t(), String.t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_label_categorized(t(), String.t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_label_categorized(%__MODULE__{} = target, label, category) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2395,13 +2395,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLabelCategorized", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_label_categorized/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_label_categorized!(t(), String.t(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_label_categorized!(t(), String.t(), String.t()) :: t()
   def with_merge_label_categorized!(%__MODULE__{} = target, label, category) do
     Aspire.Runtime.ok!(with_merge_label_categorized(target, label, category))
   end
@@ -2418,7 +2418,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `:enable_console`
     * `:max_files`
   """
-  @spec with_merge_logging(t(), String.t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_logging(t(), String.t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_logging(%__MODULE__{} = target, log_level, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:enable_console, :max_files], "Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.with_merge_logging/3")
     transport = Aspire.Runtime.transport_of(target)
@@ -2431,13 +2431,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLogging", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_logging/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_logging!(t(), String.t(), keyword()) :: Aspire.Resource.t()
+  @spec with_merge_logging!(t(), String.t(), keyword()) :: t()
   def with_merge_logging!(%__MODULE__{} = target, log_level, opts \\ []) do
     Aspire.Runtime.ok!(with_merge_logging(target, log_level, opts))
   end
@@ -2455,7 +2455,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `:enable_console`
     * `:max_files`
   """
-  @spec with_merge_logging_path(t(), String.t(), String.t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_logging_path(t(), String.t(), String.t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_logging_path(%__MODULE__{} = target, log_level, log_path, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:enable_console, :max_files], "Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.with_merge_logging_path/4")
     transport = Aspire.Runtime.transport_of(target)
@@ -2469,13 +2469,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLoggingPath", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_logging_path/4`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_logging_path!(t(), String.t(), String.t(), keyword()) :: Aspire.Resource.t()
+  @spec with_merge_logging_path!(t(), String.t(), String.t(), keyword()) :: t()
   def with_merge_logging_path!(%__MODULE__{} = target, log_level, log_path, opts \\ []) do
     Aspire.Runtime.ok!(with_merge_logging_path(target, log_level, log_path, opts))
   end
@@ -2490,7 +2490,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `handler`
     * `priority`
   """
-  @spec with_merge_route(t(), String.t(), String.t(), String.t(), number()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_route(t(), String.t(), String.t(), String.t(), number()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_route(%__MODULE__{} = target, path, method, handler, priority) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2503,13 +2503,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeRoute", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_route/5`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_route!(t(), String.t(), String.t(), String.t(), number()) :: Aspire.Resource.t()
+  @spec with_merge_route!(t(), String.t(), String.t(), String.t(), number()) :: t()
   def with_merge_route!(%__MODULE__{} = target, path, method, handler, priority) do
     Aspire.Runtime.ok!(with_merge_route(target, path, method, handler, priority))
   end
@@ -2525,7 +2525,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `priority`
     * `middleware`
   """
-  @spec with_merge_route_middleware(t(), String.t(), String.t(), String.t(), number(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_route_middleware(t(), String.t(), String.t(), String.t(), number(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_route_middleware(%__MODULE__{} = target, path, method, handler, priority, middleware) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2539,13 +2539,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeRouteMiddleware", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_route_middleware/6`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_route_middleware!(t(), String.t(), String.t(), String.t(), number(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_route_middleware!(t(), String.t(), String.t(), String.t(), number(), String.t()) :: t()
   def with_merge_route_middleware!(%__MODULE__{} = target, path, method, handler, priority, middleware) do
     Aspire.Runtime.ok!(with_merge_route_middleware(target, path, method, handler, priority, middleware))
   end
@@ -2557,7 +2557,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `modified_at`
   """
-  @spec with_modified_at(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_modified_at(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_modified_at(%__MODULE__{} = target, modified_at) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2567,13 +2567,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withModifiedAt", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_modified_at/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_modified_at!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_modified_at!(t(), String.t()) :: t()
   def with_modified_at!(%__MODULE__{} = target, modified_at) do
     Aspire.Runtime.ok!(with_modified_at(target, modified_at))
   end
@@ -2585,7 +2585,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `callback`
   """
-  @spec with_multi_param_handle_callback(t(), function()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_multi_param_handle_callback(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_multi_param_handle_callback(%__MODULE__{} = target, callback) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2603,13 +2603,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMultiParamHandleCallback", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_multi_param_handle_callback/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_multi_param_handle_callback!(t(), function()) :: Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()
+  @spec with_multi_param_handle_callback!(t(), function()) :: t()
   def with_multi_param_handle_callback!(%__MODULE__{} = target, callback) do
     Aspire.Runtime.ok!(with_multi_param_handle_callback(target, callback))
   end
@@ -2626,7 +2626,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
   The Redis resource builder.
   """
-  @spec with_mutable_promise_collision_resources(t(), Aspire.CodeGeneration.Elixir.Tests.TestMutablePromiseCollisionResource.t(), Aspire.CodeGeneration.Elixir.Tests.TestMutablePromiseCollisionResourcePromise.t()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_mutable_promise_collision_resources(t(), Aspire.CodeGeneration.Elixir.Tests.TestMutablePromiseCollisionResource.t(), Aspire.CodeGeneration.Elixir.Tests.TestMutablePromiseCollisionResourcePromise.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_mutable_promise_collision_resources(%__MODULE__{} = target, resource, resource_promise) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2637,13 +2637,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMutablePromiseCollisionResources", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_mutable_promise_collision_resources/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_mutable_promise_collision_resources!(t(), Aspire.CodeGeneration.Elixir.Tests.TestMutablePromiseCollisionResource.t(), Aspire.CodeGeneration.Elixir.Tests.TestMutablePromiseCollisionResourcePromise.t()) :: Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()
+  @spec with_mutable_promise_collision_resources!(t(), Aspire.CodeGeneration.Elixir.Tests.TestMutablePromiseCollisionResource.t(), Aspire.CodeGeneration.Elixir.Tests.TestMutablePromiseCollisionResourcePromise.t()) :: t()
   def with_mutable_promise_collision_resources!(%__MODULE__{} = target, resource, resource_promise) do
     Aspire.Runtime.ok!(with_mutable_promise_collision_resources(target, resource, resource_promise))
   end
@@ -2655,7 +2655,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `config`
   """
-  @spec with_nested_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_nested_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_nested_config(%__MODULE__{} = target, config) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2665,13 +2665,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withNestedConfig", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_nested_config/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_nested_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: Aspire.Resource.t()
+  @spec with_nested_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: t()
   def with_nested_config!(%__MODULE__{} = target, config) do
     Aspire.Runtime.ok!(with_nested_config(target, config))
   end
@@ -2683,7 +2683,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `:callback`
   """
-  @spec with_optional_callback(t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_optional_callback(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_optional_callback(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:callback], "Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.with_optional_callback/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -2701,13 +2701,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withOptionalCallback", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_optional_callback/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_optional_callback!(t(), keyword()) :: Aspire.Resource.t()
+  @spec with_optional_callback!(t(), keyword()) :: t()
   def with_optional_callback!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_optional_callback(target, opts))
   end
@@ -2720,7 +2720,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
     * `:value`
     * `:enabled`
   """
-  @spec with_optional_string(t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_optional_string(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_optional_string(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:value, :enabled], "Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.with_optional_string/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -2732,13 +2732,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withOptionalString", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_optional_string/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_optional_string!(t(), keyword()) :: Aspire.Resource.t()
+  @spec with_optional_string!(t(), keyword()) :: t()
   def with_optional_string!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_optional_string(target, opts))
   end
@@ -2750,7 +2750,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `:mode`
   """
-  @spec with_persistence(t(), keyword()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_persistence(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_persistence(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:mode], "Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.with_persistence/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -2761,13 +2761,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withPersistence", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_persistence/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_persistence!(t(), keyword()) :: Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()
+  @spec with_persistence!(t(), keyword()) :: t()
   def with_persistence!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_persistence(target, opts))
   end
@@ -2784,7 +2784,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
   The Redis resource builder.
   """
-  @spec with_promise_collision_resources(t(), Aspire.CodeGeneration.Elixir.Tests.TestPromiseCollisionResource.t(), Aspire.CodeGeneration.Elixir.Tests.TestPromiseCollisionResourcePromise.t()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_promise_collision_resources(t(), Aspire.CodeGeneration.Elixir.Tests.TestPromiseCollisionResource.t(), Aspire.CodeGeneration.Elixir.Tests.TestPromiseCollisionResourcePromise.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_promise_collision_resources(%__MODULE__{} = target, resource, resource_promise) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2795,13 +2795,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withPromiseCollisionResources", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_promise_collision_resources/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_promise_collision_resources!(t(), Aspire.CodeGeneration.Elixir.Tests.TestPromiseCollisionResource.t(), Aspire.CodeGeneration.Elixir.Tests.TestPromiseCollisionResourcePromise.t()) :: Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()
+  @spec with_promise_collision_resources!(t(), Aspire.CodeGeneration.Elixir.Tests.TestPromiseCollisionResource.t(), Aspire.CodeGeneration.Elixir.Tests.TestPromiseCollisionResourcePromise.t()) :: t()
   def with_promise_collision_resources!(%__MODULE__{} = target, resource, resource_promise) do
     Aspire.Runtime.ok!(with_promise_collision_resources(target, resource, resource_promise))
   end
@@ -2813,7 +2813,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `option`
   """
-  @spec with_redis_specific(t(), String.t()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_redis_specific(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_redis_specific(%__MODULE__{} = target, option) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2823,13 +2823,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withRedisSpecific", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.TestRedisResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_redis_specific/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_redis_specific!(t(), String.t()) :: Aspire.CodeGeneration.Elixir.Tests.TestRedisResource.t()
+  @spec with_redis_specific!(t(), String.t()) :: t()
   def with_redis_specific!(%__MODULE__{} = target, option) do
     Aspire.Runtime.ok!(with_redis_specific(target, option))
   end
@@ -2841,7 +2841,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `status`
   """
-  @spec with_status(t(), Aspire.Enums.TestResourceStatus.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_status(t(), Aspire.Enums.TestResourceStatus.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_status(%__MODULE__{} = target, status) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2851,13 +2851,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withStatus", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_status/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_status!(t(), Aspire.Enums.TestResourceStatus.t()) :: Aspire.Resource.t()
+  @spec with_status!(t(), Aspire.Enums.TestResourceStatus.t()) :: t()
   def with_status!(%__MODULE__{} = target, status) do
     Aspire.Runtime.ok!(with_status(target, status))
   end
@@ -2869,7 +2869,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `dependency`
   """
-  @spec with_union_dependency(t(), term()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_union_dependency(t(), term()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_union_dependency(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2879,13 +2879,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withUnionDependency", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_union_dependency/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_union_dependency!(t(), term()) :: Aspire.Resource.t()
+  @spec with_union_dependency!(t(), term()) :: t()
   def with_union_dependency!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(with_union_dependency(target, dependency))
   end
@@ -2897,7 +2897,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     * `validator`
   """
-  @spec with_validator(t(), function()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_validator(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_validator(%__MODULE__{} = target, validator) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -2914,13 +2914,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestRedisResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withValidator", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_validator/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_validator!(t(), function()) :: Aspire.Resource.t()
+  @spec with_validator!(t(), function()) :: t()
   def with_validator!(%__MODULE__{} = target, validator) do
     Aspire.Runtime.ok!(with_validator(target, validator))
   end
@@ -3130,7 +3130,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `dependency`
   """
-  @spec test_wait_for(t(), Aspire.Resource.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec test_wait_for(t(), Aspire.Resource.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def test_wait_for(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3140,13 +3140,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/testWaitFor", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `test_wait_for/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec test_wait_for!(t(), Aspire.Resource.t()) :: Aspire.Resource.t()
+  @spec test_wait_for!(t(), Aspire.Resource.t()) :: t()
   def test_wait_for!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(test_wait_for(target, dependency))
   end
@@ -3158,7 +3158,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `callback`
   """
-  @spec test_with_environment_callback(t(), function()) :: {:ok, Aspire.ResourceWithEnvironment.t()} | {:error, Aspire.Error.t()}
+  @spec test_with_environment_callback(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def test_with_environment_callback(%__MODULE__{} = target, callback) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3175,13 +3175,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/testWithEnvironmentCallback", args)
-    |> Aspire.Runtime.result({:handle, Aspire.ResourceWithEnvironment}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `test_with_environment_callback/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec test_with_environment_callback!(t(), function()) :: Aspire.ResourceWithEnvironment.t()
+  @spec test_with_environment_callback!(t(), function()) :: t()
   def test_with_environment_callback!(%__MODULE__{} = target, callback) do
     Aspire.Runtime.ok!(test_with_environment_callback(target, callback))
   end
@@ -3193,7 +3193,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `operation`
   """
-  @spec with_cancellable_operation(t(), function()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_cancellable_operation(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_cancellable_operation(%__MODULE__{} = target, operation) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3209,13 +3209,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCancellableOperation", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_cancellable_operation/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_cancellable_operation!(t(), function()) :: Aspire.Resource.t()
+  @spec with_cancellable_operation!(t(), function()) :: t()
   def with_cancellable_operation!(%__MODULE__{} = target, operation) do
     Aspire.Runtime.ok!(with_cancellable_operation(target, operation))
   end
@@ -3227,7 +3227,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `config`
   """
-  @spec with_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_config(%__MODULE__{} = target, config) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3237,13 +3237,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withConfig", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_config/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: Aspire.Resource.t()
+  @spec with_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestConfigDto.t()) :: t()
   def with_config!(%__MODULE__{} = target, config) do
     Aspire.Runtime.ok!(with_config(target, config))
   end
@@ -3255,7 +3255,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `correlation_id`
   """
-  @spec with_correlation_id(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_correlation_id(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_correlation_id(%__MODULE__{} = target, correlation_id) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3265,13 +3265,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCorrelationId", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_correlation_id/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_correlation_id!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_correlation_id!(t(), String.t()) :: t()
   def with_correlation_id!(%__MODULE__{} = target, correlation_id) do
     Aspire.Runtime.ok!(with_correlation_id(target, correlation_id))
   end
@@ -3283,7 +3283,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `created_at`
   """
-  @spec with_created_at(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_created_at(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_created_at(%__MODULE__{} = target, created_at) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3293,13 +3293,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withCreatedAt", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_created_at/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_created_at!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_created_at!(t(), String.t()) :: t()
   def with_created_at!(%__MODULE__{} = target, created_at) do
     Aspire.Runtime.ok!(with_created_at(target, created_at))
   end
@@ -3311,7 +3311,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `dependency`
   """
-  @spec with_dependency(t(), Aspire.ResourceWithConnectionString.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_dependency(t(), Aspire.ResourceWithConnectionString.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_dependency(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3321,13 +3321,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withDependency", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_dependency/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_dependency!(t(), Aspire.ResourceWithConnectionString.t()) :: Aspire.Resource.t()
+  @spec with_dependency!(t(), Aspire.ResourceWithConnectionString.t()) :: t()
   def with_dependency!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(with_dependency(target, dependency))
   end
@@ -3339,7 +3339,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `endpoints`
   """
-  @spec with_endpoints(t(), [String.t()]) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_endpoints(t(), [String.t()]) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_endpoints(%__MODULE__{} = target, endpoints) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3349,13 +3349,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withEndpoints", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_endpoints/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_endpoints!(t(), [String.t()]) :: Aspire.Resource.t()
+  @spec with_endpoints!(t(), [String.t()]) :: t()
   def with_endpoints!(%__MODULE__{} = target, endpoints) do
     Aspire.Runtime.ok!(with_endpoints(target, endpoints))
   end
@@ -3367,7 +3367,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `variables`
   """
-  @spec with_environment_variables(t(), map()) :: {:ok, Aspire.ResourceWithEnvironment.t()} | {:error, Aspire.Error.t()}
+  @spec with_environment_variables(t(), map()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_environment_variables(%__MODULE__{} = target, variables) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3377,13 +3377,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withEnvironmentVariables", args)
-    |> Aspire.Runtime.result({:handle, Aspire.ResourceWithEnvironment}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_environment_variables/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_environment_variables!(t(), map()) :: Aspire.ResourceWithEnvironment.t()
+  @spec with_environment_variables!(t(), map()) :: t()
   def with_environment_variables!(%__MODULE__{} = target, variables) do
     Aspire.Runtime.ok!(with_environment_variables(target, variables))
   end
@@ -3396,7 +3396,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
     * `endpoint_name`
     * `port`
   """
-  @spec with_merge_endpoint(t(), String.t(), number()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_endpoint(t(), String.t(), number()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_endpoint(%__MODULE__{} = target, endpoint_name, port) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3407,13 +3407,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeEndpoint", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_endpoint/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_endpoint!(t(), String.t(), number()) :: Aspire.Resource.t()
+  @spec with_merge_endpoint!(t(), String.t(), number()) :: t()
   def with_merge_endpoint!(%__MODULE__{} = target, endpoint_name, port) do
     Aspire.Runtime.ok!(with_merge_endpoint(target, endpoint_name, port))
   end
@@ -3427,7 +3427,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
     * `port`
     * `scheme`
   """
-  @spec with_merge_endpoint_scheme(t(), String.t(), number(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_endpoint_scheme(t(), String.t(), number(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_endpoint_scheme(%__MODULE__{} = target, endpoint_name, port, scheme) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3439,13 +3439,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeEndpointScheme", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_endpoint_scheme/4`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_endpoint_scheme!(t(), String.t(), number(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_endpoint_scheme!(t(), String.t(), number(), String.t()) :: t()
   def with_merge_endpoint_scheme!(%__MODULE__{} = target, endpoint_name, port, scheme) do
     Aspire.Runtime.ok!(with_merge_endpoint_scheme(target, endpoint_name, port, scheme))
   end
@@ -3457,7 +3457,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `label`
   """
-  @spec with_merge_label(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_label(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_label(%__MODULE__{} = target, label) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3467,13 +3467,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLabel", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_label/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_label!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_label!(t(), String.t()) :: t()
   def with_merge_label!(%__MODULE__{} = target, label) do
     Aspire.Runtime.ok!(with_merge_label(target, label))
   end
@@ -3486,7 +3486,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
     * `label`
     * `category`
   """
-  @spec with_merge_label_categorized(t(), String.t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_label_categorized(t(), String.t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_label_categorized(%__MODULE__{} = target, label, category) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3497,13 +3497,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLabelCategorized", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_label_categorized/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_label_categorized!(t(), String.t(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_label_categorized!(t(), String.t(), String.t()) :: t()
   def with_merge_label_categorized!(%__MODULE__{} = target, label, category) do
     Aspire.Runtime.ok!(with_merge_label_categorized(target, label, category))
   end
@@ -3520,7 +3520,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
     * `:enable_console`
     * `:max_files`
   """
-  @spec with_merge_logging(t(), String.t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_logging(t(), String.t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_logging(%__MODULE__{} = target, log_level, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:enable_console, :max_files], "Aspire.CodeGeneration.Elixir.Tests.TestVaultResource.with_merge_logging/3")
     transport = Aspire.Runtime.transport_of(target)
@@ -3533,13 +3533,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLogging", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_logging/3`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_logging!(t(), String.t(), keyword()) :: Aspire.Resource.t()
+  @spec with_merge_logging!(t(), String.t(), keyword()) :: t()
   def with_merge_logging!(%__MODULE__{} = target, log_level, opts \\ []) do
     Aspire.Runtime.ok!(with_merge_logging(target, log_level, opts))
   end
@@ -3557,7 +3557,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
     * `:enable_console`
     * `:max_files`
   """
-  @spec with_merge_logging_path(t(), String.t(), String.t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_logging_path(t(), String.t(), String.t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_logging_path(%__MODULE__{} = target, log_level, log_path, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:enable_console, :max_files], "Aspire.CodeGeneration.Elixir.Tests.TestVaultResource.with_merge_logging_path/4")
     transport = Aspire.Runtime.transport_of(target)
@@ -3571,13 +3571,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeLoggingPath", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_logging_path/4`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_logging_path!(t(), String.t(), String.t(), keyword()) :: Aspire.Resource.t()
+  @spec with_merge_logging_path!(t(), String.t(), String.t(), keyword()) :: t()
   def with_merge_logging_path!(%__MODULE__{} = target, log_level, log_path, opts \\ []) do
     Aspire.Runtime.ok!(with_merge_logging_path(target, log_level, log_path, opts))
   end
@@ -3592,7 +3592,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
     * `handler`
     * `priority`
   """
-  @spec with_merge_route(t(), String.t(), String.t(), String.t(), number()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_route(t(), String.t(), String.t(), String.t(), number()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_route(%__MODULE__{} = target, path, method, handler, priority) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3605,13 +3605,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeRoute", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_route/5`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_route!(t(), String.t(), String.t(), String.t(), number()) :: Aspire.Resource.t()
+  @spec with_merge_route!(t(), String.t(), String.t(), String.t(), number()) :: t()
   def with_merge_route!(%__MODULE__{} = target, path, method, handler, priority) do
     Aspire.Runtime.ok!(with_merge_route(target, path, method, handler, priority))
   end
@@ -3627,7 +3627,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
     * `priority`
     * `middleware`
   """
-  @spec with_merge_route_middleware(t(), String.t(), String.t(), String.t(), number(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_merge_route_middleware(t(), String.t(), String.t(), String.t(), number(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_merge_route_middleware(%__MODULE__{} = target, path, method, handler, priority, middleware) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3641,13 +3641,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withMergeRouteMiddleware", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_merge_route_middleware/6`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_merge_route_middleware!(t(), String.t(), String.t(), String.t(), number(), String.t()) :: Aspire.Resource.t()
+  @spec with_merge_route_middleware!(t(), String.t(), String.t(), String.t(), number(), String.t()) :: t()
   def with_merge_route_middleware!(%__MODULE__{} = target, path, method, handler, priority, middleware) do
     Aspire.Runtime.ok!(with_merge_route_middleware(target, path, method, handler, priority, middleware))
   end
@@ -3659,7 +3659,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `modified_at`
   """
-  @spec with_modified_at(t(), String.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_modified_at(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_modified_at(%__MODULE__{} = target, modified_at) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3669,13 +3669,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withModifiedAt", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_modified_at/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_modified_at!(t(), String.t()) :: Aspire.Resource.t()
+  @spec with_modified_at!(t(), String.t()) :: t()
   def with_modified_at!(%__MODULE__{} = target, modified_at) do
     Aspire.Runtime.ok!(with_modified_at(target, modified_at))
   end
@@ -3687,7 +3687,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `config`
   """
-  @spec with_nested_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_nested_config(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_nested_config(%__MODULE__{} = target, config) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3697,13 +3697,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withNestedConfig", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_nested_config/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_nested_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: Aspire.Resource.t()
+  @spec with_nested_config!(t(), Aspire.CodeGeneration.Elixir.Tests.TestNestedDto.t()) :: t()
   def with_nested_config!(%__MODULE__{} = target, config) do
     Aspire.Runtime.ok!(with_nested_config(target, config))
   end
@@ -3715,7 +3715,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `:callback`
   """
-  @spec with_optional_callback(t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_optional_callback(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_optional_callback(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:callback], "Aspire.CodeGeneration.Elixir.Tests.TestVaultResource.with_optional_callback/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -3733,13 +3733,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withOptionalCallback", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_optional_callback/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_optional_callback!(t(), keyword()) :: Aspire.Resource.t()
+  @spec with_optional_callback!(t(), keyword()) :: t()
   def with_optional_callback!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_optional_callback(target, opts))
   end
@@ -3752,7 +3752,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
     * `:value`
     * `:enabled`
   """
-  @spec with_optional_string(t(), keyword()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_optional_string(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_optional_string(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.validate_opts!(opts, [:value, :enabled], "Aspire.CodeGeneration.Elixir.Tests.TestVaultResource.with_optional_string/2")
     transport = Aspire.Runtime.transport_of(target)
@@ -3764,13 +3764,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withOptionalString", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_optional_string/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_optional_string!(t(), keyword()) :: Aspire.Resource.t()
+  @spec with_optional_string!(t(), keyword()) :: t()
   def with_optional_string!(%__MODULE__{} = target, opts \\ []) do
     Aspire.Runtime.ok!(with_optional_string(target, opts))
   end
@@ -3782,7 +3782,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `status`
   """
-  @spec with_status(t(), Aspire.Enums.TestResourceStatus.t()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_status(t(), Aspire.Enums.TestResourceStatus.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_status(%__MODULE__{} = target, status) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3792,13 +3792,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withStatus", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_status/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_status!(t(), Aspire.Enums.TestResourceStatus.t()) :: Aspire.Resource.t()
+  @spec with_status!(t(), Aspire.Enums.TestResourceStatus.t()) :: t()
   def with_status!(%__MODULE__{} = target, status) do
     Aspire.Runtime.ok!(with_status(target, status))
   end
@@ -3810,7 +3810,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `dependency`
   """
-  @spec with_union_dependency(t(), term()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_union_dependency(t(), term()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_union_dependency(%__MODULE__{} = target, dependency) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3820,13 +3820,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withUnionDependency", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_union_dependency/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_union_dependency!(t(), term()) :: Aspire.Resource.t()
+  @spec with_union_dependency!(t(), term()) :: t()
   def with_union_dependency!(%__MODULE__{} = target, dependency) do
     Aspire.Runtime.ok!(with_union_dependency(target, dependency))
   end
@@ -3838,7 +3838,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `validator`
   """
-  @spec with_validator(t(), function()) :: {:ok, Aspire.Resource.t()} | {:error, Aspire.Error.t()}
+  @spec with_validator(t(), function()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_validator(%__MODULE__{} = target, validator) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3855,13 +3855,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withValidator", args)
-    |> Aspire.Runtime.result({:handle, Aspire.Resource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_validator/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_validator!(t(), function()) :: Aspire.Resource.t()
+  @spec with_validator!(t(), function()) :: t()
   def with_validator!(%__MODULE__{} = target, validator) do
     Aspire.Runtime.ok!(with_validator(target, validator))
   end
@@ -3873,7 +3873,7 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     * `option`
   """
-  @spec with_vault_direct(t(), String.t()) :: {:ok, Aspire.CodeGeneration.Elixir.Tests.ITestVaultResource.t()} | {:error, Aspire.Error.t()}
+  @spec with_vault_direct(t(), String.t()) :: {:ok, t()} | {:error, Aspire.Error.t()}
   def with_vault_direct(%__MODULE__{} = target, option) do
     transport = Aspire.Runtime.transport_of(target)
 
@@ -3883,13 +3883,13 @@ defmodule Aspire.CodeGeneration.Elixir.Tests.TestVaultResource do
 
     transport
     |> Aspire.Runtime.invoke("Aspire.Hosting.CodeGeneration.Elixir.Tests/withVaultDirect", args)
-    |> Aspire.Runtime.result({:handle, Aspire.CodeGeneration.Elixir.Tests.ITestVaultResource}, transport)
+    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)
   end
 
   @doc """
   The same as `with_vault_direct/2`. Raises `Aspire.Error` on a failure.
   """
-  @spec with_vault_direct!(t(), String.t()) :: Aspire.CodeGeneration.Elixir.Tests.ITestVaultResource.t()
+  @spec with_vault_direct!(t(), String.t()) :: t()
   def with_vault_direct!(%__MODULE__{} = target, option) do
     Aspire.Runtime.ok!(with_vault_direct(target, option))
   end

@@ -503,6 +503,48 @@ public class AtsElixirCodeGeneratorTests(ITestOutputHelper outputHelper)
     }
 
     [Fact]
+    public void GeneratedCode_ReturnsBuilderCapabilitiesReturnReceiverType()
+    {
+        var generated = GenerateModuleSource(CreateContextFromBothAssemblies());
+        var module = ExtractModule(generated, "Aspire.CodeGeneration.Elixir.Tests.TestRedisResource");
+
+        // A fluent capability returns the receiver, so a pipe chain stays on the same module. The
+        // declared .NET return type is often an interface or a base type, and decoding into that
+        // type would end the chain on a struct that has no functions.
+        Assert.Contains(
+            "@spec with_persistence(t(), keyword()) :: {:ok, t()} | {:error, Aspire.Error.t()}",
+            module,
+            StringComparison.Ordinal);
+        Assert.Contains("@spec with_persistence!(t(), keyword()) :: t()", module, StringComparison.Ordinal);
+
+        // withEnvironment declares IResourceWithEnvironment, and withReference declares the same
+        // interface. Both keep the concrete receiver.
+        Assert.Contains(
+            "@spec with_environment(t(), String.t(), term()) :: {:ok, t()} | {:error, Aspire.Error.t()}",
+            module,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("{:handle, Aspire.ResourceWithEnvironment}, transport)", module, StringComparison.Ordinal);
+
+        // The decoder wraps the handle into the module that holds the function.
+        Assert.Contains(
+            "|> Aspire.Runtime.invoke(\"Aspire.Hosting.CodeGeneration.Elixir.Tests/withPersistence\", args)\n" +
+            "    |> Aspire.Runtime.result({:handle, __MODULE__}, transport)",
+            module,
+            StringComparison.Ordinal);
+
+        // A factory method returns a different builder, so it keeps its declared return type.
+        Assert.Contains(
+            "@spec add_test_child_database(t(), String.t(), keyword()) :: "
+                + "{:ok, Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource.t()} | {:error, Aspire.Error.t()}",
+            module,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "{:handle, Aspire.CodeGeneration.Elixir.Tests.TestDatabaseResource}, transport)",
+            module,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TwoPassScanning_DeduplicatesExpandedUnionTypes()
     {
         var generated = GenerateModuleSource(CreateContextFromBothAssemblies());

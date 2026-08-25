@@ -728,7 +728,7 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
 
                 foreach (var capability in capabilities)
                 {
-                    GenerateCapability(model, writer, moduleName, capability, functionNames[capability.CapabilityId]);
+                    GenerateCapability(model, writer, moduleName, typeId, capability, functionNames[capability.CapabilityId]);
                 }
             }
 
@@ -746,6 +746,7 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
         ElixirModel model,
         ElixirWriter writer,
         string moduleName,
+        string moduleTypeId,
         AtsCapabilityInfo capability,
         string functionName)
     {
@@ -809,8 +810,24 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
         }
 
         var arity = 1 + required.Count + (hasOptions ? 1 : 0);
-        var decoder = BuildDecoder(model, capability.ReturnType, isCallback: false);
-        var returnSpec = ReturnTypeSpecOf(model, capability.ReturnType);
+
+        // A fluent capability returns its receiver. The declared .NET return type is the generic
+        // constraint, which is usually an interface such as IResourceWithEnvironment, so decoding
+        // into that type would end a pipe chain on a struct that carries no functions. The other
+        // generators keep the receiver the same way: AtsTypeScriptCodeGenerator, AtsPythonCodeGenerator
+        // and AtsJavaCodeGenerator all treat a return type equal to the target as self-returning. A
+        // factory method, such as AddDatabase, returns a different builder and keeps its own type.
+        var returnsReceiver = capability.ReturnsBuilder
+            && capability.ReturnType?.TypeId is { Length: > 0 } capabilityReturnTypeId
+            && (string.Equals(capabilityReturnTypeId, capability.TargetTypeId, StringComparison.Ordinal)
+                || string.Equals(capabilityReturnTypeId, moduleTypeId, StringComparison.Ordinal));
+
+        var decoder = returnsReceiver
+            ? "{:handle, __MODULE__}"
+            : BuildDecoder(model, capability.ReturnType, isCallback: false);
+        var returnSpec = returnsReceiver
+            ? "t()"
+            : ReturnTypeSpecOf(model, capability.ReturnType);
 
         var specTypes = new List<string> { "t()" };
         specTypes.AddRange(required.Select(parameter => TypeSpecOf(model, parameter.Type, parameter.IsCallback)));
