@@ -452,6 +452,7 @@
     <File Path="src/Schema/aspire-8.0.json" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Aspire.Hosting.CodeGeneration.Elixir/Aspire.Hosting.CodeGeneration.Elixir.csproj" />
     <Project Path="src/Aspire.Hosting.CodeGeneration.Go/Aspire.Hosting.CodeGeneration.Go.csproj" />
     <Project Path="src/Aspire.Hosting.CodeGeneration.Java/Aspire.Hosting.CodeGeneration.Java.csproj" />
     <Project Path="src/Aspire.Hosting.CodeGeneration.Python/Aspire.Hosting.CodeGeneration.Python.csproj" />
@@ -534,6 +535,7 @@
     <Project Path="tests/Aspire.Hosting.Azure.Tests/Aspire.Hosting.Azure.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Blazor.Tests/Aspire.Hosting.Blazor.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Browsers.Tests/Aspire.Hosting.Browsers.Tests.csproj" />
+    <Project Path="tests/Aspire.Hosting.CodeGeneration.Elixir.Tests/Aspire.Hosting.CodeGeneration.Elixir.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.CodeGeneration.Go.Tests/Aspire.Hosting.CodeGeneration.Go.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.CodeGeneration.Java.Tests/Aspire.Hosting.CodeGeneration.Java.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.CodeGeneration.Python.Tests/Aspire.Hosting.CodeGeneration.Python.Tests.csproj" />

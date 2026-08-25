@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aspire.Hosting.CodeGeneration.Elixir</RootNamespace>
+    <!-- Required for Elixir AppHost support -->
+    <IsPackable>true</IsPackable>
+    <!-- Code-generation infrastructure, not a discoverable polyglot integration, so opt out of the
+         default 'polyglot' NuGet tag that `aspire add` uses to surface integrations to non-C# AppHosts. -->
+    <IsAspirePolyglotCompatible>false</IsAspirePolyglotCompatible>
+    <!-- No baseline exists since this package was previously not published -->
+    <DisablePackageBaselineValidation>true</DisablePackageBaselineValidation>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="aspire" />
+    <InternalsVisibleTo Include="Aspire.Hosting.CodeGeneration.Elixir.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\base.ex" LogicalName="Aspire.Hosting.CodeGeneration.Elixir.Resources.base.ex" />
+    <EmbeddedResource Include="Resources\transport.ex" LogicalName="Aspire.Hosting.CodeGeneration.Elixir.Resources.transport.ex" />
+    <EmbeddedResource Include="Resources\aspire_runtime.ex" LogicalName="Aspire.Hosting.CodeGeneration.Elixir.Resources.aspire_runtime.ex" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="$(SharedDir)AppHostProfilePortGenerator.cs" Link="AppHostProfilePortGenerator.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aspire.TypeSystem\Aspire.TypeSystem.csproj" />
+  </ItemGroup>
+
+</Project>
