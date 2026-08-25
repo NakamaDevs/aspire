@@ -76,7 +76,7 @@ public class ElixirPublishTests(ITestOutputHelper outputHelper)
 
         Assert.Contains("mix release 'hello_world'", content);
         Assert.Contains("/app/_build/prod/rel/hello_world", content);
-        Assert.Contains("""CMD ["/app/bin/hello_world","start"]""", content);
+        Assert.Contains("""ENTRYPOINT ["/app/bin/hello_world"]""", content);
     }
 
     [Fact]
@@ -95,7 +95,32 @@ public class ElixirPublishTests(ITestOutputHelper outputHelper)
 
         // A release name is an Erlang atom, so the hyphen of the resource name becomes an underscore.
         Assert.Contains("mix release 'my_api'", content);
-        Assert.Contains("""CMD ["/app/bin/my_api","start"]""", content);
+        Assert.Contains("""ENTRYPOINT ["/app/bin/my_api"]""", content);
+    }
+
+    [Fact]
+    public async Task VerifyPublish_UsesTheMixEnvironmentFromWithMixEnv()
+    {
+        using var workspace = TemporaryWorkspace.Create(outputHelper);
+        var sourceDir = workspace.CreateDirectory("source");
+        var outputDir = workspace.CreateDirectory("output");
+
+        WriteMixExs(sourceDir.FullName, "hello_world");
+
+        using var builder = TestDistributedApplicationBuilder.Create(DistributedApplicationOperation.Publish, outputDir.FullName, step: "publish-manifest");
+        builder.AddElixirApp("api", sourceDir.FullName)
+            .WithMixEnv("staging");
+
+        builder.Build().Run();
+
+        var content = await File.ReadAllTextAsync(Path.Combine(outputDir.FullName, "api.Dockerfile"), TestContext.Current.CancellationToken);
+
+        // The build stage, the release path, and the runtime stage must agree. A release that Mix
+        // builds for one environment cannot boot with the runtime configuration of another one.
+        Assert.Contains("ENV MIX_ENV=staging", content);
+        Assert.Contains("mix deps.get --only 'staging'", content);
+        Assert.Contains("/app/_build/staging/rel/hello_world", content);
+        Assert.DoesNotContain("MIX_ENV=prod", content);
     }
 
     [Fact]

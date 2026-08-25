@@ -229,8 +229,11 @@ public static class ElixirHostingExtensions
                 return Task.CompletedTask;
             });
 
-        // MIX_ENV selects the Mix environment. Local work uses dev, and publish output uses prod.
-        rb.WithEnvironment("MIX_ENV", builder.ExecutionContext.IsRunMode ? "dev" : "prod");
+        // MIX_ENV selects the Mix environment. Local work uses dev, and publish output uses prod. The
+        // annotation holds the value, so the Mix setup siblings and the generated Dockerfile use the
+        // same environment as the application. WithMixEnv replaces the annotation.
+        resource.Annotations.Add(new ElixirMixEnvAnnotation(builder.ExecutionContext.IsRunMode ? "dev" : "prod"));
+        rb.WithEnvironment(ctx => ctx.EnvironmentVariables["MIX_ENV"] = ElixirMixEnvAnnotation.Resolve(resource));
 
         // WithElixirErlOptions and WithNodeName both write ELIXIR_ERL_OPTIONS, so one callback
         // composes the complete value from the annotations that the developer applied.
@@ -248,7 +251,7 @@ public static class ElixirHostingExtensions
 
             if (hasOptions)
             {
-                options.AppendLiteral(optionsAnnotation!.Options);
+                options.AppendLiteral(EscapeBraces(optionsAnnotation!.Options));
             }
 
             if (hasNodeName)
@@ -258,8 +261,11 @@ public static class ElixirHostingExtensions
                     options.AppendLiteral(" ");
                 }
 
-                // --sname names the node, and --cookie authenticates the distribution connections.
-                options.AppendLiteral($"--sname {nodeNameAnnotation!.NodeName} --cookie ");
+                // The `elixir` command puts the value of ELIXIR_ERL_OPTIONS on the `erl` command line
+                // without a translation, so the value must hold Erlang flags. The Elixir forms
+                // `--sname` and `--cookie` reach `erl` unchanged, and `erl` ignores them. -sname names
+                // the node, and -setcookie authenticates the distribution connections.
+                options.AppendLiteral($"-sname {EscapeBraces(nodeNameAnnotation!.NodeName)} -setcookie ");
                 options.AppendFormatted(nodeNameAnnotation.Cookie);
             }
 
@@ -413,7 +419,7 @@ public static class ElixirHostingExtensions
         var resource = builder.Resource;
 
         return builder.WithDebugSupport(
-            context =>
+            async context =>
             {
                 // Resolve the annotations when DCP creates the launch configuration, so later
                 // mutations such as WithMixTask(...) or WithWorkingDirectory(...) are reflected.
@@ -427,7 +433,8 @@ public static class ElixirHostingExtensions
 
                 if (hasTask)
                 {
-                    AppendArguments(taskArgs, taskAnnotation!.Args);
+                    await AppendArgumentsAsync(taskArgs, taskAnnotation!.Args, context.CancellationToken)
+                        .ConfigureAwait(false);
                 }
                 else
                 {
@@ -439,13 +446,14 @@ public static class ElixirHostingExtensions
                 {
                     // Mix passes everything after `--` to the application instead of parsing it itself.
                     taskArgs.Add("--");
-                    AppendArguments(taskArgs, appArgsAnnotation.Args);
+                    await AppendArgumentsAsync(taskArgs, appArgsAnnotation.Args, context.CancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 // MIX_ENV comes from the resolved environment, so WithMixEnv(...) is reflected.
                 var mixEnv = context.EnvironmentVariables.TryGetValue("MIX_ENV", out var value) ? value : null;
 
-                return Task.FromResult(new ElixirLaunchConfiguration
+                return new ElixirLaunchConfiguration
                 {
                     Mode = context.Mode,
                     ProjectDir = workingDirectory,
@@ -453,19 +461,45 @@ public static class ElixirHostingExtensions
                     TaskArgs = [.. taskArgs],
                     MixEnv = mixEnv,
                     WorkingDirectory = workingDirectory
-                });
+                };
             },
             "elixir");
 
-        static void AppendArguments(List<string> target, object[] args)
+        // WithMixTask and WithAppArgs accept an object, so an argument can be a parameter, an endpoint
+        // reference, or another expression. The command line resolves those values, and the launch
+        // configuration must resolve them in the same way. A plain text form would give the IDE the
+        // name of the CLR type instead of the value.
+        static async Task AppendArgumentsAsync(List<string> target, object[] args, CancellationToken cancellationToken)
         {
             foreach (var arg in args)
             {
-                // WithMixTask and WithAppArgs take literal arguments, so a plain text form is correct.
-                target.Add(arg as string ?? Convert.ToString(arg, CultureInfo.InvariantCulture) ?? string.Empty);
+                if (arg is string text)
+                {
+                    target.Add(text);
+                    continue;
+                }
+
+                if (arg is IValueProvider valueProvider)
+                {
+                    target.Add(await valueProvider.GetValueAsync(cancellationToken).ConfigureAwait(false) ?? string.Empty);
+                    continue;
+                }
+
+                target.Add(Convert.ToString(arg, CultureInfo.InvariantCulture) ?? string.Empty);
             }
         }
     }
+
+    /// <summary>
+    /// Doubles every brace in a value that a <see cref="ReferenceExpressionBuilder"/> appends as a literal.
+    /// </summary>
+    /// <remarks>
+    /// The builder collects a format string, and it does not escape a literal. A brace in a value that
+    /// the developer supplied would therefore become a placeholder, and the value of another part of the
+    /// expression would take its place.
+    /// </remarks>
+    private static string EscapeBraces(string value)
+        => value.Replace("{", "{{", StringComparison.Ordinal).Replace("}", "}}", StringComparison.Ordinal);
 
     /// <summary>
     /// Makes the image build wait for every resource that supplies container files to it.
@@ -528,8 +562,10 @@ public static class ElixirHostingExtensions
     /// </para>
     /// <para>
     /// <see cref="AddElixirApp"/> calls this method automatically when the application directory
-    /// contains <c>mix.exs</c>. Call it again with <c>install: false</c> to stop the automatic run.
+    /// contains <c>mix.exs</c>. Call it again with <c>install: false</c> to stop the automatic run,
+    /// and once more with <c>install: true</c> to start it again.
     /// </para>
+    /// <para>The step uses the same <c>MIX_ENV</c> value and working directory as the application.</para>
     /// </remarks>
     /// <example>
     /// Fetch dependencies, but start the step by hand:
@@ -554,7 +590,16 @@ public static class ElixirHostingExtensions
 
         if (builder.ApplicationBuilder.TryCreateResourceBuilder<ElixirMixDepsResource>(depsName, out var existing))
         {
-            if (!install)
+            if (install)
+            {
+                // A later call with install: true turns the automatic run back on, so the two values
+                // are symmetric.
+                foreach (var annotation in existing.Resource.Annotations.OfType<ExplicitStartupAnnotation>().ToArray())
+                {
+                    existing.Resource.Annotations.Remove(annotation);
+                }
+            }
+            else
             {
                 // SetupMixDependencies reads this annotation and skips the wait relationships.
                 existing.WithExplicitStart();
@@ -571,7 +616,8 @@ public static class ElixirHostingExtensions
             .WithParentRelationship(builder.Resource)
             .ExcludeFromManifest()
             .WithCertificateTrustScope(CertificateTrustScope.None)
-            .WithRequiredCommand("mix", "https://elixir-lang.org/install.html");
+            .WithRequiredCommand("mix", "https://elixir-lang.org/install.html")
+            .WithMixEnvOfParent(builder.Resource);
 
         if (!install)
         {
@@ -580,6 +626,19 @@ public static class ElixirHostingExtensions
 
         return builder;
     }
+
+    /// <summary>
+    /// Gives a Mix setup sibling the same <c>MIX_ENV</c> value as the application that owns it.
+    /// </summary>
+    /// <remarks>
+    /// The callback reads the annotation when Aspire resolves the environment, so a
+    /// <see cref="WithMixEnv{T}"/> call after the sibling exists still reaches the sibling. Without the
+    /// value, <c>mix deps.get</c> and <c>mix compile</c> fill the <c>dev</c> build tree while the
+    /// application starts in another environment, and the application then compiles everything again.
+    /// </remarks>
+    private static IResourceBuilder<T> WithMixEnvOfParent<T>(this IResourceBuilder<T> builder, ElixirAppResource parent)
+        where T : IResourceWithEnvironment
+        => builder.WithEnvironment(ctx => ctx.EnvironmentVariables["MIX_ENV"] = ElixirMixEnvAnnotation.Resolve(parent));
 
     /// <summary>
     /// Runs <c>mix compile</c> before the application starts, so compile errors appear before startup.
@@ -627,7 +686,8 @@ public static class ElixirHostingExtensions
             .WithParentRelationship(builder.Resource)
             .ExcludeFromManifest()
             .WithCertificateTrustScope(CertificateTrustScope.None)
-            .WithRequiredCommand("mix", "https://elixir-lang.org/install.html");
+            .WithRequiredCommand("mix", "https://elixir-lang.org/install.html")
+            .WithMixEnvOfParent(builder.Resource);
 
         return builder;
     }
@@ -641,7 +701,13 @@ public static class ElixirHostingExtensions
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
     /// <ats-returns>The resource builder.</ats-returns>
     /// <remarks>
+    /// <para>
     /// The value replaces the default, which is <c>dev</c> in run mode and <c>prod</c> in publish mode.
+    /// </para>
+    /// <para>
+    /// The Mix setup siblings and the generated Dockerfile use the same value, so the build and the
+    /// start always agree. A second call replaces the value of the first call.
+    /// </para>
     /// </remarks>
     /// <example>
     /// Run the application in the test environment:
@@ -657,7 +723,7 @@ public static class ElixirHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(env);
 
-        return builder.WithEnvironment("MIX_ENV", env);
+        return builder.WithAnnotation(new ElixirMixEnvAnnotation(env), ResourceAnnotationMutationBehavior.Replace);
     }
 
     /// <summary>
@@ -760,11 +826,18 @@ public static class ElixirHostingExtensions
     /// <ats-returns>The resource builder.</ats-returns>
     /// <remarks>
     /// <para>
-    /// The method adds <c>--sname</c> and <c>--cookie</c> to <c>ELIXIR_ERL_OPTIONS</c>, after any
-    /// options from <see cref="WithElixirErlOptions{T}"/>.
+    /// The method adds <c>-sname</c> and <c>-setcookie</c> to <c>ELIXIR_ERL_OPTIONS</c>, after any
+    /// options from <see cref="WithElixirErlOptions{T}"/>. The <c>elixir</c> command puts that value
+    /// on the <c>erl</c> command line without a translation, so the value holds Erlang flags and not
+    /// the Elixir forms <c>--sname</c> and <c>--cookie</c>.
     /// </para>
     /// <para>
     /// The method also sets <c>RELEASE_NODE</c> and <c>RELEASE_COOKIE</c>, which a Mix release reads.
+    /// </para>
+    /// <para>
+    /// The Erlang runtime reads the cookie from the command line, so the value appears in the process
+    /// list of the machine while <c>mix run</c> runs the application. A Mix release reads
+    /// <c>RELEASE_COOKIE</c> from the environment instead.
     /// </para>
     /// </remarks>
     /// <example>
@@ -905,6 +978,7 @@ public static class ElixirHostingExtensions
             .ExcludeFromManifest()
             .WithCertificateTrustScope(CertificateTrustScope.None)
             .WithRequiredCommand("mix", "https://elixir-lang.org/install.html")
+            .WithMixEnvOfParent(migrate.Parent)
             .WithEnvironment(ctx =>
             {
                 // WithEctoDatabase can run after this method, so read the database from the parent
@@ -957,6 +1031,13 @@ public static class ElixirHostingExtensions
         builder.TryCreateResourceBuilder<ElixirMixDepsResource>($"{resource.Name}-mix-deps", out var depsBuilder);
         builder.TryCreateResourceBuilder<ElixirMixCompileResource>($"{resource.Name}-mix-compile", out var compileBuilder);
         builder.TryCreateResourceBuilder<ElixirEctoMigrateResource>($"{resource.Name}-ecto-migrate", out var migrateBuilder);
+
+        // An executable reads its working directory from an annotation, so WithWorkingDirectory moves
+        // the application after AddElixirApp created the siblings. The siblings must run Mix in the
+        // same directory, so the final model supplies the value.
+        depsBuilder?.WithWorkingDirectory(resource.WorkingDirectory);
+        compileBuilder?.WithWorkingDirectory(resource.WorkingDirectory);
+        migrateBuilder?.WithWorkingDirectory(resource.WorkingDirectory);
 
         // The developer starts an explicit-start step by hand, so nothing must wait for it.
         var depsRunsAutomatically = depsBuilder is not null

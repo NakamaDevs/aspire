@@ -8,4 +8,5 @@ RUN groupadd --system --gid 999 app && useradd --system --gid 999 --uid 999 --no
 WORKDIR /app
 COPY --chown=app:app . ./
 USER app
-CMD ["/app/bin/hello_world","start"]
+ENTRYPOINT ["/app/bin/hello_world"]
+CMD ["start"]

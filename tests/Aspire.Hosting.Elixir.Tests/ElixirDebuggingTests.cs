@@ -149,6 +149,27 @@ public class ElixirDebuggingTests
         Assert.Equal(nameof(builder), exception.ParamName);
     }
 
+    [Fact]
+    public async Task WithVSCodeDebugging_ResolvesArgumentsThatAreNotText()
+    {
+        using var builder = TestDistributedApplicationBuilder.Create();
+        var token = builder.AddParameter("token", "s3cret", secret: true);
+
+        // WithAppArgs takes an object, so an argument can be a parameter. The launch configuration
+        // must carry the value of the parameter, not the name of its CLR type.
+        var app = builder.AddElixirApp("api", builder.AppHostDirectory)
+            .WithAppArgs("--token", token.Resource);
+
+        var launchConfig = await CreateLaunchConfigurationAsync(app.Resource);
+
+        Assert.Equal(["--no-halt", "--", "--token", "s3cret"], launchConfig.TaskArgs);
+
+        // The command line resolves the same value, so a debug session and a plain run agree.
+        var commandArguments = await ArgumentEvaluator.GetArgumentListAsync(app.Resource);
+
+        Assert.Equal(["run", "--no-halt", "--", "--token", "s3cret"], commandArguments);
+    }
+
     private static async Task<ElixirLaunchConfiguration> CreateLaunchConfigurationAsync(
         IResource resource,
         IReadOnlyDictionary<string, string>? environmentVariables = null)

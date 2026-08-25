@@ -6,7 +6,7 @@ ENV MIX_ENV=prod
 COPY mix.exs ./
 COPY mix.lock ./
 COPY config config
-RUN mix deps.get --only prod && mix deps.compile
+RUN mix deps.get --only 'prod' && mix deps.compile
 COPY . .
 RUN mix compile
 RUN mix release 'it'\''s_alive'
@@ -22,4 +22,5 @@ WORKDIR /app
 COPY --from=build --chown=app:app /app/_build/prod/rel/it's_alive ./
 ENV MIX_ENV=prod
 USER app
-CMD ["/app/bin/it's_alive","start"]
+ENTRYPOINT ["/app/bin/it's_alive"]
+CMD ["start"]

@@ -133,6 +133,10 @@ internal static partial class ElixirDockerfileGenerator
 
         var releaseName = ResolveReleaseName(context.Resource, appDirectory);
 
+        // The build stage, the release path, and the runtime stage must all use the Mix environment
+        // that the application uses. WithMixEnv changes it, and the default in publish mode is prod.
+        var mixEnv = ElixirMixEnvAnnotation.Resolve(context.Resource);
+
         WriteBuildContextIgnore(appDirectory, DefaultBuildContextIgnoreContent, context);
 
         // Phoenix builds its assets from the `assets` directory. A project without that directory has no
@@ -165,7 +169,7 @@ internal static partial class ElixirDockerfileGenerator
         build
             .WorkDir(ContainerAppDirectory)
             .Run("mix local.hex --force && mix local.rebar --force")
-            .Env("MIX_ENV", "prod");
+            .Env("MIX_ENV", mixEnv);
 
         // The manifest, the lock file, and the configuration change less often than the source, so they
         // are copied first. That keeps the dependency layer in the cache across source edits.
@@ -188,7 +192,7 @@ internal static partial class ElixirDockerfileGenerator
         if (File.Exists(Path.Combine(appDirectory, "mix.exs")))
         {
             // Without mix.exs there is no dependency list to read, so the step would only fail later.
-            build.Run("mix deps.get --only prod && mix deps.compile");
+            build.Run($"mix deps.get --only {ShellQuote(mixEnv)} && mix deps.compile");
         }
 
         build
@@ -217,12 +221,12 @@ internal static partial class ElixirDockerfileGenerator
 
         runtime.CopyFrom(
             "build",
-            $"{ContainerAppDirectory}/_build/prod/rel/{releaseName}",
+            $"{ContainerAppDirectory}/_build/{mixEnv}/rel/{releaseName}",
             "./",
             $"{NonRootUser}:{NonRootUser}");
 
         // The release reads MIX_ENV at boot to select its runtime configuration.
-        runtime.Env("MIX_ENV", "prod");
+        runtime.Env("MIX_ENV", mixEnv);
 
         if (isPhoenix)
         {
@@ -233,7 +237,10 @@ internal static partial class ElixirDockerfileGenerator
 
         runtime
             .User(NonRootUser)
-            .Cmd([$"{ContainerAppDirectory}/bin/{releaseName}", "start"]);
+            // The launcher is the entry point, so container arguments that a deployment target adds
+            // reach the launcher. With CMD those arguments would replace the launcher.
+            .Entrypoint([$"{ContainerAppDirectory}/bin/{releaseName}"])
+            .Cmd(["start"]);
     }
 
     /// <summary>
@@ -265,7 +272,10 @@ internal static partial class ElixirDockerfileGenerator
 
         runtime
             .User(NonRootUser)
-            .Cmd([$"{ContainerAppDirectory}/bin/{releaseName}", "start"]);
+            // The launcher is the entry point, so container arguments that a deployment target adds
+            // reach the launcher. With CMD those arguments would replace the launcher.
+            .Entrypoint([$"{ContainerAppDirectory}/bin/{releaseName}"])
+            .Cmd(["start"]);
     }
 
     /// <summary>

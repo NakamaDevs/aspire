@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
     <IsPackable>true</IsPackable>
-    <PackageTags>aspire integration hosting elixir mix beam erlang</PackageTags>
+    <PackageTags>aspire integration hosting elixir phoenix mix beam erlang framework runtime</PackageTags>
     <Description>Elixir support for Aspire.</Description>
     <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
   </PropertyGroup>

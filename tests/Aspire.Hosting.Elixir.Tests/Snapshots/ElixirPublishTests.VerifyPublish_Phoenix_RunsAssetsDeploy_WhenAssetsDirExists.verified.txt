@@ -6,7 +6,7 @@ ENV MIX_ENV=prod
 COPY mix.exs ./
 COPY mix.lock ./
 COPY config config
-RUN mix deps.get --only prod && mix deps.compile
+RUN mix deps.get --only 'prod' && mix deps.compile
 COPY . .
 RUN mix compile
 RUN mix assets.deploy
@@ -24,4 +24,5 @@ COPY --from=build --chown=app:app /app/_build/prod/rel/web_app ./
 ENV MIX_ENV=prod
 ENV PHX_SERVER=true
 USER app
-CMD ["/app/bin/web_app","start"]
+ENTRYPOINT ["/app/bin/web_app"]
+CMD ["start"]

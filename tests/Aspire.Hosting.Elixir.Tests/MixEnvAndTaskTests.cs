@@ -146,7 +146,7 @@ public class MixEnvAndTaskTests
 
         var env = await EnvironmentVariableEvaluator.GetEnvironmentVariablesAsync(app.Resource);
 
-        Assert.Equal("--sname api --cookie s3cret", env["ELIXIR_ERL_OPTIONS"]);
+        Assert.Equal("-sname api -setcookie s3cret", env["ELIXIR_ERL_OPTIONS"]);
         Assert.Equal("api", env["RELEASE_NODE"]);
         Assert.Equal("s3cret", env["RELEASE_COOKIE"]);
     }
@@ -177,7 +177,24 @@ public class MixEnvAndTaskTests
 
         var env = await EnvironmentVariableEvaluator.GetEnvironmentVariablesAsync(app.Resource);
 
-        Assert.Equal("+K true --sname api --cookie s3cret", env["ELIXIR_ERL_OPTIONS"]);
+        Assert.Equal("+K true -sname api -setcookie s3cret", env["ELIXIR_ERL_OPTIONS"]);
+    }
+
+    [Fact]
+    public async Task WithElixirErlOptions_KeepsBracesLiteral()
+    {
+        using var builder = TestDistributedApplicationBuilder.Create();
+        var cookie = builder.AddParameter("cookie", "s3cret", secret: true);
+
+        // The value reaches a reference expression, which treats a brace as a placeholder. Without an
+        // escape the cookie would take the place of {0}.
+        var app = builder.AddElixirApp("api", builder.AppHostDirectory)
+            .WithElixirErlOptions("-eval {0}")
+            .WithNodeName("api", cookie);
+
+        var env = await EnvironmentVariableEvaluator.GetEnvironmentVariablesAsync(app.Resource);
+
+        Assert.Equal("-eval {0} -sname api -setcookie s3cret", env["ELIXIR_ERL_OPTIONS"]);
     }
 
     // ---- Manifest ---------------------------------------------------------------------
