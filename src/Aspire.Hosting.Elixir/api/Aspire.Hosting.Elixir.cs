@@ -64,9 +64,6 @@ namespace Aspire.Hosting
             where T : Elixir.ElixirAppResource { throw null; }
 
         [AspireExport]
-        public static ApplicationModel.IResourceBuilder<Elixir.PhoenixAppResource> WithPhoenixHealthCheck(this ApplicationModel.IResourceBuilder<Elixir.PhoenixAppResource> builder, string path = "/health") { throw null; }
-
-        [AspireExport]
         public static ApplicationModel.IResourceBuilder<T> WithReleaseName<T>(this ApplicationModel.IResourceBuilder<T> builder, string name)
             where T : Elixir.ElixirAppResource { throw null; }
     }

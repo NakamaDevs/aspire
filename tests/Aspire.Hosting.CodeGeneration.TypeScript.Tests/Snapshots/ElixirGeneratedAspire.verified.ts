@@ -128,7 +128,6 @@ withNodeName(name: string, options?: WithNodeNameOptions): PhoenixAppResourcePro
 withEctoDatabase(database: Awaitable<ResourceWithConnectionString>): PhoenixAppResourcePromise;
 withEctoMigrate(): PhoenixAppResourcePromise;
 withReleaseName(name: string): PhoenixAppResourcePromise;
-withPhoenixHealthCheck(options?: WithPhoenixHealthCheckOptions): PhoenixAppResourcePromise;
 withLiveReload(options?: WithLiveReloadOptions): PhoenixAppResourcePromise;
 withAppArgs(args: any[]): PhoenixAppResourcePromise;
 withMixDeps(options?: WithMixDepsOptions): PhoenixAppResourcePromise;
@@ -141,7 +140,6 @@ withNodeName(name: string, options?: WithNodeNameOptions): PhoenixAppResourcePro
 withEctoDatabase(database: Awaitable<ResourceWithConnectionString>): PhoenixAppResourcePromise;
 withEctoMigrate(): PhoenixAppResourcePromise;
 withReleaseName(name: string): PhoenixAppResourcePromise;
-withPhoenixHealthCheck(options?: WithPhoenixHealthCheckOptions): PhoenixAppResourcePromise;
 private async _withLiveReloadInternal(enabled?: boolean): Promise<PhoenixAppResource> {
 'Aspire.Hosting.Elixir/withLiveReload',
 withLiveReload(options?: WithLiveReloadOptions): PhoenixAppResourcePromise {
@@ -188,10 +186,6 @@ private async _withReleaseNameInternal(name: string): Promise<PhoenixAppResource
 'Aspire.Hosting.Elixir/withReleaseName',
 withReleaseName(name: string): PhoenixAppResourcePromise {
 return new PhoenixAppResourcePromiseImpl(this._withReleaseNameInternal(name), this._client);
-private async _withPhoenixHealthCheckInternal(path?: string): Promise<PhoenixAppResource> {
-'Aspire.Hosting.Elixir/withPhoenixHealthCheck',
-withPhoenixHealthCheck(options?: WithPhoenixHealthCheckOptions): PhoenixAppResourcePromise {
-return new PhoenixAppResourcePromiseImpl(this._withPhoenixHealthCheckInternal(path), this._client);
 withLiveReload(options?: WithLiveReloadOptions): PhoenixAppResourcePromise {
 return new PhoenixAppResourcePromiseImpl(this._promise.then(obj => obj.withLiveReload(options)), this._client);
 withAppArgs(args: any[]): PhoenixAppResourcePromise {
@@ -216,5 +210,3 @@ withEctoMigrate(): PhoenixAppResourcePromise {
 return new PhoenixAppResourcePromiseImpl(this._promise.then(obj => obj.withEctoMigrate()), this._client);
 withReleaseName(name: string): PhoenixAppResourcePromise {
 return new PhoenixAppResourcePromiseImpl(this._promise.then(obj => obj.withReleaseName(name)), this._client);
-withPhoenixHealthCheck(options?: WithPhoenixHealthCheckOptions): PhoenixAppResourcePromise {
-return new PhoenixAppResourcePromiseImpl(this._promise.then(obj => obj.withPhoenixHealthCheck(options)), this._client);

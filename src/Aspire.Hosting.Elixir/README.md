@@ -183,9 +183,8 @@ config :my_app, MyAppWeb.Endpoint,
   secret_key_base: System.get_env("SECRET_KEY_BASE")
 ```
 
-`AddPhoenixApp` accepts every method that `AddElixirApp` accepts. `.WithPhoenixHealthCheck()` adds an
-HTTP health check on `/health`, and the application must serve the path. Use the framework method
-`.WithHttpHealthCheck(...)` when you also need a different status code or endpoint name.
+`AddPhoenixApp` accepts every method that `AddElixirApp` accepts. Use the framework method
+`.WithHttpHealthCheck("/health")` to add an HTTP health check. The application must serve the path.
 
 ## Databases and Ecto
 

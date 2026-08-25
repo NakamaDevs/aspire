@@ -1126,35 +1126,6 @@ public static class ElixirHostingExtensions
     }
 
     /// <summary>
-    /// Adds an HTTP health check that reads a path of the Phoenix endpoint.
-    /// </summary>
-    /// <param name="builder">The resource builder for the Phoenix application.</param>
-    /// <param name="path">The path of the health check. The default is <c>/health</c>.</param>
-    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
-    /// <ats-returns>The resource builder.</ats-returns>
-    /// <remarks>
-    /// The application must serve the path. Add a route to the Phoenix router, or use a plug such as
-    /// <c>PlugCheckup</c>. The check reports healthy when the path answers with status 200.
-    /// </remarks>
-    /// <example>
-    /// Add a health check that reads <c>/healthz</c>:
-    /// <code lang="csharp">
-    /// builder.AddPhoenixApp("web", "../phoenix-web")
-    ///        .WithPhoenixHealthCheck("/healthz");
-    /// </code>
-    /// </example>
-    [AspireExport]
-    public static IResourceBuilder<PhoenixAppResource> WithPhoenixHealthCheck(
-        this IResourceBuilder<PhoenixAppResource> builder,
-        string path = "/health")
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentException.ThrowIfNullOrEmpty(path);
-
-        return builder.WithHttpHealthCheck(path);
-    }
-
-    /// <summary>
     /// Adds a Mix release that another build step already produced. Elixir and Mix are not necessary.
     /// </summary>
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/> to add the resource to.</param>

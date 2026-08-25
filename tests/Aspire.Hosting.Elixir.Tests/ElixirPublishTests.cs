@@ -512,31 +512,6 @@ public class ElixirPublishTests(ITestOutputHelper outputHelper)
         Assert.DoesNotContain("SECRET_KEY_BASE", content);
     }
 
-    // ---- WithPhoenixHealthCheck ----------------------------------------------
-
-    [Fact]
-    public void WithPhoenixHealthCheck_AddsHttpHealthCheck()
-    {
-        using var builder = TestDistributedApplicationBuilder.Create();
-
-        var app = builder.AddPhoenixApp("web", AppContext.BaseDirectory)
-                         .WithPhoenixHealthCheck();
-
-        Assert.True(app.Resource.TryGetAnnotationsOfType<HealthCheckAnnotation>(out var annotations));
-        Assert.NotEmpty(annotations);
-    }
-
-    [Fact]
-    public void WithPhoenixHealthCheck_ThrowsOnNullBuilder()
-    {
-        IResourceBuilder<PhoenixAppResource> builder = null!;
-
-        var action = () => builder.WithPhoenixHealthCheck();
-
-        var exception = Assert.Throws<ArgumentNullException>(action);
-        Assert.Equal(nameof(builder), exception.ParamName);
-    }
-
     private static void WriteMixExs(string appDirectory, string appName)
     {
         File.WriteAllText(Path.Combine(appDirectory, "mix.exs"), $$"""

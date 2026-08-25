@@ -22,5 +22,4 @@ Aspire.Hosting.Elixir/withMixCompile() -> Aspire.Hosting.Elixir/Aspire.Hosting.E
 Aspire.Hosting.Elixir/withMixDeps(install?: boolean) -> Aspire.Hosting.Elixir/Aspire.Hosting.Elixir.ElixirAppResource
 Aspire.Hosting.Elixir/withMixEnv(env: string) -> Aspire.Hosting.Elixir/Aspire.Hosting.Elixir.ElixirAppResource
 Aspire.Hosting.Elixir/withMixTask(task: string, args: any[]) -> Aspire.Hosting.Elixir/Aspire.Hosting.Elixir.ElixirAppResource
-Aspire.Hosting.Elixir/withPhoenixHealthCheck(path?: string) -> Aspire.Hosting.Elixir/Aspire.Hosting.Elixir.PhoenixAppResource
 Aspire.Hosting.Elixir/withReleaseName(name: string) -> Aspire.Hosting.Elixir/Aspire.Hosting.Elixir.ElixirAppResource
