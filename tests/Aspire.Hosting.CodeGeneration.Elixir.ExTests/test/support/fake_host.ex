@@ -103,6 +103,7 @@ defmodule Aspire.FakeHost do
   def handle_call(:received_bytes, _from, state), do: {:reply, state.received, state}
 
   def handle_call({:send_raw, bytes}, _from, state) do
+    state = ensure_socket(state)
     :ok = :gen_tcp.send(state.socket, bytes)
     {:reply, :ok, state}
   end
@@ -116,8 +117,7 @@ defmodule Aspire.FakeHost do
 
   @impl true
   def handle_info({:accepted, socket}, state) do
-    :ok = :inet.setopts(socket, active: :once)
-    {:noreply, %{state | socket: socket}}
+    {:noreply, attach_socket(state, socket)}
   end
 
   def handle_info({:tcp, socket, data}, state) do
@@ -144,6 +144,24 @@ defmodule Aspire.FakeHost do
   end
 
   # ── Internals ─────────────────────────────────────────────────────────────
+
+  # The guest can finish `connect/1` before the acceptor task delivers
+  # `{:accepted, socket}`. A test that pushes a frame right after connecting
+  # must wait for that message instead of sending on a nil socket.
+  defp ensure_socket(%{socket: nil} = state) do
+    receive do
+      {:accepted, socket} -> attach_socket(state, socket)
+    after
+      2_000 -> raise "FakeHost: no client connected within 2s"
+    end
+  end
+
+  defp ensure_socket(state), do: state
+
+  defp attach_socket(state, socket) do
+    :ok = :inet.setopts(socket, active: :once)
+    %{state | socket: socket}
+  end
 
   defp handle_frame(body, state) do
     message = JSON.decode!(body)
