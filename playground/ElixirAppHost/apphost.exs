@@ -33,19 +33,16 @@ appdb =
 
 cache = Builder.add_redis!(builder, "cache")
 
-# A fluent function returns the declared base handle, not the resource handle. The base
-# handle modules hold no functions, so a plain pipe stops after one step. `tap/2` keeps
-# the resource struct in the pipe. See "Known limits" in README.md.
 builder
 |> Builder.add_phoenix_app!("web", "../ElixirApps/phoenix_web")
-|> tap(&PhoenixAppResource.with_ecto_database!(&1, appdb))
-|> tap(&PhoenixAppResource.with_ecto_migrate!/1)
-|> tap(&PhoenixAppResource.with_external_http_endpoints!/1)
+|> PhoenixAppResource.with_ecto_database!(appdb)
+|> PhoenixAppResource.with_ecto_migrate!()
+|> PhoenixAppResource.with_external_http_endpoints!()
 
 builder
 |> Builder.add_elixir_app!("worker", "../ElixirApps/worker")
-|> tap(&ElixirAppResource.with_reference!(&1, cache))
-|> tap(&ElixirAppResource.wait_for!(&1, cache))
+|> ElixirAppResource.with_reference!(cache)
+|> ElixirAppResource.wait_for!(cache)
 
 builder
 |> Aspire.build!()

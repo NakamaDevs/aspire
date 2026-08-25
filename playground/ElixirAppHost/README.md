@@ -19,17 +19,15 @@ cache = Builder.add_redis!(builder, "cache")
 
 builder
 |> Builder.add_phoenix_app!("web", "../ElixirApps/phoenix_web")
-|> tap(&PhoenixAppResource.with_ecto_database!(&1, appdb))
-|> tap(&PhoenixAppResource.with_ecto_migrate!/1)
-|> tap(&PhoenixAppResource.with_external_http_endpoints!/1)
+|> PhoenixAppResource.with_ecto_database!(appdb)
+|> PhoenixAppResource.with_ecto_migrate!()
+|> PhoenixAppResource.with_external_http_endpoints!()
 
 builder
 |> Builder.add_elixir_app!("worker", "../ElixirApps/worker")
-|> tap(&ElixirAppResource.with_reference!(&1, cache))
-|> tap(&ElixirAppResource.wait_for!(&1, cache))
+|> ElixirAppResource.with_reference!(cache)
+|> ElixirAppResource.wait_for!(cache)
 ```
-
-`tap/2` is necessary today. Read "Known limits" below.
 
 ## Layout
 
@@ -97,6 +95,8 @@ The results come from a run on 2026-08-25 on macOS 26 (Apple Silicon), with Elix
 Erlang/OTP 28. The CLI came from `artifacts/bin/Aspire.Cli/Debug/net10.0/aspire` on branch
 `feature/elixir-integration`, with `ASPIRE_REPO_ROOT` set.
 
+A second run after commit `a266726fa` (fluent functions return the receiver type) used the plain pipe chains shown above. `aspire describe` reported `appdb`, `cache`, `db`, `web`, and `worker` as Running and Healthy, and `web-mix-deps`, `web-ecto-migrate`, and `worker-mix-deps` as Finished. `aspire stop` left no BEAM process.
+
 | Step | Result | Evidence |
 | --- | --- | --- |
 | 1. Generate the SDK | Pass | `Generated 37 Elixir files in .../ElixirAppHost/.aspire/modules (37 changed)` |
@@ -153,7 +153,7 @@ $ curl -o /dev/null -w "%{http_code}" http://localhost:64488/health
 The test added one line to the worker chain in `apphost.exs`:
 
 ```elixir
-|> tap(&ElixirAppResource.with_environment!(&1, "DEMO", "1"))
+|> ElixirAppResource.with_environment!("DEMO", "1")
 ```
 
 The CLI log recorded the restart:
@@ -195,27 +195,11 @@ and `worker`.
 
 ## Known limits
 
-### A fluent function returns the base handle
+### Fluent functions return the receiver type
 
-Every fluent function in the generated SDK returns the **declared** handle type, not the
-resource type of the receiver. Example:
-
-```elixir
-@spec with_ecto_database!(t(), ...) :: Aspire.Elixir.ElixirAppResource.t()
-@spec with_reference!(t(), term(), keyword()) :: Aspire.ResourceWithEnvironment.t()
-@spec wait_for!(t(), Aspire.Resource.t(), keyword()) :: Aspire.ResourceWithWaitSupport.t()
-```
-
-`Aspire.ResourceWithEnvironment`, `Aspire.ResourceWithEndpoints`, and
-`Aspire.ResourceWithWaitSupport` are structs with no functions. A plain pipe therefore stops
-after one step, and a second step raises `FunctionClauseError`.
-
-The handle identity does not change, so `tap/2` is a correct workaround. It calls the function
-and keeps the original struct in the pipe.
-
-The TypeScript, Python, and Java generators do not have this problem. They read
-`AtsCapabilityInfo.ReturnsBuilder` and return the receiver type. `AtsElixirCodeGenerator`
-does not read that property. See NAK-516 for the report.
+Commit `a266726fa` fixed the generator so a fluent function such as `with_ecto_database!/2`
+returns the receiver struct. A plain pipe chain now works. The first playground run used
+`tap/2` as a workaround; that is no longer necessary.
 
 ### Erlang TLS and the development certificate
 

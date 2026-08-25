@@ -1290,8 +1290,8 @@ cache = Builder.add_redis!(builder, "cache")
 
 builder
 |> Builder.add_phoenix_app!("web", "./phoenix_web")
-|> tap(&PhoenixAppResource.with_ecto_database!(&1, appdb))
-|> tap(&PhoenixAppResource.with_external_http_endpoints!/1)
+|> PhoenixAppResource.with_ecto_database!(appdb)
+|> PhoenixAppResource.with_external_http_endpoints!()
 
 builder
 |> Aspire.build!()
@@ -1465,7 +1465,6 @@ Code.require_file(".aspire/modules/aspire.ex", __DIR__)
 
 ### Known Limits
 
-- **A fluent function returns the declared base handle.** The generator does not read `AtsCapabilityInfo.ReturnsBuilder`. A generic fluent capability such as `IResourceBuilder<T> WithEctoDatabase<T>(this IResourceBuilder<T>, …)` therefore returns the struct of the constraint type, not the struct of the receiver. The base handle modules hold no functions, so a plain pipe stops after one step. The handle identity does not change, so `tap/2` is a correct workaround. The TypeScript, Python, and Java generators read `ReturnsBuilder` and do not have this problem.
 - **Windows named pipes are not supported.** The transport uses a `:gen_tcp` Unix domain socket only. See NAK-519.
 - **A guest AppHost cannot select a launch profile.** `GuestAppHostProject.SupportsLaunchProfiles` is `false`. The CLI reads the `https` profile of `apphost.run.json` when one exists, and the first profile otherwise.
 - **Erlang TLS refuses the Aspire development certificate.** The `:ssl` application does not accept a self-signed leaf certificate, even when `SSL_CERT_FILE` names a bundle that holds the same certificate. An OTLP exporter in a guest Elixir application therefore needs an HTTP endpoint.
