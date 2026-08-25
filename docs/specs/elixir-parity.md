@@ -12,20 +12,43 @@ The Elixir test names in this table come from a mechanical, best-effort translat
 
 | Source project | Total | Planned | Written | Passing | n/a |
 |---|---:|---:|---:|---:|---:|
-| Go | 94 | 59 | 15 | 0 | 20 |
-| Python | 96 | 90 | 3 | 0 | 3 |
-| JavaScript | 169 | 152 | 6 | 0 | 11 |
-| Java | 237 | 193 | 1 | 0 | 43 |
-| Rust CodeGen | 24 | 24 | 0 | 0 | 0 |
-| Go CodeGen | 25 | 25 | 0 | 0 | 0 |
-| Python CodeGen | 22 | 22 | 0 | 0 | 0 |
-| Java CodeGen | 40 | 40 | 0 | 0 | 0 |
-| TypeScript CodeGen | 114 | 114 | 0 | 0 | 0 |
-| TypeScript JsTests (vitest) | 28 | 28 | 0 | 0 | 0 |
-| CLI E2E Polyglot | 7 | 6 | 0 | 0 | 1 |
-| **Total** | **856** | **753** | **25** | **0** | **78** |
+| Go | 94 | 36 | 38 | 38 | 20 |
+| Python | 96 | 79 | 14 | 14 | 3 |
+| JavaScript | 169 | 148 | 10 | 10 | 11 |
+| Java | 237 | 184 | 10 | 10 | 43 |
+| Rust CodeGen | 24 | 4 | 20 | 20 | 0 |
+| Go CodeGen | 25 | 3 | 22 | 22 | 0 |
+| Python CodeGen | 22 | 4 | 18 | 18 | 0 |
+| Java CodeGen | 40 | 22 | 18 | 18 | 0 |
+| TypeScript CodeGen | 114 | 83 | 31 | 31 | 0 |
+| TypeScript JsTests (vitest) | 28 | 21 | 7 | 7 | 0 |
+| CLI E2E Polyglot | 7 | 2 | 4 | 0 | 1 |
+| **Total** | **856** | **586** | **192** | **188** | **78** |
 
-Passing starts at 0 for every project. This document does not run any test. Update the Passing count by hand after a verification run. Record the run date in the pull request that updates this file.
+A written row counts as Passing when its Elixir test belongs to a suite that
+ran green. The CLI E2E Polyglot rows are the one exception: their tests exist
+but no run has executed them yet, so they count as Written but not Passing.
+Update the Passing count by hand after each verification run. Record the run
+date in the pull request that updates this file.
+
+### Verification runs
+
+All runs below are from 2026-08-25 on branch `feature/elixir-integration`.
+
+| Suite | Result |
+|---|---|
+| Aspire.Hosting.Elixir.Tests | 145 of 146 cases pass; 1 Windows-only case skipped (`AddMixRelease_UsesStartBatOnWindows`) |
+| Aspire.Hosting.Elixir.Tests (outerloop) | 2 of 2 pass |
+| Aspire.Hosting.CodeGeneration.Elixir.Tests | 74 of 74 pass |
+| Aspire.Hosting.CodeGeneration.Elixir.ExTests (ExUnit) | 27 of 27 pass |
+| Aspire.Hosting.CodeGeneration.TypeScript.Tests (`ElixirAssemblyExportTests`) | 4 of 4 pass |
+| Aspire.Cli.Tests (Elixir tests) | 6 of 6 pass |
+| Aspire.Cli.EndToEnd.Tests (Elixir polyglot tests) | 5 tests written; 0 run — running them needs a CLI built from this branch |
+
+`ElixirAssemblyExportTests` and the Aspire.Cli.Tests Elixir tests do not yet
+have a row in the tables below. No row currently names those tests, so their
+green results do not change any Written or Passing count in the Summary
+table above.
 
 ## Milestones and tickets
 
@@ -46,44 +69,44 @@ M1 source: `tests/Aspire.Hosting.Go.Tests`. Target: `tests/Aspire.Hosting.Elixir
 | AddGoAppTests.VerifyManifest_AddGoApp_RaceDetectorParam | n/a — the BEAM scheduler has no data-race detector comparable to Go's -race flag | NAK-492 | n/a |
 | AddGoAppTests.VerifyManifest_AddGoApp_AllBuildParams | VerifyManifest_AddElixirApp_AllRunParams | NAK-492 | planned |
 | AddGoAppTests.VerifyManifest_WithAppArgs | VerifyManifest_WithAppArgs | NAK-489 | written |
-| AddGoAppTests.VerifyManifest_WithModTidy_DoesNotAlterMainManifest | VerifyManifest_WithMixDeps_DoesNotAlterMainManifest | NAK-491 | planned |
+| AddGoAppTests.VerifyManifest_WithModTidy_DoesNotAlterMainManifest | VerifyManifest_WithMixDeps_DoesNotAlterMainManifest | NAK-491 | written |
 | AddGoAppTests.VerifyManifest_WithModVendor_DoesNotAlterMainManifest | n/a — mix has no vendor step; mix deps.get already caches dependencies under deps/ | NAK-491 | n/a |
-| AddGoAppTests.VerifyManifest_WithModDownload_DoesNotAlterMainManifest | VerifyManifest_WithMixDeps_DoesNotAlterMainManifest | NAK-491 | planned |
+| AddGoAppTests.VerifyManifest_WithModDownload_DoesNotAlterMainManifest | VerifyManifest_WithMixDeps_DoesNotAlterMainManifest | NAK-491 | written |
 | AddGoAppTests.VerifyManifest_WithDelveServer | VerifyManifest_WithElixirLsServer | NAK-497 | planned |
 | AddGoAppTests.VerifyManifest_WithDelveServer_EnableAcceptMultiClient | n/a — dlv's multi-client flag has no ElixirLS Debug Adapter Protocol equivalent | NAK-497 | n/a |
 | AddGoAppTests.VerifyManifest_WithDelveServer_DisableOnlySameUser | n/a — dlv's only-same-user socket restriction has no ElixirLS Debug Adapter Protocol equivalent | NAK-497 | n/a |
 | AddGoAppTests.VerifyManifest_WithDelveServer_ContinueOnStart | n/a — dlv's continue-on-start flag has no ElixirLS Debug Adapter Protocol equivalent | NAK-497 | n/a |
 | AddGoAppTests.VerifyManifest_WithDelveServer_EnableLog | n/a — dlv's server-log flag has no ElixirLS Debug Adapter Protocol equivalent | NAK-497 | n/a |
 | AddGoAppTests.WithDelveServer_UsesDelveCommandWhenGoLaunchConfigurationIsSupported | WithElixirLsServer_UsesElixirLsCommandWhenElixirLaunchConfigurationIsSupported | NAK-497 | planned |
-| AddGoAppTests.WithVSCodeDebugging_PopulatesGoLaunchConfiguration | WithVSCodeDebugging_PopulatesElixirLaunchConfiguration | NAK-497 | planned |
+| AddGoAppTests.WithVSCodeDebugging_PopulatesGoLaunchConfiguration | WithVSCodeDebugging_PopulatesElixirLaunchConfiguration | NAK-497 | written |
 | AddGoAppTests.WithVSCodeDebugging_OmitsBuildFlagsWhenNoneConfigured | WithVSCodeDebugging_OmitsCompileFlagsWhenNoneConfigured | NAK-497 | planned |
-| AddGoAppTests.WithVSCodeDebugging_KeepsGoToolArgumentsInTheAppModel | WithVSCodeDebugging_KeepsMixTaskArgumentsInTheAppModel | NAK-497 | planned |
+| AddGoAppTests.WithVSCodeDebugging_KeepsGoToolArgumentsInTheAppModel | WithVSCodeDebugging_KeepsMixArgumentsInTheAppModel | NAK-497 | written |
 | AddGoAppTests.WithVSCodeDebugging_GoToolArgumentsLeadTheCommandLineRegardlessOfCallOrder | WithVSCodeDebugging_MixTaskArgumentsLeadTheCommandLineRegardlessOfCallOrder | NAK-497 | planned |
-| AddGoAppTests.WithVSCodeDebugging_DoesNotRemoveGoToolArguments_WhenGoLaunchConfigurationUnsupported | WithVSCodeDebugging_DoesNotRemoveMixTaskArguments_WhenElixirLaunchConfigurationUnsupported | NAK-497 | planned |
+| AddGoAppTests.WithVSCodeDebugging_DoesNotRemoveGoToolArguments_WhenGoLaunchConfigurationUnsupported | WithVSCodeDebugging_DoesNotRemoveMixArguments_WhenElixirLaunchConfigurationUnsupported | NAK-497 | written |
 | AddGoAppTests.VerifyManifest_WithDelveServer_AndBuildFlags | VerifyManifest_WithElixirLsServer_AndCompileFlags | NAK-497 | planned |
 | AddGoAppTests.VerifyManifest_WithDelveServer_AndRaceDetector | n/a — no BEAM equivalent for this Go compiler/runtime flag | NAK-497 | n/a |
 | AddGoAppTests.VerifyManifest_WithDelveServer_AndGcFlags | n/a — no BEAM equivalent for this Go compiler/runtime flag | NAK-497 | n/a |
 | AddGoAppTests.VerifyManifest_WithDelveServer_AndAppArgs | VerifyManifest_WithElixirLsServer_AndAppArgs | NAK-497 | planned |
-| AddGoAppTests.VerifyPublish_GeneratesDockerfile_WithGoVersionFromGoMod | VerifyPublish_GeneratesDockerfile_WithGoVersionFromToolVersions | NAK-498 | planned |
+| AddGoAppTests.VerifyPublish_GeneratesDockerfile_WithGoVersionFromGoMod | VerifyPublish_GeneratesDockerfile_WithVersionsFromToolVersions | NAK-498 | written |
 | AddGoAppTests.VerifyPublish_UsesDefaultGoVersion_WhenGoModAbsent | VerifyPublish_UsesDefaultGoVersion_WhenToolVersionsAbsent | NAK-498 | planned |
 | AddGoAppTests.VerifyPublish_PropagatesBuildFlagsToDockerfile | VerifyPublish_PropagatesCompileFlagsToDockerfile | NAK-498 | planned |
-| AddGoAppTests.VerifyPublish_ShellQuote_HandlesEmbeddedSingleQuotes | VerifyPublish_ShellQuote_HandlesEmbeddedSingleQuotes | NAK-498 | planned |
-| AddGoAppTests.VerifyPublish_SkipsDockerfileGeneration_WhenDockerfileExists | VerifyPublish_SkipsDockerfileGeneration_WhenDockerfileExists | NAK-498 | planned |
-| AddGoAppTests.VerifyPublish_RespectsDockerfileBaseImageAnnotation | VerifyPublish_RespectsDockerfileBaseImageAnnotation | NAK-498 | planned |
+| AddGoAppTests.VerifyPublish_ShellQuote_HandlesEmbeddedSingleQuotes | VerifyPublish_ShellQuote_HandlesEmbeddedSingleQuotes | NAK-498 | written |
+| AddGoAppTests.VerifyPublish_SkipsDockerfileGeneration_WhenDockerfileExists | VerifyPublish_SkipsDockerfileGeneration_WhenDockerfileExists | NAK-498 | written |
+| AddGoAppTests.VerifyPublish_RespectsDockerfileBaseImageAnnotation | VerifyPublish_RespectsDockerfileBaseImageAnnotation | NAK-498 | written |
 | AddGoAppTests.VerifyPublish_WithGoPrivate_GeneratesNetrcAndGoprivate | VerifyPublish_WithHexOrganizationAuth_GeneratesNetrcAndGoprivate | NAK-498 | planned |
 | AddGoAppTests.VerifyPublish_WithGoPrivate_CustomTokenSecretId | VerifyPublish_WithHexOrganizationAuth_CustomTokenSecretId | NAK-498 | planned |
 | AddGoAppTests.GoAppResource_ImplementsIContainerFilesDestinationResource | ElixirAppResource_ImplementsIContainerFilesDestinationResource | NAK-489 | written |
 | AddGoAppTests.PublishWithContainerFiles_AddsAnnotationToGoResource | PublishWithContainerFiles_AddsAnnotationToGoResource | NAK-498 | planned |
-| AddGoAppTests.VerifyPublish_ContainerFiles_GeneratesFromAndCopyInstructions | VerifyPublish_ContainerFiles_GeneratesFromAndCopyInstructions | NAK-498 | planned |
-| AddGoAppTests.VerifyPublish_ContainerFiles_MultipleSourcesAllPresent | VerifyPublish_ContainerFiles_MultipleSourcesAllPresent | NAK-498 | planned |
+| AddGoAppTests.VerifyPublish_ContainerFiles_GeneratesFromAndCopyInstructions | VerifyPublish_ContainerFiles_GeneratesFromAndCopyInstructions | NAK-498 | written |
+| AddGoAppTests.VerifyPublish_ContainerFiles_MultipleSourcesAllPresent | VerifyPublish_ContainerFiles_MultipleSourcesAllPresent | NAK-498 | written |
 | AddGoAppTests.AddGoApp_HasRequiredCommandAnnotationForGo | AddElixirApp_HasRequiredCommandAnnotationForMixAndElixir | NAK-489 | written |
 | AddGoAppTests.WithDelveServer_AddsRequiredCommandAnnotationForDlv | WithElixirLsServer_AddsRequiredCommandAnnotationForElixirLs | NAK-497 | planned |
 | AddGoAppTests.VerifyPublish_RaceDetector_NotPropagatedToDockerfile | n/a — the BEAM scheduler has no data-race detector comparable to Go's -race flag | NAK-498 | n/a |
 | AddGoAppTests.WithModTidy_ThenWithModVendor_VendorWaitsForTidy | n/a — mix has no vendor step; mix deps.get already caches dependencies under deps/ | NAK-491 | n/a |
 | AddGoAppTests.WithModTidy_ThenWithModDownload_DownloadWaitsForTidy | WithMixDeps_ThenWithMixDeps_DownloadWaitsForTidy | NAK-491 | planned |
 | AddGoAppTests.WithModTidy_ThenWithModVendor_ThenWithModDownload_DownloadWaitsForVendor | n/a — mix has no vendor step; mix deps.get already caches dependencies under deps/ | NAK-491 | n/a |
-| AddGoAppTests.VerifyPublish_RuntimeStage_HasNonRootUser_Alpine | VerifyPublish_RuntimeStage_HasNonRootUser_Alpine | NAK-498 | planned |
-| AddGoAppTests.VerifyPublish_RuntimeStage_HasNonRootUser_NonAlpine | VerifyPublish_RuntimeStage_HasNonRootUser_NonAlpine | NAK-498 | planned |
+| AddGoAppTests.VerifyPublish_RuntimeStage_HasNonRootUser_Alpine | VerifyPublish_RuntimeStage_HasNonRootUser | NAK-498 | written |
+| AddGoAppTests.VerifyPublish_RuntimeStage_HasNonRootUser_NonAlpine | VerifyPublish_RuntimeStage_HasNonRootUser | NAK-498 | written |
 | GoPublicApiTests.CtorGoAppResourceShouldThrowWhenNameIsNullOrEmpty | CtorElixirAppResourceShouldThrowWhenNameIsNullOrEmpty | NAK-489 | written |
 | GoPublicApiTests.CtorGoAppResourceShouldThrowWhenWorkingDirectoryIsNull | CtorElixirAppResourceShouldThrowWhenWorkingDirectoryIsNull | NAK-489 | written |
 | GoPublicApiTests.AddGoAppShouldThrowWhenBuilderIsNull | AddElixirAppShouldThrowWhenBuilderIsNull | NAK-489 | written |
@@ -104,15 +127,15 @@ M1 source: `tests/Aspire.Hosting.Go.Tests`. Target: `tests/Aspire.Hosting.Elixir
 | GoPublicApiTests.WithAppArgsPassesArgsAfterDot | WithAppArgsPassesArgsAfterSeparator | NAK-489 | written |
 | GoPublicApiTests.WithAppArgs_AcceptsReferenceExpression | WithAppArgs_AcceptsReferenceExpression | NAK-489 | written |
 | GoPublicApiTests.WithAppArgsReplacesOnSecondCall | WithAppArgsReplacesOnSecondCall | NAK-489 | written |
-| GoPublicApiTests.WithModTidyShouldThrowWhenBuilderIsNull | WithMixDepsShouldThrowWhenBuilderIsNull | NAK-491 | planned |
-| GoPublicApiTests.WithModTidyIsIdempotent | WithMixDepsIsIdempotent | NAK-491 | planned |
-| GoPublicApiTests.WithModTidyCreatesSiblingResource | WithMixDepsCreatesSiblingResource | NAK-491 | planned |
+| GoPublicApiTests.WithModTidyShouldThrowWhenBuilderIsNull | WithMixDepsShouldThrowWhenBuilderIsNull | NAK-491 | written |
+| GoPublicApiTests.WithModTidyIsIdempotent | WithMixDepsIsIdempotent | NAK-491 | written |
+| GoPublicApiTests.WithModTidyCreatesSiblingResource | WithMixDepsCreatesSiblingResource | NAK-491 | written |
 | GoPublicApiTests.WithModVendorShouldThrowWhenBuilderIsNull | n/a — mix has no vendor step; mix deps.get already caches dependencies under deps/ | NAK-491 | n/a |
 | GoPublicApiTests.WithModVendorIsIdempotent | n/a — mix has no vendor step; mix deps.get already caches dependencies under deps/ | NAK-491 | n/a |
 | GoPublicApiTests.WithModVendorCreatesSiblingResource | n/a — mix has no vendor step; mix deps.get already caches dependencies under deps/ | NAK-491 | n/a |
-| GoPublicApiTests.WithModDownloadShouldThrowWhenBuilderIsNull | WithMixDepsShouldThrowWhenBuilderIsNull | NAK-491 | planned |
-| GoPublicApiTests.WithModDownloadIsIdempotent | WithMixDepsIsIdempotent | NAK-491 | planned |
-| GoPublicApiTests.WithModDownloadCreatesSiblingResource | WithMixDepsCreatesSiblingResource | NAK-491 | planned |
+| GoPublicApiTests.WithModDownloadShouldThrowWhenBuilderIsNull | WithMixDepsShouldThrowWhenBuilderIsNull | NAK-491 | written |
+| GoPublicApiTests.WithModDownloadIsIdempotent | WithMixDepsIsIdempotent | NAK-491 | written |
+| GoPublicApiTests.WithModDownloadCreatesSiblingResource | WithMixDepsCreatesSiblingResource | NAK-491 | written |
 | GoPublicApiTests.WithVetToolShouldThrowWhenBuilderIsNull | WithMixTaskShouldThrowWhenBuilderIsNull | NAK-491 | planned |
 | GoPublicApiTests.WithVetToolIsIdempotent | WithMixTaskIsIdempotent | NAK-491 | planned |
 | GoPublicApiTests.WithVetToolCreatesSiblingResource | WithMixTaskCreatesSiblingResource | NAK-491 | planned |
@@ -125,12 +148,12 @@ M1 source: `tests/Aspire.Hosting.Go.Tests`. Target: `tests/Aspire.Hosting.Elixir
 | GoPublicApiTests.WithDelveServerOptionsProduceCorrectArgs | WithElixirLsServerOptionsProduceCorrectArgs | NAK-497 | planned |
 | GoPublicApiTests.WithDelveServerIncludesBuildFlagsWhenPresent | WithElixirLsServerIncludesCompileFlagsWhenPresent | NAK-497 | planned |
 | GoPublicApiTests.WithDelveServerPassesAppArgsAfterDoubleDash | WithElixirLsServerPassesAppArgsAfterDoubleDash | NAK-497 | planned |
-| GoVersionDetectorTests.Detect_ReturnsDefault_WhenGoModAbsent | Detect_ReturnsDefault_WhenToolVersionsAbsent | NAK-490 | planned |
+| GoVersionDetectorTests.Detect_ReturnsDefault_WhenGoModAbsent | Detect_ReturnsDefault_WhenNothingFound | NAK-490 | written |
 | GoVersionDetectorTests.Detect_ReadsGoDirective | Detect_ReadsToolVersionsEntry | NAK-490 | planned |
 | GoVersionDetectorTests.Detect_ReadsGoDirectiveWithPatch | Detect_ReadsToolVersionsEntryWithPatch | NAK-490 | planned |
-| GoVersionDetectorTests.Detect_PrefersToolchainOverGoDirective | Detect_PrefersToolVersionsOverrideOverToolVersionsEntry | NAK-490 | planned |
-| GoVersionDetectorTests.Detect_FallsBackToGoDirective_WhenNoToolchain | Detect_FallsBackToToolVersionsEntry_WhenNoToolVersionsOverride | NAK-490 | planned |
-| GoVersionDetectorTests.Detect_ReturnsDefault_WhenGoModHasNoRecognisedDirective | Detect_ReturnsDefault_WhenToolVersionsHasNoRecognisedEntry | NAK-490 | planned |
+| GoVersionDetectorTests.Detect_PrefersToolchainOverGoDirective | Detect_PrefersToolVersionsOverMixExs | NAK-490 | written |
+| GoVersionDetectorTests.Detect_FallsBackToGoDirective_WhenNoToolchain | Detect_FallsBackToMixExsRequirement_WhenNoToolVersions | NAK-490 | written |
+| GoVersionDetectorTests.Detect_ReturnsDefault_WhenGoModHasNoRecognisedDirective | Detect_ReturnsDefault_WhenMixExsHasNoElixirRequirement | NAK-490 | written |
 
 ## Python
 
@@ -138,10 +161,10 @@ M1 source: `tests/Aspire.Hosting.Python.Tests`. Target: `tests/Aspire.Hosting.El
 
 | Source test | Elixir test | Ticket | Status |
 |---|---|---|---|
-| AddPythonAppTests.AddPythonAppProducesDockerfileResourceInManifest | AddElixirAppProducesDockerfileResourceInManifest | NAK-498 | planned |
+| AddPythonAppTests.AddPythonAppProducesDockerfileResourceInManifest | AddElixirAppProducesDockerfileResourceInManifest | NAK-498 | written |
 | AddPythonAppTests.AddInstrumentedPythonProjectProducesDockerfileResourceInManifest | AddInstrumentedElixirAppProducesDockerfileResourceInManifest | NAK-498 | planned |
-| AddPythonAppTests.PythonResourceFinishesSuccessfully | ElixirAppResourceFinishesSuccessfully | NAK-489 | planned |
-| AddPythonAppTests.PythonResourceSupportsWithReference | ElixirAppResourceSupportsWithReference | NAK-496 | planned |
+| AddPythonAppTests.PythonResourceFinishesSuccessfully | ElixirResourceFinishesSuccessfully | NAK-489 | written |
+| AddPythonAppTests.PythonResourceSupportsWithReference | ElixirResourceSupportsWithReference | NAK-496 | written |
 | AddPythonAppTests.AddPythonApp_SetsResourcePropertiesCorrectly | AddElixirApp_SetsResourcePropertiesCorrectly | NAK-489 | planned |
 | AddPythonAppTests.AddPythonApp_ObsoleteMethod_StillWorks | AddElixirApp_ObsoleteMethod_StillWorks | NAK-489 | planned |
 | AddPythonAppTests.AddPythonAppWithScriptArgs_IncludesTheArguments | AddElixirAppWithScriptArgs_IncludesTheArguments | NAK-489 | planned |
@@ -156,11 +179,11 @@ M1 source: `tests/Aspire.Hosting.Python.Tests`. Target: `tests/Aspire.Hosting.El
 | AddPythonAppTests.WithVirtualEnvironment_PrefersAppDirectoryWhenVenvExistsInBoth | WithMixDeps_PrefersAppDirectoryWhenMixDepsExistsInBoth | NAK-491 | planned |
 | AddPythonAppTests.WithVirtualEnvironment_DefaultsToAppDirectoryWhenVenvExistsInNeither | WithMixDeps_DefaultsToAppDirectoryWhenMixDepsExistsInNeither | NAK-491 | planned |
 | AddPythonAppTests.WithVirtualEnvironment_ExplicitPath_UsesVerbatim | WithMixDeps_ExplicitPath_UsesVerbatim | NAK-491 | planned |
-| AddPythonAppTests.WithUv_CreatesUvEnvironmentResource | WithMixDeps_CreatesUvEnvironmentResource | NAK-491 | planned |
+| AddPythonAppTests.WithUv_CreatesUvEnvironmentResource | WithMixDepsCreatesSiblingResource | NAK-491 | written |
 | AddPythonAppTests.WithUv_AddsUvSyncArgument | WithMixDeps_AddsUvSyncArgument | NAK-491 | planned |
 | AddPythonAppTests.WithUv_AddsWaitForCompletionRelationship | WithMixDeps_AddsWaitForCompletionRelationship | NAK-491 | planned |
 | AddPythonAppTests.WithUv_ThrowsOnNullBuilder | WithMixDeps_ThrowsOnNullBuilder | NAK-491 | planned |
-| AddPythonAppTests.WithUv_IsIdempotent | WithMixDeps_IsIdempotent | NAK-491 | planned |
+| AddPythonAppTests.WithUv_IsIdempotent | WithMixDeps_IsIdempotent | NAK-491 | written |
 | AddPythonAppTests.InstallerResourceHasCertificateTrustScopeNone | InstallerResourceHasCertificateTrustScopeNone | NAK-489 | planned |
 | AddPythonAppTests.WithPip_AfterWithUv_ReplacesPackageManager | WithMixDeps_AfterWithMixDeps_ReplacesPackageManager | NAK-491 | planned |
 | AddPythonAppTests.WithUv_AfterWithPip_ReplacesPackageManager | WithMixDeps_AfterWithMixDeps_ReplacesPackageManager | NAK-491 | planned |
@@ -198,7 +221,7 @@ M1 source: `tests/Aspire.Hosting.Python.Tests`. Target: `tests/Aspire.Hosting.El
 | AddPythonAppTests.FallbackDockerfile_GeneratesDockerfileWithPyprojectToml | FallbackDockerfile_GeneratesDockerfileWithMixExs | NAK-498 | planned |
 | AddPythonAppTests.FallbackDockerfile_GeneratesDockerfileWithoutAnyDependencyFiles | FallbackDockerfile_GeneratesDockerfileWithoutAnyDependencyFiles | NAK-498 | planned |
 | AddPythonAppTests.FallbackDockerfile_GeneratesDockerfileForAllEntrypointTypes | FallbackDockerfile_GeneratesDockerfileForAllEntrypointTypes | NAK-498 | planned |
-| AddPythonAppTests.AutoDetection_PyprojectToml_AddsPip | AutoDetection_MixExs_AddsPip | NAK-491 | planned |
+| AddPythonAppTests.AutoDetection_PyprojectToml_AddsPip | AutoDetection_MixExs_AddsMixDeps | NAK-491 | written |
 | AddPythonAppTests.AutoDetection_RequirementsTxt_AddsPip | AutoDetection_MixLock_AddsPip | NAK-491 | planned |
 | AddPythonAppTests.AutoDetection_PyprojectToml_TakesPrecedenceOverRequirementsTxt | AutoDetection_MixExs_TakesPrecedenceOverMixLock | NAK-491 | planned |
 | AddPythonAppTests.AutoDetection_NoConfigFile_DoesNotAddPackageManager | AutoDetection_NoConfigFile_DoesNotAddPackageManager | NAK-491 | planned |
@@ -213,18 +236,18 @@ M1 source: `tests/Aspire.Hosting.Python.Tests`. Target: `tests/Aspire.Hosting.El
 | AddPythonAppTests.MethodOrdering_WithPip_WithVirtualEnvironment_CreateFalse_WithPip_DoesNotCreateVenv | MethodOrdering_WithMixDeps_WithMixDeps_CreateFalse_WithMixDeps_DoesNotCreateMixDeps | NAK-491 | planned |
 | AddPythonAppTests.MethodOrdering_WithPip_ThenWithUv_ReplacesPackageManager_And_DisablesVenvCreation | MethodOrdering_WithMixDeps_ThenWithMixDeps_ReplacesPackageManager_And_DisablesMixDepsCreation | NAK-491 | planned |
 | AddPythonAppTests.MethodOrdering_WithUv_ThenWithPip_ReplacesPackageManager_And_EnablesVenvCreation | MethodOrdering_WithMixDeps_ThenWithMixDeps_ReplacesPackageManager_And_EnablesMixDepsCreation | NAK-491 | planned |
-| AddPythonAppTests.WithPip_InstallFalse_CreatesInstallerWithExplicitStart | WithMixDeps_InstallFalse_CreatesInstallerWithExplicitStart | NAK-491 | planned |
-| AddPythonAppTests.WithUv_InstallFalse_CreatesInstallerWithExplicitStart | WithMixDeps_InstallFalse_CreatesInstallerWithExplicitStart | NAK-491 | planned |
+| AddPythonAppTests.WithPip_InstallFalse_CreatesInstallerWithExplicitStart | WithMixDeps_InstallFalse_CreatesSiblingWithExplicitStart | NAK-491 | written |
+| AddPythonAppTests.WithUv_InstallFalse_CreatesInstallerWithExplicitStart | WithMixDeps_InstallFalse_CreatesSiblingWithExplicitStart | NAK-491 | written |
 | AddPythonAppTests.InstallerResourceHasNameValidationPolicyAnnotation | InstallerResourceHasNameValidationPolicyAnnotation | NAK-489 | planned |
-| AddPythonAppTests.VenvCreatorResourceHasNameValidationPolicyAnnotation | MixDepsCreatorResourceHasNameValidationPolicyAnnotation | NAK-491 | planned |
+| AddPythonAppTests.VenvCreatorResourceHasNameValidationPolicyAnnotation | MixDepsResourceHasNameValidationPolicyAnnotation | NAK-491 | written |
 | AddUvicornAppTests.AddUvicornApp_CreatesUvicornAppResource | AddPhoenixApp_CreatesUvicornAppResource | NAK-493 | planned |
 | AddUvicornAppTests.WithUv_GeneratesDockerfileInPublishMode | WithMixDeps_GeneratesDockerfileInPublishMode | NAK-491 | planned |
 | PythonPublicApiTests.CtorPythonAppResourceShouldThrowWhenNameIsNullOrEmpty | CtorElixirAppResourceShouldThrowWhenNameIsNullOrEmpty | NAK-489 | written |
 | PythonPublicApiTests.CtorPythonAppResourceShouldThrowWhenExecutablePathIsNullOrEmpty | CtorElixirAppResourceShouldThrowWhenExecutablePathIsNullOrEmpty | NAK-489 | planned |
-| PythonPublicApiTests.CtorPythonAppResourceShouldThrowWhenAppDirectoryIsNull | CtorElixirAppResourceShouldThrowWhenAppDirectoryIsNull | NAK-489 | planned |
+| PythonPublicApiTests.CtorPythonAppResourceShouldThrowWhenAppDirectoryIsNull | CtorElixirAppResourceShouldThrowWhenWorkingDirectoryIsNull | NAK-489 | written |
 | PythonPublicApiTests.AddPythonAppShouldThrowWhenBuilderIsNull | AddElixirAppShouldThrowWhenBuilderIsNull | NAK-489 | written |
 | PythonPublicApiTests.AddPythonAppShouldThrowWhenNameIsNullOrEmpty | AddElixirAppShouldThrowWhenNameIsNullOrEmpty | NAK-489 | written |
-| PythonPublicApiTests.AddPythonAppShouldThrowWhenAppDirectoryIsNull | AddElixirAppShouldThrowWhenAppDirectoryIsNull | NAK-489 | planned |
+| PythonPublicApiTests.AddPythonAppShouldThrowWhenAppDirectoryIsNull | AddElixirAppShouldThrowWhenAppDirectoryIsNullOrEmpty | NAK-489 | written |
 | PythonPublicApiTests.AddPythonAppShouldThrowWhenScriptPathIsNullOrEmpty | AddElixirAppShouldThrowWhenScriptPathIsNullOrEmpty | NAK-489 | planned |
 | PythonPublicApiTests.AddPythonAppShouldThrowWhenScriptArgsIsNull | AddElixirAppShouldThrowWhenScriptArgsIsNull | NAK-489 | planned |
 | PythonPublicApiTests.AddPythonAppShouldThrowWhenScriptArgsContainsIsNullOrEmpty | AddElixirAppShouldThrowWhenScriptArgsContainsIsNullOrEmpty | NAK-489 | planned |
@@ -256,7 +279,7 @@ M1 source: `tests/Aspire.Hosting.JavaScript.Tests`. Target: `tests/Aspire.Hostin
 | AddBunAppTests.AddBunApp_ConfiguresCertificateTrustForAppendScope | AddElixirApp_ConfiguresCertificateTrustForAppendScope | NAK-491 | planned |
 | AddBunAppTests.AddBunApp_ConfiguresCertificateTrustForOverrideScope | AddElixirApp_ConfiguresCertificateTrustForOverrideScope | NAK-491 | planned |
 | AddBunAppTests.BunApp_WithVSCodeDebugging_AddsSupportsDebuggingAnnotation | ElixirApp_WithVSCodeDebugging_AddsSupportsDebuggingAnnotation | NAK-497 | planned |
-| AddBunAppTests.BunApp_WithVSCodeDebugging_DoesNotAddAnnotationInPublishMode | ElixirApp_WithVSCodeDebugging_DoesNotAddAnnotationInPublishMode | NAK-497 | planned |
+| AddBunAppTests.BunApp_WithVSCodeDebugging_DoesNotAddAnnotationInPublishMode | WithVSCodeDebugging_DoesNotAddAnnotationInPublishMode | NAK-497 | written |
 | AddBunAppTests.BunApp_WithRunScript_AddsSupportsDebuggingAnnotation | ElixirApp_WithMixTask_AddsSupportsDebuggingAnnotation | NAK-491 | planned |
 | AddBunAppTests.BunApp_WithPackageJson_HasPackageManagerAnnotation | ElixirApp_WithMixExs_HasPackageManagerAnnotation | NAK-491 | planned |
 | AddBunAppTests.BunApp_DirectFile_ProducesBunRuntimeExecutable | ElixirApp_DirectFile_ProducesBunRuntimeExecutable | NAK-491 | planned |
@@ -294,7 +317,7 @@ M1 source: `tests/Aspire.Hosting.JavaScript.Tests`. Target: `tests/Aspire.Hostin
 | AddNodeAppTests.VerifyNodeAppWithContainerFilesGeneratesCorrectDockerfile | VerifyElixirAppWithContainerFilesGeneratesCorrectDockerfile | NAK-498 | planned |
 | AddNodeAppTests.VerifyNodeAppWithContainerFilesFromResourceWithDashesGeneratesCorrectDockerfile | VerifyElixirAppWithContainerFilesFromResourceWithDashesGeneratesCorrectDockerfile | NAK-498 | planned |
 | MyFilesContainer.NodeApp_WithVSCodeDebugging_AddsSupportsDebuggingAnnotation | ElixirApp_WithVSCodeDebugging_AddsSupportsDebuggingAnnotation | NAK-497 | planned |
-| MyFilesContainer.NodeApp_WithVSCodeDebugging_DoesNotAddAnnotationInPublishMode | ElixirApp_WithVSCodeDebugging_DoesNotAddAnnotationInPublishMode | NAK-497 | planned |
+| MyFilesContainer.NodeApp_WithVSCodeDebugging_DoesNotAddAnnotationInPublishMode | WithVSCodeDebugging_DoesNotAddAnnotationInPublishMode | NAK-497 | written |
 | MyFilesContainer.ViteApp_WithVSCodeDebugging_AddsSupportsDebuggingAnnotation | PhoenixApp_WithVSCodeDebugging_AddsSupportsDebuggingAnnotation | NAK-497 | planned |
 | MyFilesContainer.ViteApp_WithBrowserDebugger_CreatesChildResource | PhoenixApp_WithBrowserDebugger_CreatesChildResource | NAK-497 | planned |
 | MyFilesContainer.ViteApp_WithBrowserDebugger_DefaultsToEdgeBrowser | PhoenixApp_WithBrowserDebugger_DefaultsToEdgeBrowser | NAK-497 | planned |
@@ -316,7 +339,7 @@ M1 source: `tests/Aspire.Hosting.JavaScript.Tests`. Target: `tests/Aspire.Hostin
 | AddViteAppTests.VerifyDockerfileWhenPackageScriptUsesBun | VerifyDockerfileWhenPackageScriptUsesBun | NAK-498 | planned |
 | AddViteAppTests.VerifyDockerfileWithNodeVersionFromNvmrc | VerifyDockerfileWithElixirVersionFromToolVersions | NAK-498 | planned |
 | AddViteAppTests.VerifyDockerfileWithNodeVersionFromNodeVersion | VerifyDockerfileWithElixirVersionFromToolVersions | NAK-498 | planned |
-| AddViteAppTests.VerifyDockerfileWithNodeVersionFromToolVersions | VerifyDockerfileWithElixirVersionFromToolVersions | NAK-498 | planned |
+| AddViteAppTests.VerifyDockerfileWithNodeVersionFromToolVersions | VerifyPublish_GeneratesDockerfile_WithVersionsFromToolVersions | NAK-498 | written |
 | AddViteAppTests.VerifyDockerfileWithNodeVersionFromToolVersionsUsingTabs | VerifyDockerfileWithElixirVersionFromToolVersionsUsingTabs | NAK-498 | planned |
 | AddViteAppTests.VerifyDockerfileIgnoresPackageJsonEnginesWhenNoPinnedVersionExists | VerifyDockerfileIgnoresMixExsEnginesWhenNoPinnedVersionExists | NAK-498 | planned |
 | AddViteAppTests.VerifyDockerfileDefaultsTo22WhenNoVersionFound | VerifyDockerfileDefaultsToLatestWhenNoVersionFound | NAK-498 | planned |
@@ -362,7 +385,7 @@ M1 source: `tests/Aspire.Hosting.JavaScript.Tests`. Target: `tests/Aspire.Hostin
 | NodeJsPublicApiTests.PublishAsNodeServerShouldThrowWhenOutputPathIsNullOrEmpty | PublishAsElixirReleaseShouldThrowWhenOutputPathIsNullOrEmpty | NAK-498 | planned |
 | NodeJsPublicApiTests.PublishAsPackageScriptShouldThrowWhenBuilderIsNull | PublishAsMixTaskShouldThrowWhenBuilderIsNull | NAK-498 | planned |
 | NodeJsPublicApiTests.PublishAsPackageScriptShouldThrowWhenScriptNameIsNullOrEmpty | PublishAsMixTaskShouldThrowWhenScriptNameIsNullOrEmpty | NAK-498 | planned |
-| NodeJsPublicApiTests.AddNextJsAppShouldThrowWhenBuilderIsNull | AddPhoenixAppShouldThrowWhenBuilderIsNull | NAK-489 | planned |
+| NodeJsPublicApiTests.AddNextJsAppShouldThrowWhenBuilderIsNull | AddPhoenixAppShouldThrowWhenBuilderIsNull | NAK-489 | written |
 | PackageInstallationTests.WithNpm_CanBeConfiguredWithInstall | WithMixDeps_CanBeConfiguredWithInstall | NAK-491 | planned |
 | PackageInstallationTests.WithNpm_ExcludedFromPublishMode | WithMixDeps_ExcludedFromPublishMode | NAK-498 | planned |
 | PackageInstallationTests.WithYarn_CreatesInstallerWhenInstallIsTrue | WithMixDeps_CreatesInstallerWhenInstallIsTrue | NAK-491 | planned |
@@ -468,7 +491,7 @@ M1 source: `tests/Aspire.Hosting.Java.Tests`. Target: `tests/Aspire.Hosting.Elix
 | AddJavaAppPublishTests.PublishingWithAWindowsBatchWrapperAndNoPosixSiblingIsRejected | n/a — mix has no per-project wrapper script (gradlew/mvnw); the mix executable is installed once through the version manager (mise/asdf), so wrapper discovery and trust checks do not apply | NAK-498 | n/a |
 | AddJavaAppPublishTests.PublishingRejectsAWrapperWithoutItsPropertiesFile | n/a — mix has no per-project wrapper script (gradlew/mvnw); the mix executable is installed once through the version manager (mise/asdf), so wrapper discovery and trust checks do not apply | NAK-498 | n/a |
 | AddJavaAppPublishTests.PublishingHonoursAWrapperSelectedWithWithWrapperPath | n/a — mix has no per-project wrapper script (gradlew/mvnw); the mix executable is installed once through the version manager (mise/asdf), so wrapper discovery and trust checks do not apply | NAK-498 | n/a |
-| AddJavaAppPublishTests.VerifyPublish_WithAPrebuiltJarAndNoBuildTool_CopiesTheJarWithoutABuildStage | VerifyPublish_WithAPrebuiltReleaseAndNoBuildTool_CopiesTheReleaseWithoutABuildStage | NAK-498 | planned |
+| AddJavaAppPublishTests.VerifyPublish_WithAPrebuiltJarAndNoBuildTool_CopiesTheJarWithoutABuildStage | VerifyPublish_AddMixRelease_CopiesReleaseWithoutBuildStage | NAK-498 | written |
 | AddJavaAppPublishTests.VerifyPublish_WithAPrebuiltJar_WithJarArtifactHasNoEffect | VerifyPublish_WithAPrebuiltRelease_WithMixReleaseArtifactHasNoEffect | NAK-498 | planned |
 | AddJavaAppPublishTests.PublishingAPrebuiltJarReincludesItAndItsDirectoriesInTheBuildContext | PublishingAPrebuiltReleaseReincludesItAndItsDirectoriesInTheBuildContext | NAK-498 | planned |
 | AddJavaAppPublishTests.APrebuiltJarAlongsideAPomIsStillBuiltInTheImage | APrebuiltReleaseAlongsideAPomIsStillBuiltInTheImage | NAK-489 | planned |
@@ -509,13 +532,13 @@ M1 source: `tests/Aspire.Hosting.Java.Tests`. Target: `tests/Aspire.Hosting.Elix
 | AddJavaAppPublishTests.VerifyPublish_MovingTheWorkingDirectoryAfterwardsFailsWithAnActionableMessage | VerifyPublish_MovingTheWorkingDirectoryAfterwardsFailsWithAnActionableMessage | NAK-498 | planned |
 | AddJavaAppTests.AddJavaApp_MavenGoal_LaunchesThroughTheWrapper | n/a — mix has no per-project wrapper script (gradlew/mvnw); the mix executable is installed once through the version manager (mise/asdf), so wrapper discovery and trust checks do not apply | NAK-498 | n/a |
 | AddJavaAppTests.AddJavaApp_GradleTask_LaunchesThroughTheWrapper | n/a — mix has no per-project wrapper script (gradlew/mvnw); the mix executable is installed once through the version manager (mise/asdf), so wrapper discovery and trust checks do not apply | NAK-498 | n/a |
-| AddJavaAppTests.VerifyManifest_AddJavaAppWithJar | VerifyManifest_AddElixirAppWithMixRelease | NAK-494 | planned |
-| AddJavaAppTests.VerifyManifest_AddJavaAppWithJarAndArgs | VerifyManifest_AddElixirAppWithMixReleaseAndArgs | NAK-494 | planned |
+| AddJavaAppTests.VerifyManifest_AddJavaAppWithJar | VerifyManifest_AddMixRelease | NAK-494 | written |
+| AddJavaAppTests.VerifyManifest_AddJavaAppWithJarAndArgs | VerifyManifest_AddMixRelease | NAK-494 | written |
 | AddJavaAppTests.AddJavaApp_SetsResourceName | AddElixirApp_SetsResourceName | NAK-489 | planned |
-| AddJavaAppTests.AddJavaApp_UsesJavaAsCommand | AddElixirApp_UsesMixAsCommand | NAK-489 | planned |
+| AddJavaAppTests.AddJavaApp_UsesJavaAsCommand | AddElixirApp_UsesMixAsCommand | NAK-489 | written |
 | AddJavaAppTests.AddJavaApp_ResolvesWorkingDirectoryFullPath | AddElixirApp_ResolvesWorkingDirectoryFullPath | NAK-489 | planned |
 | AddJavaAppTests.AddJavaApp_ImplementsIResourceWithServiceDiscovery | AddElixirApp_ImplementsIResourceWithServiceDiscovery | NAK-489 | planned |
-| AddJavaAppTests.AddJavaApp_ImplementsIContainerFilesDestinationResource | AddElixirApp_ImplementsIContainerFilesDestinationResource | NAK-489 | planned |
+| AddJavaAppTests.AddJavaApp_ImplementsIContainerFilesDestinationResource | ElixirAppResource_ImplementsIContainerFilesDestinationResource | NAK-489 | written |
 | AddJavaAppTests.AddJavaApp_WithoutLaunchMode_ThrowsWhenArgumentsAreGathered | AddElixirApp_WithoutLaunchMode_ThrowsWhenArgumentsAreGathered | NAK-489 | planned |
 | AddJavaAppTests.AddJavaAppWithJar_ArgsAreJarAndUserArgs | AddElixirAppWithMixRelease_ArgsAreReleaseAndUserArgs | NAK-494 | planned |
 | AddJavaAppTests.AddJavaAppWithJar_NoUserArgs_OnlyJarArgs | AddElixirAppWithMixRelease_NoUserArgs_OnlyReleaseArgs | NAK-494 | planned |
@@ -567,9 +590,9 @@ M1 source: `tests/Aspire.Hosting.Java.Tests`. Target: `tests/Aspire.Hosting.Elix
 | AddJavaAppTests.WithOtelAgent_RelativeAgentPath_PointsAtContainerPathInPublishMode | WithOtlpExporter_RelativeAgentPath_PointsAtContainerPathInPublishMode | NAK-495 | planned |
 | AddJavaAppTests.WithOtelAgent_AbsoluteAgentPath_IsLeftUnchangedInPublishMode | WithOtlpExporter_AbsoluteAgentPath_IsLeftUnchangedInPublishMode | NAK-495 | planned |
 | AddJavaAppTests.WithMavenBuild_CreatesMavenBuildResourceInRunMode | WithMixDeps_CreatesMavenBuildResourceInRunMode | NAK-491 | planned |
-| AddJavaAppTests.WithMavenBuild_CustomArgs_CreatesBuildResource | WithMixDeps_CustomArgs_CreatesBuildResource | NAK-491 | planned |
+| AddJavaAppTests.WithMavenBuild_CustomArgs_CreatesBuildResource | WithMixDepsCreatesSiblingResource | NAK-491 | written |
 | AddJavaAppTests.WithGradleBuild_CreatesGradleBuildResourceInRunMode | WithMixDeps_CreatesGradleBuildResourceInRunMode | NAK-491 | planned |
-| AddJavaAppTests.WithGradleBuild_CustomArgs_CreatesBuildResource | WithMixDeps_CustomArgs_CreatesBuildResource | NAK-491 | planned |
+| AddJavaAppTests.WithGradleBuild_CustomArgs_CreatesBuildResource | WithMixDepsCreatesSiblingResource | NAK-491 | written |
 | AddJavaAppTests.WithMavenBuild_DoesNotCreateBuildResourceInPublishMode | WithMixDeps_DoesNotCreateBuildResourceInPublishMode | NAK-498 | planned |
 | AddJavaAppTests.WithGradleBuild_DoesNotCreateBuildResourceInPublishMode | WithMixDeps_DoesNotCreateBuildResourceInPublishMode | NAK-498 | planned |
 | AddJavaAppTests.WithBuildAndLaunch_DoesNotCreateASeparateBuildResource | WithBuildAndLaunch_DoesNotCreateASeparateBuildResource | NAK-489 | planned |
@@ -583,8 +606,8 @@ M1 source: `tests/Aspire.Hosting.Java.Tests`. Target: `tests/Aspire.Hosting.Elix
 | AddJavaAppTests.WithMavenGoal_ThenWithJvmArgs_SetsBothConfigurations | WithMixTask_ThenWithMixEnv_SetsBothConfigurations | NAK-491 | planned |
 | AddJavaAppTests.WithGradleTask_ThenWithOtelAgent_SetsBothConfigurations | WithMixTask_ThenWithOtlpExporter_SetsBothConfigurations | NAK-495 | planned |
 | AddJavaAppTests.WithWrapperPath_ThenWithMavenGoal_UsesCustomWrapper | n/a — mix has no per-project wrapper script (gradlew/mvnw); the mix executable is installed once through the version manager (mise/asdf), so wrapper discovery and trust checks do not apply | NAK-498 | n/a |
-| AddJavaAppTests.VerifyManifest_WithMavenGoal | VerifyManifest_WithMixTask | NAK-491 | planned |
-| AddJavaAppTests.VerifyManifest_WithGradleTask | VerifyManifest_WithMixTask | NAK-491 | planned |
+| AddJavaAppTests.VerifyManifest_WithMavenGoal | VerifyManifest_WithMixTask | NAK-491 | written |
+| AddJavaAppTests.VerifyManifest_WithGradleTask | VerifyManifest_WithMixTask | NAK-491 | written |
 | AddJavaAppTests.AddSpringBootApp_DebugConfigurationUsesTheDetectedBuildTool | AddPhoenixApp_DebugConfigurationUsesTheDetectedBuildTool | NAK-497 | planned |
 | AddJavaAppTests.AddQuarkusApp_DebugConfigurationStartsTheFastJarTheBuildProduced | AddPhoenixApp_DebugConfigurationStartsTheFastReleaseTheBuildProduced | NAK-497 | planned |
 | AddJavaAppTests.AddJavaApp_WithMavenBuild_SendsNoEntryPointWhenNothingOnDiskNamesOne | AddElixirApp_WithMixDeps_SendsNoEntryPointWhenNothingOnDiskNamesOne | NAK-491 | planned |
@@ -661,27 +684,27 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.Rust.Tests`. Target: `tests/Aspi
 
 | Source test | Elixir test | Ticket | Status |
 |---|---|---|---|
-| AtsRustCodeGeneratorTests.Language_ReturnsRust | Language_ReturnsElixir | NAK-508 | planned |
-| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | planned |
-| AtsRustCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.GeneratedCode_UsesSnakeCaseMethodNames | GeneratedCode_UsesSnakeCaseFunctionNames | NAK-509 | planned |
-| AtsRustCodeGeneratorTests.GeneratedCode_HasCreateBuilderFunction | GeneratedCode_HasCreateBuilderFunction | NAK-509 | planned |
+| AtsRustCodeGeneratorTests.Language_ReturnsRust | Language_ReturnsElixir | NAK-508 | written |
+| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | written |
+| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | written |
+| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | written |
+| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | written |
+| AtsRustCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | written |
+| AtsRustCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | written |
+| AtsRustCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | written |
+| AtsRustCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsRustCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsRustCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | written |
+| AtsRustCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | written |
+| AtsRustCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | written |
+| AtsRustCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | written |
+| AtsRustCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | written |
+| AtsRustCodeGeneratorTests.GeneratedCode_UsesSnakeCaseMethodNames | GeneratedCode_UsesSnakeCaseFunctionNames | NAK-509 | written |
+| AtsRustCodeGeneratorTests.GeneratedCode_HasCreateBuilderFunction | GeneratedCode_HasCreateBuilderFunction | NAK-509 | written |
 | AtsRustCodeGeneratorTests.GeneratedCode_HasModRsFile | GeneratedCode_HasContextExFile | NAK-509 | planned |
-| RustLanguageSupportTests.Scaffold_CreatesRustAppHostFilesOnly | Scaffold_CreatesElixirAppHostFilesOnly | NAK-508 | planned |
-| RustLanguageSupportTests.Detect_ReturnsRustAppHostWhenMarkerAndCargoExist | Detect_ReturnsElixirAppHostWhenMarkerAndCargoExist | NAK-508 | planned |
-| RustLanguageSupportTests.Detect_DoesNotTreatTypeScriptAppHostAsRust | Detect_DoesNotTreatTypeScriptAppHostAsElixir | NAK-508 | planned |
+| RustLanguageSupportTests.Scaffold_CreatesRustAppHostFilesOnly | GeneratedCode_HasAspireExFile | NAK-508 | written |
+| RustLanguageSupportTests.Detect_ReturnsRustAppHostWhenMarkerAndCargoExist | Detect_ReturnsElixirAppHostWhenMarkerExists | NAK-508 | written |
+| RustLanguageSupportTests.Detect_DoesNotTreatTypeScriptAppHostAsRust | Detect_DoesNotTreatTypeScriptAppHostAsElixir | NAK-508 | written |
 | RustLanguageSupportTests.Detect_RequiresCargoManifest | Detect_RequiresMixExs | NAK-508 | planned |
 | RustLanguageSupportTests.GetRuntimeSpec_UsesCargoRun | GetRuntimeSpec_UsesMixRun | NAK-508 | planned |
 | RustLanguageSupportTests.GetRuntimeSpec_NamesTheScaffoldedBinarySoASecondBinTargetStaysUnambiguous | GetRuntimeSpec_NamesTheScaffoldedBinarySoASecondBinTargetStaysUnambiguous | NAK-508 | planned |
@@ -692,31 +715,31 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.Go.Tests`. Target: `tests/Aspire
 
 | Source test | Elixir test | Ticket | Status |
 |---|---|---|---|
-| AtsGoCodeGeneratorTests.Language_ReturnsGo | Language_ReturnsElixir | NAK-508 | planned |
-| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | planned |
-| AtsGoCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.GeneratedCode_UsesPascalCaseMethodNames | GeneratedCode_UsesSnakeCaseFunctionNames | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.GeneratedCode_HasCreateBuilderFunction | GeneratedCode_HasCreateBuilderFunction | NAK-509 | planned |
+| AtsGoCodeGeneratorTests.Language_ReturnsGo | Language_ReturnsElixir | NAK-508 | written |
+| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | written |
+| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | written |
+| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | written |
+| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | written |
+| AtsGoCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | written |
+| AtsGoCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | written |
+| AtsGoCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | written |
+| AtsGoCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsGoCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsGoCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | written |
+| AtsGoCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | written |
+| AtsGoCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | written |
+| AtsGoCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | written |
+| AtsGoCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | written |
+| AtsGoCodeGeneratorTests.GeneratedCode_UsesPascalCaseMethodNames | GeneratedCode_UsesSnakeCaseFunctionNames | NAK-509 | written |
+| AtsGoCodeGeneratorTests.GeneratedCode_HasCreateBuilderFunction | GeneratedCode_HasCreateBuilderFunction | NAK-509 | written |
 | AtsGoCodeGeneratorTests.GeneratedCode_CreateBuilderDefaultsAppHostFilePathFromEnvironment | GeneratedCode_CreateBuilderDefaultsAppHostFilePathFromEnvironment | NAK-509 | planned |
 | AtsGoCodeGeneratorTests.GeneratedCode_CreateBuilderOmitsEmptyDashboardApplicationName | GeneratedCode_CreateBuilderOmitsEmptyDashboardApplicationName | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.GeneratedCode_DtoCallbacksReturnMutatedArguments | GeneratedCode_DtoCallbacksReturnMutatedArguments | NAK-510 | planned |
-| AtsGoCodeGeneratorTests.GeneratedCode_CallbackArgsSkipUndecodableStructFields | GeneratedCode_CallbackArgsSkipUndecodableStructFields | NAK-511 | planned |
-| AtsGoCodeGeneratorTests.GeneratedCode_HasGoModFile | GeneratedCode_HasMixExsFile | NAK-509 | planned |
+| AtsGoCodeGeneratorTests.GeneratedCode_DtoCallbacksReturnMutatedArguments | GeneratedCode_DtoCallbacksReturnMutatedArguments | NAK-510 | written |
+| AtsGoCodeGeneratorTests.GeneratedCode_CallbackArgsSkipUndecodableStructFields | GeneratedCode_CallbackArgsSkipUndecodableStructFields | NAK-511 | written |
+| AtsGoCodeGeneratorTests.GeneratedCode_HasGoModFile | GeneratedCode_HasAspireExFile | NAK-509 | written |
 | AtsGoCodeGeneratorTests.GenerateDistributedApplication_HostingAssembly_SanitizesGoKeywordParameters | GenerateDistributedApplication_HostingAssembly_SanitizesElixirKeywordParameters | NAK-509 | planned |
-| AtsGoCodeGeneratorTests.GeneratedCode_FlattensSingleOptionalDtoOptionsParameter | GeneratedCode_FlattensSingleOptionalDtoOptionsParameter | NAK-510 | planned |
-| AtsGoCodeGeneratorTests.GeneratedCode_DoesNotFlattenWhenOptionsCoexistsWithCancellationToken | GeneratedCode_DoesNotFlattenWhenOptionsCoexistsWithCancellationToken | NAK-510 | planned |
+| AtsGoCodeGeneratorTests.GeneratedCode_FlattensSingleOptionalDtoOptionsParameter | GeneratedCode_FlattensSingleOptionalDtoOptionsParameter | NAK-510 | written |
+| AtsGoCodeGeneratorTests.GeneratedCode_DoesNotFlattenWhenOptionsCoexistsWithCancellationToken | GeneratedCode_DoesNotFlattenWhenOptionsCoexistsWithCancellationToken | NAK-510 | written |
 
 ## Python CodeGen
 
@@ -724,26 +747,26 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.Python.Tests`. Target: `tests/As
 
 | Source test | Elixir test | Ticket | Status |
 |---|---|---|---|
-| AtsPythonCodeGeneratorTests.Language_ReturnsPython | Language_ReturnsElixir | NAK-508 | planned |
-| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | planned |
-| AtsPythonCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.GeneratedCode_UsesSnakeCaseMethodNames | GeneratedCode_UsesSnakeCaseFunctionNames | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.GeneratedCode_HasCreateBuilderFunction | GeneratedCode_HasCreateBuilderFunction | NAK-509 | planned |
+| AtsPythonCodeGeneratorTests.Language_ReturnsPython | Language_ReturnsElixir | NAK-508 | written |
+| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | written |
+| AtsPythonCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.GeneratedCode_UsesSnakeCaseMethodNames | GeneratedCode_UsesSnakeCaseFunctionNames | NAK-509 | written |
+| AtsPythonCodeGeneratorTests.GeneratedCode_HasCreateBuilderFunction | GeneratedCode_HasCreateBuilderFunction | NAK-509 | written |
 | AtsPythonCodeGeneratorTests.GeneratedCode_CreateBuilderDefaultsAppHostFilePathFromEnvironment | GeneratedCode_CreateBuilderDefaultsAppHostFilePathFromEnvironment | NAK-509 | planned |
 | AtsPythonCodeGeneratorTests.GeneratedCode_UsesTypeHints | GeneratedCode_UsesTypespecs | NAK-509 | planned |
-| AtsPythonCodeGeneratorTests.GeneratedCode_SanitizesPythonKeywordIdentifiers | GeneratedCode_SanitizesElixirKeywordIdentifiers | NAK-509 | planned |
+| AtsPythonCodeGeneratorTests.GeneratedCode_SanitizesPythonKeywordIdentifiers | GeneratedCode_SanitizesElixirKeywordParameters | NAK-509 | written |
 | AtsPythonCodeGeneratorTests.GeneratedCode_PreservesAcronymsInSnakeCaseIdentifiers | GeneratedCode_PreservesAcronymsInSnakeCaseIdentifiers | NAK-509 | planned |
 | AtsPythonCodeGeneratorTests.GeneratedCode_SanitizesClrGenericNamesInInheritance | GeneratedCode_SanitizesClrGenericNamesInBehaviour | NAK-509 | planned |
 
@@ -753,28 +776,28 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.Java.Tests`. Target: `tests/Aspi
 
 | Source test | Elixir test | Ticket | Status |
 |---|---|---|---|
-| AtsJavaCodeGeneratorTests.Language_ReturnsJava | Language_ReturnsElixir | NAK-508 | planned |
-| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | planned |
+| AtsJavaCodeGeneratorTests.Language_ReturnsJava | Language_ReturnsElixir | NAK-508 | written |
+| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | written |
 | AtsJavaCodeGeneratorTests.GenerateDistributedApplication_DeclaresNumericParametersAsNumber | GenerateDistributedApplication_DeclaresNumericParametersAsNumber | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | planned |
+| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | written |
 | AtsJavaCodeGeneratorTests.Scanner_HostingAssembly_FluentBuilderCapabilities_ReturnBuilder | Scanner_HostingAssembly_FluentBuilderCapabilities_ReturnBuilder | NAK-509 | planned |
 | AtsJavaCodeGeneratorTests.GeneratedCode_HostingAssembly_FluentBuilderMethods_ReturnConcreteBuilderType | GeneratedCode_HostingAssembly_FluentBuilderMethods_ReturnConcreteBuilderType | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | planned |
-| AtsJavaCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | planned |
+| AtsJavaCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | written |
+| AtsJavaCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | written |
 | AtsJavaCodeGeneratorTests.TwoPassScanning_GeneratesDerivedResourceInheritance | TwoPassScanning_GeneratesDerivedResourceInheritance | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.GeneratedCode_UsesCamelCaseMethodNames | GeneratedCode_UsesSnakeCaseFunctionNames | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.GeneratedCode_HasCreateBuilderMethod | GeneratedCode_HasCreateBuilderMethod | NAK-509 | planned |
-| AtsJavaCodeGeneratorTests.GeneratedCode_HasPublicAspireClass | GeneratedCode_HasPublicAspireModule | NAK-509 | planned |
+| AtsJavaCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.GeneratedCode_UsesCamelCaseMethodNames | GeneratedCode_UsesSnakeCaseFunctionNames | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.GeneratedCode_HasCreateBuilderMethod | GeneratedCode_HasCreateBuilderFunction | NAK-509 | written |
+| AtsJavaCodeGeneratorTests.GeneratedCode_HasPublicAspireClass | GeneratedCode_HasAspireExFile | NAK-509 | written |
 | AtsJavaCodeGeneratorTests.GeneratedTransport_HandlesJsonRpcArrayCallbackParameters | GeneratedTransport_HandlesJsonRpcArrayCallbackParameters | NAK-511 | planned |
 | AtsJavaCodeGeneratorTests.GeneratedDtoValues_AreSerializedAsMaps | GeneratedDtoValues_AreSerializedAsMaps | NAK-510 | planned |
 | AtsJavaCodeGeneratorTests.GeneratedCode_SuppressesWarningsOnEveryGeneratedType | GeneratedCode_SuppressesWarningsOnEveryGeneratedType | NAK-509 | planned |
@@ -800,34 +823,34 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests`. Target: `test
 
 | Source test | Elixir test | Ticket | Status |
 |---|---|---|---|
-| AtsTypeScriptCodeGeneratorTests.Language_ReturnsTypeScript | Language_ReturnsElixir | NAK-508 | planned |
+| AtsTypeScriptCodeGeneratorTests.Language_ReturnsTypeScript | Language_ReturnsElixir | NAK-508 | written |
 | AtsTypeScriptCodeGeneratorTests.EmbeddedResource_PackageJson_IsAvailableWithExpectedStructure | EmbeddedResource_PackageJson_IsAvailableWithExpectedStructure | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_EmitsBaseAndTransportResourcesVerbatim | GenerateDistributedApplication_EmitsBaseAndTransportResourcesVerbatim | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithHostingTypes_KeepsReferenceExpressionInBaseTs | GenerateDistributedApplication_WithHostingTypes_KeepsReferenceExpressionInBaseTs | NAK-511 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | planned |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | GenerateDistributedApplication_WithTestTypes_GeneratesCorrectOutput | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | GenerateDistributedApplication_WithTestTypes_IncludesExportedValues | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithHostingTypes_KeepsReferenceExpressionInBaseTs | GenerateDistributedApplication_WithHostingTypes_KeepsReferenceExpressionInRuntime | NAK-511 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | GenerateDistributedApplication_WithTestTypes_IncludesCapabilities | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | GenerateDistributedApplication_WithTestTypes_DeriveCorrectMethodNames | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_CapturesParameters | GenerateDistributedApplication_WithTestTypes_CapturesParameters | NAK-509 | written |
 | AtsTypeScriptCodeGeneratorTests.Scanner_WithTestTypes_CapturesXmlDocumentation | Scanner_WithTestTypes_CapturesXmlDocumentation | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_EmitsXmlDocumentationAsJSDoc | GenerateDistributedApplication_WithTestTypes_EmitsXmlDocumentationAsModuleDoc | NAK-512 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithSuppressedSummary_DoesNotUseDescriptionFallback | GenerateDistributedApplication_WithSuppressedSummary_DoesNotUseDescriptionFallback | NAK-512 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithVoidReturn_DoesNotEmitReturnsDocumentation | GenerateDistributedApplication_WithVoidReturn_DoesNotEmitReturnsDocumentation | NAK-512 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithAtsReference_RendersJsDocLink | GenerateDistributedApplication_WithAtsReference_RendersModuleDocLink | NAK-511 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithContextType_GeneratesPropertyCapabilities | GenerateDistributedApplication_WithContextType_GeneratesPropertyCapabilities | NAK-511 | planned |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithTestTypes_EmitsXmlDocumentationAsJSDoc | GenerateDistributedApplication_WithTestTypes_EmitsXmlDocumentationAsDoc | NAK-512 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithSuppressedSummary_DoesNotUseDescriptionFallback | GenerateDistributedApplication_WithSuppressedSummary_DoesNotUseDescriptionFallback | NAK-512 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithVoidReturn_DoesNotEmitReturnsDocumentation | GenerateDistributedApplication_WithVoidReturn_DoesNotEmitReturnsDocumentation | NAK-512 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithAtsReference_RendersJsDocLink | GenerateDistributedApplication_WithAtsReference_RendersDocLink | NAK-511 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithContextType_GeneratesPropertyCapabilities | GenerateDistributedApplication_WithContextType_GeneratesPropertyCapabilities | NAK-511 | written |
 | AtsTypeScriptCodeGeneratorTests.Scanner_TestRedisResource_ImplementsIResource | Scanner_TestRedisResource_ImplementsIResource | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_WithOptionalString_TargetsIResource | Scanner_WithOptionalString_TargetsIResource | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_WithOptionalString_ExpandsToTestRedis | Scanner_WithOptionalString_ExpandsToTestRedis | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_BaseTypeChain_CollectsInterfacesAcrossAssemblies | Scanner_BaseTypeChain_CollectsInterfacesAcrossAssemblies | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | planned |
+| AtsTypeScriptCodeGeneratorTests.Scanner_AddTestRedis_HasCorrectTypeMetadata | Scanner_AddTestRedis_HasCorrectTypeMetadata | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | Scanner_ReturnsBuilder_TrueForResourceBuilderReturnTypes | NAK-509 | written |
 | AtsTypeScriptCodeGeneratorTests.FactoryMethod_ReturnsChildResourceType_NotParentType | FactoryMethod_ReturnsChildResourceType_NotParentType | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | planned |
+| AtsTypeScriptCodeGeneratorTests.Scanner_WithPersistence_HasCorrectExpandedTargets | Scanner_WithPersistence_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.Scanner_WithOptionalString_HasCorrectExpandedTargets | Scanner_WithOptionalString_HasCorrectExpandedTargets | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.Scanner_HostingAssembly_AddContainerCapability | Scanner_HostingAssembly_AddContainerCapability | NAK-509 | written |
 | AtsTypeScriptCodeGeneratorTests.Scanner_BrowsersAssembly_WithBrowserLogsCapability | Scanner_BrowsersAssembly_WithBrowserLogsCapability | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_HostingAssembly_ContainerResourceCapabilities | Scanner_HostingAssembly_ContainerResourceCapabilities | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | planned |
+| AtsTypeScriptCodeGeneratorTests.RuntimeType_ContainerResource_IsNotInterface | RuntimeType_ContainerResource_IsNotInterface | NAK-508 | written |
 | AtsTypeScriptCodeGeneratorTests.Scanner_ContainerResource_DirectTargetingHasCorrectIsInterface | Scanner_ContainerResource_DirectTargetingHasCorrectIsInterface | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_GenericConstraintWithClassType_CorrectlyIdentifiesAsNotInterface | Scanner_GenericConstraintWithClassType_CorrectlyIdentifiesAsNotInterface | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Pattern2_InterfaceTypeDirectly_IsDiscoveredAndExpanded | Pattern2_InterfaceTypeDirectly_IsDiscoveredAndExpanded | NAK-509 | planned |
@@ -843,8 +866,8 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests`. Target: `test
 | AtsTypeScriptCodeGeneratorTests.BugFix_TargetParameterName_IsPopulatedFromMethodSignature | BugFix_TargetParameterName_IsPopulatedFromMethodSignature | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_HostingAssembly_UsesUnifiedWithReferenceCapability | Scanner_HostingAssembly_UsesUnifiedWithReferenceCapability | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.BugFix_TargetParameterName_WithVolumeUsesResource | BugFix_TargetParameterName_WithVolumeUsesResource | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | planned |
+| AtsTypeScriptCodeGeneratorTests.TwoPassScanning_DeduplicatesCapabilities | TwoPassScanning_DeduplicatesCapabilities | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.TwoPassScanning_MergesHandleTypesFromAllAssemblies | TwoPassScanning_MergesHandleTypesFromAllAssemblies | NAK-509 | written |
 | AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_EmitsPromiseWrapperForBareMarkerResourceBuilder | GenerateDistributedApplication_EmitsOkTupleWrapperForBareMarkerResourceBuilder | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_DoesNotEmitUnusedPromiseWrappersForParameterOnlyResources | GenerateDistributedApplication_DoesNotEmitUnusedOkTupleWrappersForParameterOnlyResources | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_DoesNotEmitUnusedPromiseWrappersForMutablePropertyResources | GenerateDistributedApplication_DoesNotEmitUnusedOkTupleWrappersForMutablePropertyResources | NAK-509 | planned |
@@ -852,9 +875,9 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests`. Target: `test
 | AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_RejectsUnrelatedResourceTypesWithSameGeneratedName | GenerateDistributedApplication_RejectsUnrelatedResourceTypesWithSameGeneratedName | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_EveryReferencedPromiseWrapperIsDeclared | GenerateDistributedApplication_EveryReferencedOkTupleWrapperIsDeclared | NAK-511 | planned |
 | AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_EveryRpcHandleMatchesTheConstructedWrapper | GenerateDistributedApplication_EveryRpcHandleMatchesTheConstructedWrapper | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.TwoPassScanning_DeduplicatesExpandedUnionTypes | TwoPassScanning_DeduplicatesExpandedUnionTypes | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithDtoCallbackOptions_MarshalsNestedCallbackProperties | GenerateDistributedApplication_WithDtoCallbackOptions_MarshalsNestedCallbackProperties | NAK-510 | planned |
+| AtsTypeScriptCodeGeneratorTests.TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | TwoPassScanning_GeneratesWithEnvironmentOnTestRedisBuilder | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.TwoPassScanning_DeduplicatesExpandedUnionTypes | TwoPassScanning_DeduplicatesExpandedUnionTypes | NAK-509 | written |
+| AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithDtoCallbackOptions_MarshalsNestedCallbackProperties | GenerateDistributedApplication_WithDtoCallbackOptions_MarshalsNestedCallbackProperties | NAK-510 | written |
 | AtsTypeScriptCodeGeneratorTests.Scanner_AzureProvisioningCallbacks_ExposeTypedCustomizationProperties | Scanner_AzureProvisioningCallbacks_ExposeTypedCustomizationProperties | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_AzureExistingResourceScopes_ExposeTypeScriptCapabilities | Scanner_AzureExistingResourceScopes_ExposeElixirCapabilities | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.GenerateDistributedApplication_WithAzureExistingResourceScopes_EmitsTypeScriptMethods | GenerateDistributedApplication_WithAzureExistingResourceScopes_EmitsElixirMethods | NAK-511 | planned |
@@ -863,7 +886,7 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests`. Target: `test
 | AtsTypeScriptCodeGeneratorTests.Scanner_ObjectParameter_MapsToAny | Scanner_ObjectParameter_MapsToAny | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.AspireUnionAttribute_ParsesCorrectly | AspireUnionAttribute_ParsesCorrectly | NAK-510 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_InstanceMethod_HasCorrectCapabilityKind | Scanner_InstanceMethod_HasCorrectCapabilityKind | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Scanner_ReferenceExpressionGetValueAsync_IsExported | Scanner_ReferenceExpressionGetValueAsync_IsExported | NAK-509 | planned |
+| AtsTypeScriptCodeGeneratorTests.Scanner_ReferenceExpressionGetValueAsync_IsExported | Scanner_ReferenceExpressionGetValueAsync_IsExported | NAK-509 | written |
 | AtsTypeScriptCodeGeneratorTests.Scanner_ExtensionMethod_HasCorrectCapabilityKind | Scanner_ExtensionMethod_HasCorrectCapabilityKind | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Generate_TypeWithMethods_CreatesThenableWrapper | Generate_TypeWithMethods_CreatesOkTupleWrapper | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Generate_TypeWithOnlyProperties_NoThenableWrapper | Generate_TypeWithOnlyProperties_NoOkTupleWrapper | NAK-509 | planned |
@@ -871,21 +894,21 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests`. Target: `test
 | AtsTypeScriptCodeGeneratorTests.Generate_PrimitiveReturningMethod_ReturnsPlainPromise | Generate_PrimitiveReturningMethod_ReturnsOkTuple | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.GenerateTwoPassCode_UsesUnifiedWithReferenceSurface | GenerateTwoPassCode_UsesUnifiedWithReferenceSurface | NAK-511 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_CancellationToken_MapsToCorrectTypeId | Scanner_CancellationToken_MapsToCorrectTypeId | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Generate_MethodWithCancellationToken_GeneratesCancellationTokenParameter | Generate_MethodWithCancellationToken_GeneratesCancellationTokenParameter | NAK-510 | planned |
-| AtsTypeScriptCodeGeneratorTests.Scanner_CancellationTokenInCallback_MapsCorrectly | Scanner_CancellationTokenInCallback_MapsCorrectly | NAK-509 | planned |
+| AtsTypeScriptCodeGeneratorTests.Generate_MethodWithCancellationToken_GeneratesCancellationTokenParameter | Generate_MethodWithCancellationToken_GeneratesCancellationTokenOption | NAK-510 | written |
+| AtsTypeScriptCodeGeneratorTests.Scanner_CancellationTokenInCallback_MapsCorrectly | Scanner_CancellationTokenInCallback_MapsCorrectly | NAK-509 | written |
 | AtsTypeScriptCodeGeneratorTests.Scanner_CancellationTokenWithOtherParams_AllParamsPresent | Scanner_CancellationTokenWithOtherParams_AllParamsPresent | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_AspireDtoType_IsDiscovered | Scanner_AspireDtoType_IsDiscovered | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Generate_AspireDtoType_GeneratesInterface | Generate_AspireDtoType_GeneratesInterface | NAK-510 | planned |
-| AtsTypeScriptCodeGeneratorTests.Generate_NestedDtoType_GeneratesCorrectTypes | Generate_NestedDtoType_GeneratesCorrectTypes | NAK-510 | planned |
+| AtsTypeScriptCodeGeneratorTests.Generate_AspireDtoType_GeneratesInterface | Generate_AspireDtoType_GeneratesStruct | NAK-510 | written |
+| AtsTypeScriptCodeGeneratorTests.Generate_NestedDtoType_GeneratesCorrectTypes | Generate_NestedDtoType_GeneratesCorrectTypes | NAK-510 | written |
 | AtsTypeScriptCodeGeneratorTests.Scanner_DeeplyNestedDto_IsDiscovered | Scanner_DeeplyNestedDto_IsDiscovered | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_EnumType_IsDiscovered | Scanner_EnumType_IsDiscovered | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Generate_EnumType_GeneratesStringEnum | Generate_EnumType_GeneratesStringEnum | NAK-510 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_ProducesDiagnosticsForInvalidTypes | Scanner_ProducesDiagnosticsForInvalidTypes | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Scanner_CapabilityWithValidTypes_NoDiagnostics | Scanner_CapabilityWithValidTypes_NoDiagnostics | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Generate_ListProperty_GeneratesGetterOnlyMethods | Generate_ListProperty_GeneratesGetterOnlyMethods | NAK-509 | planned |
+| AtsTypeScriptCodeGeneratorTests.Generate_ListProperty_GeneratesGetterOnlyMethods | Generate_ListProperty_GeneratesGetterOnlyFunctions | NAK-509 | written |
 | AtsTypeScriptCodeGeneratorTests.Generate_ListProperty_DoesNotUsePropertyObjectPattern | Generate_ListProperty_DoesNotUsePropertyObjectPattern | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Generate_OptionalOptionsProperty_UsesDistinctOptionsBagParameter | Generate_OptionalOptionsProperty_UsesDistinctOptionsBagParameter | NAK-509 | planned |
-| AtsTypeScriptCodeGeneratorTests.Generate_MutableCollectionProperties_UsePropertyAccessors | Generate_MutableCollectionProperties_UsePropertyAccessors | NAK-509 | planned |
+| AtsTypeScriptCodeGeneratorTests.Generate_MutableCollectionProperties_UsePropertyAccessors | Generate_MutableCollectionProperties_UsePropertyAccessors | NAK-509 | written |
 | AtsTypeScriptCodeGeneratorTests.Generate_ConcreteAndInterfaceWithSameClassName_NoDuplicateClasses | Generate_ConcreteAndInterfaceWithSameClassName_NoDuplicateClasses | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Generate_ResourceAndResourceNamedPromise_NoDuplicateDeclarations | Generate_ResourceAndResourceNamedPromise_NoDuplicateDeclarations | NAK-509 | planned |
 | AtsTypeScriptCodeGeneratorTests.Generate_SameMethodNameOnDifferentTypes_MergesOptionsInterface | Generate_SameMethodNameOnDifferentTypes_MergesOptionsInterface | NAK-509 | planned |
@@ -909,7 +932,7 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests`. Target: `test
 | TypeScriptLanguageSupportTests.Scaffold_NestedBrownfieldPackage_UsesStableAppHostPackageName | Scaffold_NestedBrownfieldPackage_UsesStableAppHostPackageName | NAK-508 | planned |
 | TypeScriptLanguageSupportTests.Scaffold_AlwaysOutputsAspireVersions_RegardlessOfExistingDependencies | Scaffold_AlwaysOutputsAspireVersions_RegardlessOfExistingDependencies | NAK-508 | planned |
 | TypeScriptLanguageSupportTests.Scaffold_DoesNotEmitRootTsConfig_WhenOneAlreadyExists | Scaffold_DoesNotEmitRootMixExs_WhenOneAlreadyExists | NAK-508 | planned |
-| TypeScriptLanguageSupportTests.Scaffold_GeneratesProfilePortsOutsideWindowsEphemeralRange | Scaffold_GeneratesProfilePortsOutsideWindowsEphemeralRange | NAK-508 | planned |
+| TypeScriptLanguageSupportTests.Scaffold_GeneratesProfilePortsOutsideWindowsEphemeralRange | Scaffold_GeneratesProfilePortsOutsideWindowsEphemeralRange | NAK-508 | written |
 | TypeScriptLanguageSupportTests.GetRuntimeSpec_UsesAppHostSpecificTsConfig | GetRuntimeSpec_UsesAppHostSpecificMixExs | NAK-508 | planned |
 | TypeScriptLanguageSupportTests.SetCertificateBundleEnvironmentVariableIfSupported_IgnoresLegacyRuntimeSpec | SetCertificateBundleEnvironmentVariableIfSupported_IgnoresLegacyRuntimeSpec | NAK-509 | planned |
 | TypeScriptLanguageSupportTests.Scaffold_EmitsScaffoldedEslintConfigVerbatim | Scaffold_EmitsScaffoldedFormatterExsVerbatim | NAK-508 | planned |
@@ -921,8 +944,8 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.TypeScript.JsTests` (vitest). Ta
 
 | Source test | Elixir test | Ticket | Status |
 |---|---|---|---|
-| base.test.ts :: describe('ReferenceExpression') (15 tests) | describe "OkTuple / ReferenceExpression struct: format + value-provider construction, handle mode, conditional mode" | NAK-509 | planned |
-| base.test.ts :: describe('create (tagged template)') (8 tests) | describe "the `create` sigil/macro building a reference expression from an interpolated string" | NAK-509 | planned |
+| base.test.ts :: describe('ReferenceExpression') (15 tests) | test "get_value_async resolves an expression the host returned"; test "get_value_async needs an expression the host returned" | NAK-509 | written |
+| base.test.ts :: describe('create (tagged template)') (8 tests) | test "Aspire.ref builds a reference expression capability call"; test "a literal only expression sends no value providers"; test "a part that is not a string, a number or a handle raises" | NAK-509 | written |
 | base.test.ts :: describe('extractHandleForExpr (tested via create)') (4 tests) | describe "extracting a Handle struct from an interpolated value inside the reference-expression builder" | NAK-509 | planned |
 | base.test.ts :: describe('refExpr') (2 tests) | describe "the `refExpr` sigil/macro tagged-template helper" | NAK-509 | planned |
 | base.test.ts :: describe('ResourceBuilderBase') (1 test) | describe "the base resource-builder struct's handle serialization" | NAK-509 | planned |
@@ -934,19 +957,19 @@ M2 source: `tests/Aspire.Hosting.CodeGeneration.TypeScript.JsTests` (vitest). Ta
 | transport.test.ts :: describe('isMarshalledHandle') (7 tests) | describe "the marshalled-handle-shape guard on a decoded transport message" | NAK-509 | planned |
 | transport.test.ts :: describe('AtsErrorCodes') (1 test) | describe "the ATS error code enum/constant module" | NAK-509 | planned |
 | transport.test.ts :: describe('Handle') (4 tests) | describe "the Handle struct: construction, JSON serialization, and round-trip" | NAK-509 | planned |
-| transport.test.ts :: describe('CancellationToken') (4 tests) | describe "the CancellationToken struct: construction from a remote token ID or an Elixir cancellation signal" | NAK-510 | planned |
+| transport.test.ts :: describe('CancellationToken') (4 tests) | test "callback receives a cancellation token for $cancellationToken" | NAK-510 | written |
 | transport.test.ts :: describe('from') (2 tests) | describe "building a CancellationToken from an Elixir cancellation signal" | NAK-510 | planned |
 | transport.test.ts :: describe('fromValue') (5 tests) | describe "coercing an arbitrary value into a CancellationToken" | NAK-510 | planned |
 | transport.test.ts :: describe('register') (1 test) | describe "registering a CancellationToken and returning its remote token ID" | NAK-510 | planned |
 | transport.test.ts :: describe('wrapIfHandle') (8 tests) | describe "wrapping a marshalled handle (including nested in lists/maps) into a Handle struct" | NAK-509 | planned |
-| transport.test.ts :: describe('CapabilityError') (3 tests) | describe "the CapabilityError exception struct: name, code, and full error payload" | NAK-509 | planned |
+| transport.test.ts :: describe('CapabilityError') (3 tests) | test "invoke_capability error maps to Aspire.Error with code and data" | NAK-509 | written |
 | transport.test.ts :: describe('registerCallback / unregisterCallback / getCallbackCount') (3 tests) | describe "the callback registry: register, unregister, and count" | NAK-511 | planned |
 | transport.test.ts :: describe('AppHostUsageError') (1 test) | describe "the AppHostUsageError exception struct" | NAK-509 | planned |
 | transport.test.ts :: describe('circular reference detection in wrapIfHandle') (3 tests) | describe "circular-reference detection while wrapping handles nested in lists/maps/structs" | NAK-509 | planned |
-| transport.test.ts :: describe('AspireClient') (9 tests) | describe "the AspireClient transport: connection state, ping, cancellation, capability invocation, and disconnect" | NAK-507 | planned |
-| transport.test.ts :: describe('registerCancellation') (4 tests) | describe "registering and unregistering a CancellationToken's remote token ID with the transport" | NAK-507 | planned |
+| transport.test.ts :: describe('AspireClient') (9 tests) | test "ping returns pong"; test "invoke_capability returns a handle"; test "concurrent requests correlate by id"; test "socket close stops the transport"; test "connect reads the socket path from the environment"; test "connect authenticates when ASPIRE_REMOTE_APPHOST_TOKEN is set"; test "missing REMOTE_APP_HOST_SOCKET_PATH returns a clear error" | NAK-507 | written |
+| transport.test.ts :: describe('registerCancellation') (4 tests) | test "cancel_token sends cancelToken"; test "Aspire.CancellationToken.cancel sends cancelToken" | NAK-507 | written |
 | transport.test.ts :: describe('registerHandleWrapper') (2 tests) | describe "registering a per-type Handle wrapper factory" | NAK-509 | planned |
-| transport.test.ts :: describe('callback invocation protocol') (7 tests) | describe "the wire protocol for invoking a registered Elixir callback from the AppHost, including DTO writeback" | NAK-511 | planned |
+| transport.test.ts :: describe('callback invocation protocol') (7 tests) | test "host invokeCallback runs registered callback and returns result"; test "callback error is returned as JSON-RPC error"; test "callback that invokes a capability does not deadlock" | NAK-511 | written |
 | transport.test.ts :: describe('capability argument marshalling') (2 tests) | describe "marshalling DTO list properties into the JSON arguments sent to the AppHost server" | NAK-511 | planned |
 | transport.test.ts :: describe('trackPromise / flushPendingPromises') (13 tests) | describe "tracking and flushing pending async Tasks so the AppHost process does not exit before they resolve" | NAK-507 | planned |
 
@@ -956,11 +979,11 @@ M2 source: the `*Polyglot*` files in `tests/Aspire.Cli.EndToEnd.Tests` (`JavaPol
 
 | Source test | Elixir test | Ticket | Status |
 |---|---|---|---|
-| JavaPolyglotApphostDirectoryTests.StopJavaPolyglotAppHostUsingApphostDirectory | StopElixirPolyglotAppHostUsingApphostDirectory | NAK-513 | planned |
-| JavaPolyglotTests.CreateJavaAppHostWithViteApp | CreateElixirAppHostWithPhoenixApp | NAK-513 | planned |
-| TypeScriptPolyglotApphostDirectoryTests.StopTypeScriptPolyglotAppHostUsingApphostDirectory | StopElixirPolyglotAppHostUsingApphostDirectory | NAK-513 | planned |
+| JavaPolyglotApphostDirectoryTests.StopJavaPolyglotAppHostUsingApphostDirectory | StopElixirPolyglotAppHostUsingApphostDirectory | NAK-513 | written |
+| JavaPolyglotTests.CreateJavaAppHostWithViteApp | CreateElixirAppHostWithViteApp | NAK-513 | written |
+| TypeScriptPolyglotApphostDirectoryTests.StopTypeScriptPolyglotAppHostUsingApphostDirectory | StopElixirPolyglotAppHostUsingApphostDirectory | NAK-513 | written |
 | TypeScriptPolyglotTests.CreateTypeScriptAppHostWithViteApp_UsesConfiguredToolchain | CreateElixirAppHostWithPhoenixApp_UsesConfiguredToolchain | NAK-513 | planned |
-| TypeScriptPolyglotTests.GeneratedAspireDevScript_StartsWatchMode_WithConfiguredToolchain | GeneratedAspireDevScript_StartsWatchMode_WithConfiguredToolchain | NAK-514 | planned |
+| TypeScriptPolyglotTests.GeneratedAspireDevScript_StartsWatchMode_WithConfiguredToolchain | GeneratedAspireDevScript_StartsWatchMode_Elixir | NAK-514 | written |
 | TypeScriptPolyglotTests.InitTypeScriptAppHost_AugmentsExistingViteRepoInWorkspaceSubdirectory | InitElixirAppHost_AugmentsExistingPhoenixRepoInWorkspaceSubdirectory | NAK-513 | planned |
 | TypeScriptPolyglotTests.TypeScriptAppHostWithVite_AllowsDifferentGuestPkgManager | n/a — Elixir has one canonical package manager (Hex via mix); there is no alternate guest package manager to allow | NAK-513 | n/a |
 
