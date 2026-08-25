@@ -1,8 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+#pragma warning disable ASPIREDOCKERFILEBUILDER001
+#pragma warning disable ASPIREPIPELINES001
+
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Elixir;
+using Aspire.Hosting.Pipelines;
 
 namespace Aspire.Hosting;
 
@@ -282,7 +286,49 @@ public static class ElixirHostingExtensions
             }
         }
 
+        // `aspire publish` turns the executable into a container image. The generated Dockerfile builds
+        // a Mix release, so the image holds no compiler and no source.
+        var isPhoenix = resource is PhoenixAppResource;
+        rb.PublishAsDockerFile(containerBuilder =>
+        {
+            // An authored Dockerfile is the contract of the repository, so Aspire must not replace it.
+            if (File.Exists(Path.Combine(appDirectory, "Dockerfile")))
+            {
+                return;
+            }
+
+            containerBuilder.WithDockerfileBuilder(
+                appDirectory,
+                ctx => ElixirDockerfileGenerator.WriteApplication(appDirectory, isPhoenix, ctx));
+        });
+
+        AddContainerFilesBuildDependencies(rb);
+
         return rb;
+    }
+
+    /// <summary>
+    /// Makes the image build wait for every resource that supplies container files to it.
+    /// </summary>
+    /// <remarks>
+    /// The Dockerfile copies from the images of those resources, so the images must exist first. The
+    /// file dependency alone does not order the build.
+    /// </remarks>
+    private static void AddContainerFilesBuildDependencies<T>(IResourceBuilder<T> rb)
+        where T : IResource
+    {
+        rb.WithPipelineConfiguration(context =>
+        {
+            if (rb.Resource.TryGetAnnotationsOfType<ContainerFilesDestinationAnnotation>(
+                    out var containerFilesAnnotations))
+            {
+                var buildSteps = context.GetSteps(rb.Resource, WellKnownPipelineTags.BuildCompute);
+                foreach (var containerFile in containerFilesAnnotations)
+                {
+                    buildSteps.DependsOn(context.GetSteps(containerFile.Source, WellKnownPipelineTags.BuildCompute));
+                }
+            }
+        });
     }
 
     /// <summary>
@@ -798,5 +844,192 @@ public static class ElixirHostingExtensions
         }
 
         appBuilder.WaitForCompletion(migrateBuilder);
+    }
+
+    /// <summary>
+    /// Sets the name of the Mix release that <c>aspire publish</c> builds and starts.
+    /// </summary>
+    /// <typeparam name="T">The type of the Elixir application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Elixir application.</param>
+    /// <param name="name">The release name, for example <c>my_app</c>.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// Without this method the name comes from the <c>app:</c> key in <c>mix.exs</c>. If <c>mix.exs</c>
+    /// gives no name, the name is the resource name with each hyphen replaced by an underscore.
+    /// </para>
+    /// <para>
+    /// Use this method when <c>mix.exs</c> declares more than one release, or when the release name is
+    /// different from the application name. The method changes publish output only. It has no effect in
+    /// run mode, because run mode starts the application with Mix.
+    /// </para>
+    /// <para>A second call replaces the name of the first call.</para>
+    /// </remarks>
+    /// <example>
+    /// Build the <c>api_release</c> release:
+    /// <code lang="csharp">
+    /// builder.AddElixirApp("api", "../elixir-api")
+    ///        .WithReleaseName("api_release");
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<T> WithReleaseName<T>(this IResourceBuilder<T> builder, string name)
+        where T : ElixirAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        return builder.WithAnnotation(
+            new ElixirReleaseNameAnnotation(name), ResourceAnnotationMutationBehavior.Replace);
+    }
+
+    /// <summary>
+    /// Adds an HTTP health check that reads a path of the Phoenix endpoint.
+    /// </summary>
+    /// <param name="builder">The resource builder for the Phoenix application.</param>
+    /// <param name="path">The path of the health check. The default is <c>/health</c>.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// The application must serve the path. Add a route to the Phoenix router, or use a plug such as
+    /// <c>PlugCheckup</c>. The check reports healthy when the path answers with status 200.
+    /// </remarks>
+    /// <example>
+    /// Add a health check that reads <c>/healthz</c>:
+    /// <code lang="csharp">
+    /// builder.AddPhoenixApp("web", "../phoenix-web")
+    ///        .WithPhoenixHealthCheck("/healthz");
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<PhoenixAppResource> WithPhoenixHealthCheck(
+        this IResourceBuilder<PhoenixAppResource> builder,
+        string path = "/health")
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
+        return builder.WithHttpHealthCheck(path);
+    }
+
+    /// <summary>
+    /// Adds a Mix release that another build step already produced. Elixir and Mix are not necessary.
+    /// </summary>
+    /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/> to add the resource to.</param>
+    /// <param name="name">The name of the resource.</param>
+    /// <param name="releaseDirectory">
+    /// The root directory of the release, for example <c>_build/prod/rel/my_app</c>. The directory holds
+    /// the <c>bin</c> directory with the launcher script.
+    /// </param>
+    /// <param name="releaseName">
+    /// The release name, which is also the name of the launcher script. The default is the name of
+    /// <paramref name="releaseDirectory"/>.
+    /// </param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// The resource starts the release with <c>bin/&lt;releaseName&gt; start</c>. On Windows it starts
+    /// <c>bin\&lt;releaseName&gt;.bat</c>. A release carries its compiled dependencies, so this method
+    /// adds no Mix setup steps.
+    /// </para>
+    /// <para>
+    /// In publish mode the resource becomes a container image with one stage. The image copies the
+    /// release directory and runs it as a user that is not root.
+    /// </para>
+    /// <para>
+    /// A Mix release reads <c>RELEASE_NODE</c> and <c>RELEASE_COOKIE</c> to name and authenticate its
+    /// node. Set both with <c>WithEnvironment</c> when the release must join a cluster.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// Add a release that Mix already built:
+    /// <code lang="csharp">
+    /// var builder = DistributedApplication.CreateBuilder(args);
+    ///
+    /// builder.AddMixRelease("api", "../elixir-api/_build/prod/rel/my_app")
+    ///        .WithHttpEndpoint(env: "PORT");
+    ///
+    /// builder.Build().Run();
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<MixReleaseResource> AddMixRelease(
+        this IDistributedApplicationBuilder builder,
+        [ResourceName] string name,
+        string releaseDirectory,
+        string? releaseName = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrEmpty(releaseDirectory);
+
+        releaseDirectory = Path.GetFullPath(releaseDirectory, builder.AppHostDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        // `mix release` names the directory after the release, so the directory name is the best default.
+        releaseName ??= Path.GetFileName(releaseDirectory);
+
+        if (string.IsNullOrEmpty(releaseName))
+        {
+            throw new ArgumentException(
+                $"Cannot read a release name from '{releaseDirectory}'. Pass the name in the releaseName parameter.",
+                nameof(releaseDirectory));
+        }
+
+        // `mix release` writes bin/<name> for Unix and bin/<name>.bat for Windows.
+        var launcher = OperatingSystem.IsWindows() ? $"{releaseName}.bat" : releaseName;
+        var command = Path.Combine(releaseDirectory, "bin", launcher);
+
+        var resource = new MixReleaseResource(name, command, releaseDirectory, releaseName);
+
+        var rb = builder.AddResource(resource)
+            .WithIconName("Code")
+            .WithArgs("start")
+            .WithOtlpExporter();
+
+        // The Erlang :ssl application replaces its trust set with the file that SSL_CERT_FILE names.
+        // It cannot add to the trust set, so the default scope is System. That scope makes Aspire put
+        // the system authorities and the custom authorities in one bundle.
+        rb.WithCertificateTrustScope(CertificateTrustScope.System)
+            .WithCertificateTrustConfiguration(ctx =>
+            {
+                // Aspire applies custom certificate trust in run mode only.
+                if (ctx.ExecutionContext.IsPublishMode)
+                {
+                    return Task.CompletedTask;
+                }
+
+                // The OTLP exporter of the Erlang SDK reads its own certificate bundle. The value is
+                // safe in every scope, because the dashboard uses one of the custom authorities.
+                ctx.EnvironmentVariables["OTEL_EXPORTER_OTLP_CERTIFICATE"] = ctx.CertificateBundlePath;
+
+                if (ctx.Scope != CertificateTrustScope.Append)
+                {
+                    // SSL_CERT_FILE replaces the complete trust set, so it must not receive an Append
+                    // bundle. An Append bundle holds the custom authorities only.
+                    ctx.EnvironmentVariables["SSL_CERT_FILE"] = ctx.CertificateBundlePath;
+                }
+
+                return Task.CompletedTask;
+            });
+
+        rb.PublishAsDockerFile(containerBuilder =>
+        {
+            // An authored Dockerfile is the contract of the repository, so Aspire must not replace it.
+            if (File.Exists(Path.Combine(releaseDirectory, "Dockerfile")))
+            {
+                return;
+            }
+
+            containerBuilder.WithDockerfileBuilder(
+                releaseDirectory,
+                ctx => ElixirDockerfileGenerator.WriteRelease(releaseDirectory, releaseName, ctx));
+        });
+
+        AddContainerFilesBuildDependencies(rb);
+
+        return rb;
     }
 }

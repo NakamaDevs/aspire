@@ -242,6 +242,204 @@ end
 bin/my_app eval "MyApp.Release.migrate"
 ```
 
+## Publishing
+
+`aspire publish` turns an Elixir or Phoenix resource into a container image. Aspire writes a
+Dockerfile with two stages. The build stage compiles the project and runs `mix release`. The runtime
+stage carries only the release directory, so the image holds no compiler, no source, and no Hex
+cache. The image runs as the user `app`, which is not root.
+
+The generated Dockerfile has this shape:
+
+```dockerfile
+FROM docker.io/library/elixir:1.19.5-otp-28-slim AS build
+RUN apt-get update -y && apt-get install -y build-essential git ca-certificates && apt-get clean && rm -f /var/lib/apt/lists/*_*
+WORKDIR /app
+RUN mix local.hex --force && mix local.rebar --force
+ENV MIX_ENV=prod
+COPY mix.exs ./
+COPY mix.lock ./
+COPY config config
+RUN mix deps.get --only prod && mix deps.compile
+COPY . .
+RUN mix compile
+RUN mix release 'my_app'
+
+FROM docker.io/library/erlang:28-slim
+RUN apt-get update -y && apt-get install -y ca-certificates locales && apt-get clean && rm -f /var/lib/apt/lists/*_*
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+RUN groupadd --system --gid 999 app && useradd --system --gid 999 --uid 999 --no-create-home app
+WORKDIR /app
+COPY --from=build --chown=app:app /app/_build/prod/rel/my_app ./
+ENV MIX_ENV=prod
+USER app
+CMD ["/app/bin/my_app", "start"]
+```
+
+Aspire also writes `<name>.Dockerfile.dockerignore`. The rules keep `_build`, `deps`, `.elixir_ls`,
+`node_modules`, and `.git` out of the build context. A `.dockerignore` in the application directory
+replaces these rules.
+
+### Base images
+
+The build image comes from the Elixir and OTP versions that Aspire detects. Aspire reads
+`.tool-versions` first, then the `elixir:` requirement in `mix.exs`. Without those files it uses
+Elixir 1.19.5 and OTP 28.4.1.
+
+| Stage | Default image |
+| --- | --- |
+| Build | `docker.io/library/elixir:<elixir>-otp-<otp-major>-slim` |
+| Runtime | `docker.io/library/erlang:<otp-major>-slim` |
+
+The official `elixir` image is the only published Elixir image with a stable tag. Every
+`hexpm/elixir` tag carries a Debian snapshot date and an exact OTP patch version from the Hex build
+matrix. Neither value can be read from `.tool-versions` or `mix.exs`, so a tag built from the
+detected versions would not exist.
+
+The runtime image is the exact base of the build image, because the official `elixir` image is built
+from `erlang:<otp-major>-slim`. That match matters: a Mix release carries the Erlang runtime system
+that the build stage compiled, and that runtime system must find the same C library at run time. The
+image also already holds OpenSSL, ncurses, and the C++ runtime.
+
+Use `WithDockerfileBaseImage` to select different images. Aspire recognizes an Alpine image and uses
+`apk` in place of `apt-get`:
+
+```csharp
+builder.AddElixirApp("api", "../elixir-api")
+    .WithDockerfileBaseImage(
+        buildImage: "hexpm/elixir:1.18.4-erlang-27.3.4-debian-bookworm-20250908-slim",
+        runtimeImage: "debian:bookworm-slim");
+```
+
+Give both images the same operating system. A release that a Debian build stage produced does not
+start on Alpine, and the reverse is also true.
+
+### The release name
+
+`mix release` needs a release name, and the name selects the launcher script. Aspire reads the name
+in this order:
+
+1. The name that `WithReleaseName` gives.
+2. The `app:` key in `mix.exs`, for example `app: :my_app`.
+3. The resource name with each hyphen replaced by an underscore, because a release name is an Erlang
+   atom.
+
+```csharp
+builder.AddElixirApp("api", "../elixir-api")
+    .WithReleaseName("api_release");
+```
+
+### Phoenix assets
+
+A Phoenix application that has an `assets` directory gets one more build step. Aspire adds
+`RUN mix assets.deploy` after `mix compile` and before `mix release`. The step builds and digests the
+static files that the release serves.
+
+If `assets/package.json` exists, Aspire also installs Node.js and npm in the build stage and runs
+`npm ci --prefix assets` before `mix assets.deploy`. Commit `assets/package-lock.json`, because
+`npm ci` reads it.
+
+The runtime stage of a Phoenix image sets `PHX_SERVER=true`, so the release starts the endpoint. The
+`PORT`, `PHX_HOST`, and `SECRET_KEY_BASE` values arrive as environment variables at run time. The
+secret never enters an image layer.
+
+Add `assets.deploy` to the aliases in `mix.exs`:
+
+```elixir
+defp aliases do
+  [
+    "assets.deploy": ["tailwind my_app --minify", "esbuild my_app --minify", "phx.digest"]
+  ]
+end
+```
+
+`WithPhoenixHealthCheck` adds an HTTP health check. The default path is `/health`. The application
+must serve the path:
+
+```csharp
+builder.AddPhoenixApp("web", "../phoenix-web")
+    .WithPhoenixHealthCheck();
+```
+
+### An authored Dockerfile
+
+Aspire writes no Dockerfile when the application directory holds one. The `Dockerfile` of the
+repository stays the contract, and `aspire publish` builds the image from it.
+
+## Prebuilt releases
+
+`AddMixRelease` adds a Mix release that a different build step already produced. Elixir and Mix do
+not have to be on the PATH:
+
+**C#**
+
+```csharp
+var builder = DistributedApplication.CreateBuilder(args);
+
+builder.AddMixRelease("api", "../elixir-api/_build/prod/rel/my_app")
+    .WithHttpEndpoint(env: "PORT");
+
+builder.Build().Run();
+```
+
+**TypeScript**
+
+```typescript
+import { createBuilder } from "./.aspire/modules/aspire.mjs";
+
+const builder = await createBuilder();
+
+await builder.addMixRelease("api", "../elixir-api/_build/prod/rel/my_app")
+    .withHttpEndpoint({ env: "PORT" });
+
+await builder.build().run();
+```
+
+The resource starts the release with `bin/<release-name> start`. On Windows it starts
+`bin\<release-name>.bat`. The release name defaults to the name of the release directory. Pass the
+third parameter to give a different name:
+
+```csharp
+builder.AddMixRelease("api", "../build/output", "my_app");
+```
+
+A release carries its compiled dependencies, so this resource adds no Mix setup steps. There is no
+`mix deps.get` sibling and no `mix compile` sibling.
+
+In publish mode the resource becomes a container image with one stage. The image copies the release
+directory and runs it as the user `app`:
+
+```dockerfile
+FROM docker.io/library/erlang:28-slim
+RUN apt-get update -y && apt-get install -y ca-certificates locales && apt-get clean && rm -f /var/lib/apt/lists/*_*
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+RUN groupadd --system --gid 999 app && useradd --system --gid 999 --uid 999 --no-create-home app
+WORKDIR /app
+COPY --chown=app:app . ./
+USER app
+CMD ["/app/bin/my_app", "start"]
+```
+
+Build the release on the same operating system as the runtime image. A release holds the Erlang
+runtime system in a compiled form, so a release that a Debian machine produced does not start on
+Alpine. Use `WithDockerfileBaseImage` to select a different runtime image.
+
+To name the node, set `RELEASE_NODE` and `RELEASE_COOKIE`, which every Mix release reads:
+
+```csharp
+builder.AddMixRelease("api", "../elixir-api/_build/prod/rel/my_app")
+    .WithEnvironment("RELEASE_NODE", "api@127.0.0.1")
+    .WithEnvironment("RELEASE_COOKIE", cookie);
+```
+
+`WithNodeName` is for `AddElixirApp` and `AddPhoenixApp` only.
+
 ## OpenTelemetry
 
 Every Elixir and Phoenix resource exports telemetry to the Aspire dashboard. Aspire sets

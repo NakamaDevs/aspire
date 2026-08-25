@@ -14,6 +14,9 @@ namespace Aspire.Hosting
         public static ApplicationModel.IResourceBuilder<Elixir.ElixirAppResource> AddElixirApp(this IDistributedApplicationBuilder builder, string name, string appDirectory) { throw null; }
 
         [AspireExport]
+        public static ApplicationModel.IResourceBuilder<Elixir.MixReleaseResource> AddMixRelease(this IDistributedApplicationBuilder builder, string name, string releaseDirectory, string? releaseName = null) { throw null; }
+
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<Elixir.PhoenixAppResource> AddPhoenixApp(this IDistributedApplicationBuilder builder, string name, string appDirectory) { throw null; }
 
         [AspireExport]
@@ -55,6 +58,13 @@ namespace Aspire.Hosting
         [AspireExport("withElixirNodeName", MethodName = "withNodeName")]
         public static ApplicationModel.IResourceBuilder<T> WithNodeName<T>(this ApplicationModel.IResourceBuilder<T> builder, string name, ApplicationModel.IResourceBuilder<ApplicationModel.ParameterResource>? cookie = null)
             where T : Elixir.ElixirAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<Elixir.PhoenixAppResource> WithPhoenixHealthCheck(this ApplicationModel.IResourceBuilder<Elixir.PhoenixAppResource> builder, string path = "/health") { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithReleaseName<T>(this ApplicationModel.IResourceBuilder<T> builder, string name)
+            where T : Elixir.ElixirAppResource { throw null; }
     }
 }
 
@@ -64,6 +74,14 @@ namespace Aspire.Hosting.Elixir
     public partial class ElixirAppResource : ApplicationModel.ExecutableResource, IResourceWithServiceDiscovery, ApplicationModel.IResourceWithEndpoints, ApplicationModel.IResource, ApplicationModel.IContainerFilesDestinationResource
     {
         public ElixirAppResource(string name, string workingDirectory) : base(default!, default!, default!) { }
+    }
+
+    [AspireExport(ExposeProperties = true)]
+    public partial class MixReleaseResource : ApplicationModel.ExecutableResource, IResourceWithServiceDiscovery, ApplicationModel.IResourceWithEndpoints, ApplicationModel.IResource, ApplicationModel.IContainerFilesDestinationResource
+    {
+        public MixReleaseResource(string name, string command, string releaseDirectory, string releaseName) : base(default!, default!, default!) { }
+
+        public string ReleaseName { get { throw null; } }
     }
 
     [AspireExport(ExposeProperties = true)]
