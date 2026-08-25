@@ -362,6 +362,9 @@
   <Folder Name="/playground/python/">
     <Project Path="playground/python/Python.AppHost/Python.AppHost.csproj" />
   </Folder>
+  <Folder Name="/playground/ElixirApps/">
+    <Project Path="playground/ElixirApps/ElixirApps.AppHost/ElixirApps.AppHost.csproj" />
+  </Folder>
   <Folder Name="/playground/qdrant/">
     <Project Path="playground/Qdrant/Qdrant.ApiService/Qdrant.ApiService.csproj" />
     <Project Path="playground/Qdrant/Qdrant.AppHost/Qdrant.AppHost.csproj" />
