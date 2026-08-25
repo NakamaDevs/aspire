@@ -77,6 +77,7 @@ public class DefaultLanguageDiscoveryTests(ITestOutputHelper outputHelper)
         Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Go));
         Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Java));
         Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Rust));
+        Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Elixir));
     }
 
     [Theory]
@@ -84,6 +85,7 @@ public class DefaultLanguageDiscoveryTests(ITestOutputHelper outputHelper)
     [InlineData(KnownLanguageId.Go, "experimentalPolyglot:go")]
     [InlineData(KnownLanguageId.Java, "experimentalPolyglot:java")]
     [InlineData(KnownLanguageId.Rust, "experimentalPolyglot:rust")]
+    [InlineData(KnownLanguageId.Elixir, "experimentalPolyglot:elixir")]
     public async Task GetAvailableLanguagesAsync_IncludesExperimentalLanguageWhenFlagEnabled(string languageId, string featureFlag)
     {
         var features = new TestFeatures();
@@ -238,5 +240,36 @@ public class DefaultLanguageDiscoveryTests(ITestOutputHelper outputHelper)
 
         Assert.NotNull(language);
         Assert.Equal(KnownLanguageId.Rust, language.LanguageId.Value);
+    }
+
+    [Fact]
+    public async Task DefaultLanguageDiscovery_IncludesElixir_WhenFeatureEnabled()
+    {
+        var features = new TestFeatures();
+        features.SetFeature(KnownFeatures.ExperimentalPolyglotElixir, true);
+        var discovery = new DefaultLanguageDiscovery(features);
+
+        var languages = (await discovery.GetAvailableLanguagesAsync().DefaultTimeout()).ToList();
+
+        var elixir = languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Elixir);
+        Assert.NotNull(elixir);
+        Assert.Equal(KnownLanguageId.ElixirDisplayName, elixir.DisplayName);
+        Assert.Equal("Aspire.Hosting.CodeGeneration.Elixir", elixir.PackageName);
+        Assert.Contains("apphost.exs", elixir.DetectionPatterns);
+        Assert.Equal("Elixir", elixir.CodeGenerator);
+        Assert.Equal("apphost.exs", elixir.AppHostFileName);
+        Assert.True(elixir.IsExperimental);
+    }
+
+    [Fact]
+    public async Task DefaultLanguageDiscovery_HidesElixir_WhenFeatureDisabled()
+    {
+        var discovery = new DefaultLanguageDiscovery(new TestFeatures());
+
+        var languages = (await discovery.GetAvailableLanguagesAsync().DefaultTimeout()).ToList();
+
+        Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Elixir));
+        Assert.Null(discovery.GetLanguageById(new LanguageId(KnownLanguageId.Elixir)));
+        Assert.Null(discovery.GetLanguageByFile(new FileInfo(Path.Combine(Path.GetTempPath(), "apphost.exs"))));
     }
 }

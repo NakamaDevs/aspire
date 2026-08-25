@@ -55,6 +55,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
                 features.SetFeature(KnownFeatures.ExperimentalPolyglotJava, true);
                 features.SetFeature(KnownFeatures.ExperimentalPolyglotPython, true);
                 features.SetFeature(KnownFeatures.ExperimentalPolyglotRust, true);
+                features.SetFeature(KnownFeatures.ExperimentalPolyglotElixir, true);
                 return features;
             };
 
@@ -69,6 +70,39 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
         Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.JavaEmptyAppHost && subcommand.Description == "Empty (Java AppHost)");
         Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.GoEmptyAppHost && subcommand.Description == "Empty (Go AppHost)");
         Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.RustEmptyAppHost && subcommand.Description == "Empty (Rust AppHost)");
+        Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.ElixirEmptyAppHost && subcommand.Description == "Empty (Elixir AppHost)");
+    }
+
+    [Fact]
+    public void NewCommand_ListsElixirTemplate_WhenFeatureEnabled()
+    {
+        using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);
+        var services = CreateServiceCollection(workspace, options =>
+        {
+            options.FeatureFlagsFactory = _ =>
+            {
+                var features = new TestFeatures();
+                features.SetFeature(KnownFeatures.ExperimentalPolyglotElixir, true);
+                return features;
+            };
+        });
+        using var provider = services.BuildServiceProvider();
+
+        var command = provider.GetRequiredService<NewCommand>();
+
+        Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.ElixirEmptyAppHost && subcommand.Description == "Empty (Elixir AppHost)");
+    }
+
+    [Fact]
+    public void NewCommand_HidesElixirTemplate_WhenFeatureDisabled()
+    {
+        using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);
+        var services = CreateServiceCollection(workspace);
+        using var provider = services.BuildServiceProvider();
+
+        var command = provider.GetRequiredService<NewCommand>();
+
+        Assert.DoesNotContain(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.ElixirEmptyAppHost);
     }
 
     [Fact]
@@ -1086,6 +1120,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
         Assert.DoesNotContain(KnownLanguageId.JavaDisplayName, promptedLanguages);
         Assert.DoesNotContain(KnownLanguageId.GoDisplayName, promptedLanguages);
         Assert.DoesNotContain(KnownLanguageId.RustDisplayName, promptedLanguages);
+        Assert.DoesNotContain(KnownLanguageId.ElixirDisplayName, promptedLanguages);
     }
 
     [Fact]
@@ -1148,6 +1183,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
         Assert.Contains(KnownLanguageId.JavaDisplayName, promptedLanguages);
         Assert.DoesNotContain(KnownLanguageId.GoDisplayName, promptedLanguages);
         Assert.DoesNotContain(KnownLanguageId.RustDisplayName, promptedLanguages);
+        Assert.DoesNotContain(KnownLanguageId.ElixirDisplayName, promptedLanguages);
     }
 
     [Fact]
@@ -1349,6 +1385,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
     [InlineData("python", "experimentalPolyglot:python", "apphost.py")]
     [InlineData("go", "experimentalPolyglot:go", "apphost.go")]
     [InlineData("rust", "experimentalPolyglot:rust", "apphost.rs")]
+    [InlineData("elixir", "experimentalPolyglot:elixir", "apphost.exs")]
     public async Task NewCommandWithEmptyTemplateAndSourceOverridePersistsSourceForLaterRestore(string language, string? featureFlag, string scaffoldFileName)
     {
         using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);

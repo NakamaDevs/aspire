@@ -24,7 +24,8 @@ internal sealed partial class CliTemplateFactory : ITemplateFactory
         KnownLanguageId.Python,
         KnownLanguageId.Go,
         KnownLanguageId.Java,
-        KnownLanguageId.Rust
+        KnownLanguageId.Rust,
+        KnownLanguageId.Elixir
     ];
 
     private static readonly HashSet<string> s_binaryTemplateExtensions =
@@ -188,6 +189,17 @@ internal sealed partial class CliTemplateFactory : ITemplateFactory
                 ApplyEmptyAppHostTemplateAsync,
                 runtime: TemplateRuntime.Cli,
                 languageId: KnownLanguageId.Rust,
+                isEmpty: true,
+                showInPrompt: false),
+
+            new CallbackTemplate(
+                KnownTemplateId.ElixirEmptyAppHost,
+                "Empty (Elixir AppHost)",
+                (ctx, projectName) => OutputPathHelper.GetUniqueDefaultOutputPath(projectName, ctx.WorkingDirectory.FullName),
+                cmd => AddOptionIfMissing(cmd, _localhostTldOption),
+                ApplyEmptyAppHostTemplateAsync,
+                runtime: TemplateRuntime.Cli,
+                languageId: KnownLanguageId.Elixir,
                 isEmpty: true,
                 showInPrompt: false),
 
