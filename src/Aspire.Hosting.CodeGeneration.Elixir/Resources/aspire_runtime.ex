@@ -45,13 +45,19 @@ defmodule Aspire.Runtime do
 
   defp connect_default(opts) do
     case Process.whereis(Aspire.Transport) do
-      nil -> Aspire.Transport.connect(Keyword.take(opts, [:socket_path, :auth_token, :connect_timeout]))
-      pid -> {:ok, pid}
+      nil ->
+        Aspire.Transport.connect(
+          Keyword.take(opts, [:socket_path, :auth_token, :connect_timeout])
+        )
+
+      pid ->
+        {:ok, pid}
     end
   end
 
   @doc "Invokes a capability on the transport."
-  @spec invoke(GenServer.server(), String.t(), map()) :: {:ok, term()} | {:error, Aspire.Error.t()}
+  @spec invoke(GenServer.server(), String.t(), map()) ::
+          {:ok, term()} | {:error, Aspire.Error.t()}
   def invoke(transport, capability_id, args) do
     Aspire.Transport.invoke_capability(transport, capability_id, args)
   end
@@ -93,7 +99,10 @@ defmodule Aspire.Runtime do
   def decode(value, {:handle, module}, transport), do: wrap(module, value, transport)
   def decode(value, {:dto, module}, _transport) when is_map(value), do: module.from_wire(value)
   def decode(value, {:dto, _module}, _transport), do: value
-  def decode(value, {:enum, module}, _transport) when is_binary(value), do: module.from_wire(value)
+
+  def decode(value, {:enum, module}, _transport) when is_binary(value),
+    do: module.from_wire(value)
+
   def decode(value, {:enum, _module}, _transport), do: value
 
   def decode(value, {:list, inner}, transport) when is_list(value) do
@@ -150,10 +159,46 @@ defmodule Aspire.Runtime do
     Code.ensure_loaded?(module) and function_exported?(module, :to_wire, 1)
   end
 
-  @doc "Converts an enum value into its wire form."
+  @doc "Converts an enum value into its wire form. Raises on an unknown value."
   @spec encode_enum!(term(), module()) :: term()
   def encode_enum!(nil, _module), do: nil
-  def encode_enum!(value, module), do: module.to_wire(value)
+  def encode_enum!(value, module), do: module.to_wire!(value)
+
+  @doc """
+  Checks a union argument and converts it.
+
+  `specs` holds the accepted forms. `:string`, `:number`, `:boolean` and `:any`
+  accept a primitive. `{:module, Module}` accepts a struct of that module.
+
+  The function raises `ArgumentError` and names every accepted form when the
+  value matches none of them.
+  """
+  @spec encode_union!(term(), [term()], String.t(), String.t()) :: term()
+  def encode_union!(value, specs, function_name, parameter_name) do
+    if Enum.any?(specs, fn spec -> union_member?(value, spec) end) do
+      encode(value)
+    else
+      raise ArgumentError,
+            "#{function_name} does not accept #{inspect(value)} for #{parameter_name}. " <>
+              "It accepts #{describe_union(specs)}."
+    end
+  end
+
+  defp union_member?(_value, :any), do: true
+  defp union_member?(value, :string), do: is_binary(value)
+  defp union_member?(value, :number), do: is_number(value)
+  defp union_member?(value, :boolean), do: is_boolean(value)
+  defp union_member?(value, {:module, module}), do: is_struct(value, module)
+  defp union_member?(_value, _spec), do: false
+
+  defp describe_union(specs) do
+    specs
+    |> Enum.map(fn
+      {:module, module} -> inspect(module)
+      spec -> Atom.to_string(spec)
+    end)
+    |> Enum.join(", ")
+  end
 
   @doc "Adds an optional argument when the keyword list holds the key."
   @spec put_opt(map(), String.t(), keyword(), atom()) :: map()
@@ -177,6 +222,87 @@ defmodule Aspire.Runtime do
       :error -> args
     end
   end
+
+  @doc """
+  Adds an optional callback argument.
+
+  `wrapper` builds the typed function that the transport registers. The
+  generated code passes a function that decodes the arguments of the host and
+  encodes the result.
+  """
+  @spec put_opt_callback(map(), String.t(), keyword(), atom(), (term() -> term())) :: map()
+  def put_opt_callback(args, wire_name, opts, key, wrapper) do
+    case Keyword.fetch(opts, key) do
+      {:ok, nil} -> args
+      {:ok, value} when is_function(value) -> Map.put(args, wire_name, wrapper.(value))
+      {:ok, value} -> Map.put(args, wire_name, value)
+      :error -> args
+    end
+  end
+
+  @doc """
+  Wraps a callback that a DTO property holds.
+
+  `wrapper` builds the typed function that the transport registers. A nil property and a value
+  that is not a function stay as they are.
+  """
+  @spec wrap_callback(term(), (term() -> term())) :: term()
+  def wrap_callback(nil, _wrapper), do: nil
+  def wrap_callback(value, wrapper) when is_function(value), do: wrapper.(value)
+  def wrap_callback(value, _wrapper), do: value
+
+  @doc """
+  Adds the flattened `options` DTO of a capability.
+
+  The keyword list holds the properties of the DTO. An empty list sends no
+  argument, so the host keeps its own defaults.
+  """
+  @spec put_opts_dto(map(), String.t(), keyword(), module()) :: map()
+  def put_opts_dto(args, _wire_name, [], _module), do: args
+
+  def put_opts_dto(args, wire_name, opts, module) do
+    Map.put(args, wire_name, module.to_wire(module.new(opts)))
+  end
+
+  @doc """
+  Returns the value a callback sends back to the host.
+
+  `dto_arguments` holds `{index, module, decoded}` for every DTO argument. An
+  Elixir struct never changes in place, so the callback returns the changed
+  struct and this function puts it in the positional write-back map. A callback
+  that returns something else keeps the arguments it received.
+
+  The function returns `nil` when the callback has no DTO argument. The
+  transport then echoes the original arguments.
+  """
+  @spec callback_writeback(term(), [{non_neg_integer(), module(), term()}]) :: map() | nil
+  def callback_writeback(_result, []), do: nil
+
+  def callback_writeback(result, dto_arguments) do
+    replacements = writeback_replacements(result, dto_arguments)
+
+    Map.new(dto_arguments, fn {index, _module, decoded} ->
+      {"p#{index}", encode(Map.get(replacements, index, decoded))}
+    end)
+  end
+
+  defp writeback_replacements(result, [{index, module, _decoded}]) do
+    if is_struct(result, module), do: %{index => result}, else: %{}
+  end
+
+  defp writeback_replacements(result, dto_arguments) when is_list(result) do
+    if length(result) == length(dto_arguments) do
+      dto_arguments
+      |> Enum.zip(result)
+      |> Enum.reduce(%{}, fn {{index, module, _decoded}, value}, acc ->
+        if is_struct(value, module), do: Map.put(acc, index, value), else: acc
+      end)
+    else
+      %{}
+    end
+  end
+
+  defp writeback_replacements(_result, _dto_arguments), do: %{}
 
   @doc "Adds an optional enum argument."
   @spec put_opt_enum!(map(), String.t(), keyword(), atom(), module()) :: map()
@@ -255,5 +381,166 @@ defmodule Aspire.Runtime do
       nil -> resolved
       value -> Map.put(resolved, name, value)
     end
+  end
+end
+
+defmodule Aspire.List do
+  @moduledoc """
+  A handle to a mutable .NET list.
+
+  A capability that returns `List<T>` or `IList<T>` returns a handle, not a
+  copy. Each function here is one round trip to the host. A read-only
+  collection, such as `IReadOnlyList<T>` or `T[]`, arrives as a plain Elixir
+  list instead.
+
+      {:ok, tags} = Aspire.CodeGeneration.Tests.TestRedisResource.get_tags(redis)
+      {:ok, 0} = Aspire.List.count(tags)
+      {:ok, _} = Aspire.List.add(tags, "cache")
+  """
+
+  @enforce_keys [:handle]
+  defstruct [:handle, :transport]
+
+  @type t :: %__MODULE__{handle: Aspire.Handle.t(), transport: GenServer.server() | nil}
+
+  @type result :: {:ok, term()} | {:error, Aspire.Error.t()}
+
+  @doc "Returns every item as an Elixir list."
+  @spec to_list(t()) :: result()
+  def to_list(%__MODULE__{} = list), do: call(list, "Aspire.Hosting/List.toArray", %{})
+
+  @doc "Returns the number of items."
+  @spec count(t()) :: result()
+  def count(%__MODULE__{} = list), do: call(list, "Aspire.Hosting/List.length", %{})
+
+  @doc "Returns the item at an index, or nil."
+  @spec get(t(), integer()) :: result()
+  def get(%__MODULE__{} = list, index) when is_integer(index) do
+    call(list, "Aspire.Hosting/List.get", %{"index" => index})
+  end
+
+  @doc "Adds an item to the end of the list."
+  @spec add(t(), term()) :: result()
+  def add(%__MODULE__{} = list, item) do
+    call(list, "Aspire.Hosting/List.add", %{"item" => Aspire.Runtime.encode(item)})
+  end
+
+  @doc "Replaces the item at an index."
+  @spec put(t(), integer(), term()) :: result()
+  def put(%__MODULE__{} = list, index, item) when is_integer(index) do
+    call(list, "Aspire.Hosting/List.set", %{
+      "index" => index,
+      "value" => Aspire.Runtime.encode(item)
+    })
+  end
+
+  @doc "Inserts an item at an index."
+  @spec insert(t(), integer(), term()) :: result()
+  def insert(%__MODULE__{} = list, index, item) when is_integer(index) do
+    call(list, "Aspire.Hosting/List.insert", %{
+      "index" => index,
+      "item" => Aspire.Runtime.encode(item)
+    })
+  end
+
+  @doc "Returns the index of an item, or -1."
+  @spec index_of(t(), term()) :: result()
+  def index_of(%__MODULE__{} = list, item) do
+    call(list, "Aspire.Hosting/List.indexOf", %{"item" => Aspire.Runtime.encode(item)})
+  end
+
+  @doc "Removes the item at an index."
+  @spec remove_at(t(), integer()) :: result()
+  def remove_at(%__MODULE__{} = list, index) when is_integer(index) do
+    call(list, "Aspire.Hosting/List.removeAt", %{"index" => index})
+  end
+
+  @doc "Removes every item."
+  @spec clear(t()) :: result()
+  def clear(%__MODULE__{} = list), do: call(list, "Aspire.Hosting/List.clear", %{})
+
+  defp call(%__MODULE__{handle: handle} = list, capability, arguments) do
+    transport = Aspire.Runtime.transport_of(list)
+    args = Map.put(arguments, "list", handle)
+
+    transport
+    |> Aspire.Runtime.invoke(capability, args)
+    |> Aspire.Runtime.result(nil, transport)
+  end
+end
+
+defmodule Aspire.Dict do
+  @moduledoc """
+  A handle to a mutable .NET dictionary.
+
+  A capability that returns `Dictionary<K, V>` or `IDictionary<K, V>` returns a
+  handle, not a copy. Each function here is one round trip to the host. A
+  read-only dictionary arrives as a plain Elixir map instead.
+
+      {:ok, variables} = Aspire.Hosting.EnvironmentCallbackContext.environment_variables(context)
+      {:ok, _} = Aspire.Dict.put(variables, "PORT", "8080")
+  """
+
+  @enforce_keys [:handle]
+  defstruct [:handle, :transport]
+
+  @type t :: %__MODULE__{handle: Aspire.Handle.t(), transport: GenServer.server() | nil}
+
+  @type result :: {:ok, term()} | {:error, Aspire.Error.t()}
+
+  @doc "Returns the dictionary as a plain Elixir map. Every key has to be a string."
+  @spec to_map(t()) :: result()
+  def to_map(%__MODULE__{} = dict), do: call(dict, "Aspire.Hosting/Dict.toObject", %{})
+
+  @doc "Returns the number of entries."
+  @spec count(t()) :: result()
+  def count(%__MODULE__{} = dict), do: call(dict, "Aspire.Hosting/Dict.count", %{})
+
+  @doc "Returns the value of a key, or nil."
+  @spec get(t(), term()) :: result()
+  def get(%__MODULE__{} = dict, key) do
+    call(dict, "Aspire.Hosting/Dict.get", %{"key" => Aspire.Runtime.encode(key)})
+  end
+
+  @doc "Sets the value of a key."
+  @spec put(t(), term(), term()) :: result()
+  def put(%__MODULE__{} = dict, key, value) do
+    call(dict, "Aspire.Hosting/Dict.set", %{
+      "key" => Aspire.Runtime.encode(key),
+      "value" => Aspire.Runtime.encode(value)
+    })
+  end
+
+  @doc "Returns true when the dictionary holds the key."
+  @spec has_key?(t(), term()) :: result()
+  def has_key?(%__MODULE__{} = dict, key) do
+    call(dict, "Aspire.Hosting/Dict.has", %{"key" => Aspire.Runtime.encode(key)})
+  end
+
+  @doc "Removes a key."
+  @spec delete(t(), term()) :: result()
+  def delete(%__MODULE__{} = dict, key) do
+    call(dict, "Aspire.Hosting/Dict.remove", %{"key" => Aspire.Runtime.encode(key)})
+  end
+
+  @doc "Returns every key."
+  @spec keys(t()) :: result()
+  def keys(%__MODULE__{} = dict), do: call(dict, "Aspire.Hosting/Dict.keys", %{})
+
+  @doc "Returns every value."
+  @spec values(t()) :: result()
+  def values(%__MODULE__{} = dict), do: call(dict, "Aspire.Hosting/Dict.values", %{})
+
+  @doc "Removes every entry."
+  @spec clear(t()) :: result()
+  def clear(%__MODULE__{} = dict), do: call(dict, "Aspire.Hosting/Dict.clear", %{})
+
+  defp call(%__MODULE__{handle: handle} = dict, capability, arguments) do
+    transport = Aspire.Runtime.transport_of(dict)
+    args = Map.put(arguments, "dict", handle)
+
+    transport
+    |> Aspire.Runtime.invoke(capability, args)
+    |> Aspire.Runtime.result(nil, transport)
   end
 end

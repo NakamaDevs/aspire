@@ -166,6 +166,127 @@ defmodule Aspire.CancellationToken do
   defp transport_module, do: Module.concat(["Aspire", "Transport"])
 end
 
+defmodule Aspire.ReferenceExpression do
+  @moduledoc """
+  A value that references endpoints, parameters and other value providers.
+
+  `Aspire.ref/1` builds an expression from a list of parts. A string part goes
+  into the format text. Every other part becomes a value provider and gets a
+  `{n}` placeholder.
+
+      Aspire.ref(["http://", endpoint, "/health"])
+
+  The wire form is
+  `%{"$expr" => %{"format" => "...", "valueProviders" => [...]}}`.
+
+  The host also returns reference expressions. Such a struct holds a handle and
+  no format. `get_value_async/2` resolves it on the host.
+  """
+
+  alias Aspire.Handle
+
+  defstruct [:handle, :transport, :format, :value_providers]
+
+  @type t :: %__MODULE__{
+          handle: Handle.t() | nil,
+          transport: GenServer.server() | nil,
+          format: String.t() | nil,
+          value_providers: [term()] | nil
+        }
+
+  @get_value_capability "Aspire.Hosting.ApplicationModel/getValueAsync"
+
+  @doc """
+  Builds a reference expression from a list of parts.
+
+  A binary part is literal text. Every other part becomes a value provider.
+  """
+  @spec from_parts([term()]) :: t()
+  def from_parts(parts) when is_list(parts) do
+    {format, providers, _index} =
+      Enum.reduce(parts, {"", [], 0}, fn
+        part, {format, providers, index} when is_binary(part) ->
+          {format <> part, providers, index}
+
+        part, {format, providers, index} ->
+          {format <> "{#{index}}", [part | providers], index + 1}
+      end)
+
+    %__MODULE__{format: format, value_providers: Enum.reverse(providers)}
+  end
+
+  @doc "Returns the wire form of the expression."
+  @spec to_wire(t()) :: map()
+  def to_wire(%__MODULE__{handle: %Handle{} = handle}), do: Handle.to_json(handle)
+
+  def to_wire(%__MODULE__{format: format, value_providers: providers}) do
+    expression = %{"format" => format || ""}
+
+    expression =
+      case providers do
+        nil -> expression
+        [] -> expression
+        list -> Map.put(expression, "valueProviders", Enum.map(list, &provider/1))
+      end
+
+    %{"$expr" => expression}
+  end
+
+  defp provider(%Handle{} = handle), do: Handle.to_json(handle)
+  defp provider(%__MODULE__{} = expression), do: to_wire(expression)
+  defp provider(%{handle: %Handle{} = handle}), do: Handle.to_json(handle)
+  defp provider(value) when is_binary(value), do: value
+  defp provider(value) when is_number(value), do: to_string(value)
+
+  defp provider(value) do
+    raise ArgumentError,
+          "a reference expression part is a string, a number or a handle, not #{inspect(value)}"
+  end
+
+  @doc """
+  Resolves the expression on the host.
+
+  The function needs an expression that the host returned. A local expression
+  has no handle, so the host cannot resolve it.
+
+  ## Options
+
+    * `:cancellation_token` — an `Aspire.CancellationToken`.
+  """
+  @spec get_value_async(t(), keyword()) :: {:ok, String.t() | nil} | {:error, Aspire.Error.t()}
+  def get_value_async(expression, opts \\ [])
+
+  def get_value_async(%__MODULE__{handle: %Handle{} = handle} = expression, opts) do
+    runtime = runtime_module()
+    transport = runtime.transport_of(expression)
+
+    args =
+      runtime.put_opt(%{"context" => handle}, "cancellationToken", opts, :cancellation_token)
+
+    transport
+    |> runtime.invoke(@get_value_capability, args)
+    |> runtime.result(nil, transport)
+  end
+
+  def get_value_async(%__MODULE__{}, _opts) do
+    {:error,
+     Aspire.Error.new(
+       "INVALID_ARGUMENT",
+       "get_value_async/2 needs a reference expression that the host returned."
+     )}
+  end
+
+  @doc "The same as `get_value_async/2`. Raises `Aspire.Error` on a failure."
+  @spec get_value_async!(t(), keyword()) :: String.t() | nil
+  def get_value_async!(%__MODULE__{} = expression, opts \\ []) do
+    runtime_module().ok!(get_value_async(expression, opts))
+  end
+
+  # The module name is built at run time. base.ex compiles before
+  # aspire_runtime.ex, so a literal name would warn about an undefined module.
+  defp runtime_module, do: Module.concat(["Aspire", "Runtime"])
+end
+
 defmodule Aspire.Marshal do
   @moduledoc """
   Converts values between Elixir terms and the ATS wire form.
@@ -176,6 +297,7 @@ defmodule Aspire.Marshal do
 
   alias Aspire.CancellationToken
   alias Aspire.Handle
+  alias Aspire.ReferenceExpression
 
   @doc """
   Converts an Elixir term into a JSON-ready term.
@@ -187,6 +309,7 @@ defmodule Aspire.Marshal do
   @spec encode(term()) :: term()
   def encode(%Handle{} = handle), do: Handle.to_json(handle)
   def encode(%CancellationToken{id: id}), do: id
+  def encode(%ReferenceExpression{} = value), do: ReferenceExpression.to_wire(value)
   def encode(%Date{} = value), do: Date.to_iso8601(value)
   def encode(%Time{} = value), do: Time.to_iso8601(value)
   def encode(%DateTime{} = value), do: DateTime.to_iso8601(value)

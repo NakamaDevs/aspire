@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Aspire.Shared.CodeGeneration;
 using Aspire.TypeSystem;
 
 namespace Aspire.Hosting.CodeGeneration.Elixir;
@@ -79,9 +80,29 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
     /// </summary>
     private static readonly HashSet<string> s_reservedModuleNames = new(StringComparer.Ordinal)
     {
-        "Aspire", "Aspire.CancellationToken", "Aspire.Enums", "Aspire.Error", "Aspire.Handle",
-        "Aspire.Marshal", "Aspire.Runtime", "Aspire.Transport", "Aspire.Values"
+        "Aspire", "Aspire.CancellationToken", "Aspire.Dict", "Aspire.Enums", "Aspire.Error",
+        "Aspire.Handle", "Aspire.List", "Aspire.Marshal", "Aspire.ReferenceExpression",
+        "Aspire.Runtime", "Aspire.Transport", "Aspire.Values", "Aspire.Watch"
     };
+
+    /// <summary>
+    /// The Elixir module of a mutable .NET list. <c>aspire_runtime.ex</c> defines it.
+    /// </summary>
+    private const string ListModule = "Aspire.List";
+
+    /// <summary>
+    /// The Elixir module of a mutable .NET dictionary. <c>aspire_runtime.ex</c> defines it.
+    /// </summary>
+    private const string DictModule = "Aspire.Dict";
+
+    /// <summary>
+    /// The Elixir module of a reference expression. <c>base.ex</c> defines it, so the generator
+    /// never emits a module for the ATS type. The hand written module holds the format, the value
+    /// providers, and <c>get_value_async/2</c>.
+    /// </summary>
+    private const string ReferenceExpressionModule = "Aspire.ReferenceExpression";
+
+    private const string ErrorType = "Aspire.Error.t()";
 
     private static string ResolveReservedModuleName(string moduleName) =>
         s_reservedModuleNames.Contains(moduleName) ? moduleName + "Type" : moduleName;
@@ -108,7 +129,10 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
         {
             ["base.ex"] = GetEmbeddedResource("base.ex"),
             ["transport.ex"] = GetEmbeddedResource("transport.ex"),
-            ["aspire_runtime.ex"] = GetEmbeddedResource("aspire_runtime.ex")
+            ["aspire_runtime.ex"] = GetEmbeddedResource("aspire_runtime.ex"),
+            // The watcher is a standalone script. aspire.ex never loads it: the CLI runs it as the
+            // parent process of the AppHost when watch mode is on.
+            ["watch.exs"] = GetEmbeddedResource("watch.exs")
         };
 
         foreach (var generatedFile in generatedFiles)
@@ -234,6 +258,8 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
                 builder
                 |> Aspire.build!()
                 |> Aspire.run!()
+
+            `ref/1` builds a reference expression from strings and handles.
             """);
         writer.WriteLine();
         writer.WriteLine($"@builder_module {builderModule}");
@@ -288,16 +314,41 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
         writer.WriteLine();
 
         writer.WriteDoc("doc", "Builds the distributed application from the builder.");
+        writer.WriteLine($"@spec build(struct()) :: {{:ok, term()}} | {{:error, {ErrorType}}}");
         writer.WriteLine("def build(%module{} = builder), do: module.build(builder)");
         writer.WriteLine();
         writer.WriteDoc("doc", "Builds the distributed application. Raises `Aspire.Error` on a failure.");
+        writer.WriteLine("@spec build!(struct()) :: term()");
         writer.WriteLine("def build!(%module{} = builder), do: module.build!(builder)");
         writer.WriteLine();
         writer.WriteDoc("doc", "Runs the distributed application. It returns when the application stops.");
+        writer.WriteLine($"@spec run(struct()) :: {{:ok, term()}} | {{:error, {ErrorType}}}");
         writer.WriteLine("def run(%module{} = app), do: module.run(app)");
         writer.WriteLine();
         writer.WriteDoc("doc", "Runs the distributed application. Raises `Aspire.Error` on a failure.");
+        writer.WriteLine("@spec run!(struct()) :: term()");
         writer.WriteLine("def run!(%module{} = app), do: module.run!(app)");
+        writer.WriteLine();
+
+        writer.WriteDoc("doc", """
+            Builds a reference expression from a list of parts.
+
+            A binary part is literal text. Every other part becomes a value provider, and the
+            format string gets a `{n}` placeholder for it. The AppHost resolves the expression
+            when it needs the value.
+
+                Aspire.ref(["http://", endpoint, "/health"])
+
+            ## Parameters
+
+              * `parts` — the strings and handles of the expression, in order.
+
+            ## Returns
+
+            An `Aspire.ReferenceExpression` struct.
+            """);
+        writer.WriteLine("@spec ref([term()]) :: Aspire.ReferenceExpression.t()");
+        writer.WriteLine("def ref(parts) when is_list(parts), do: Aspire.ReferenceExpression.from_parts(parts)");
         writer.Outdent();
         writer.WriteLine("end");
 
@@ -320,37 +371,73 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             var writer = new ElixirWriter();
             writer.WriteLine($"defmodule {moduleName} do");
             writer.Indent();
-            writer.WriteDoc("moduledoc", BuildEnumModuleDoc(enumType));
 
             var members = enumType.Values.ToList();
             var atoms = AssignUniqueNames(members, ToElixirAtomName);
+            var allowed = string.Join(", ", members.Select(member => ":" + atoms[member]));
+
+            var valueDocs = members
+                .Select(member => (
+                    Name: $"`:{atoms[member]}`",
+                    Description: enumType.ValueInfos
+                        .FirstOrDefault(info => string.Equals(info.Name, member, StringComparison.Ordinal))
+                        ?.Documentation?.Summary))
+                .ToList();
+
+            writer.WriteDoc("moduledoc", BuildDoc(
+                enumType.Documentation,
+                descriptionFallback: null,
+                defaultSummary: $"The `{enumType.Name}` enum. A value is an atom and the wire form is the .NET member name.",
+                sections: [new DocSection("## Values", valueDocs)]));
 
             writer.WriteLine();
-            writer.WriteLine($"@values [{string.Join(", ", members.Select(member => ":" + atoms[member]))}]");
+            writer.WriteLine($"@values [{allowed}]");
             writer.WriteLine($"@to_wire %{{{string.Join(", ", members.Select(member => $"{atoms[member]}: \"{member}\""))}}}");
             writer.WriteLine($"@from_wire %{{{string.Join(", ", members.Select(member => $"\"{member}\" => :{atoms[member]}"))}}}");
             writer.WriteLine();
+            writer.WriteLine("@typedoc \"A value of the enum. The wire form is the .NET member name.\"");
+            writer.WriteLine("@type t :: atom()");
+            writer.WriteLine();
             writer.WriteDoc("doc", "Returns every value of the enum.");
-            writer.WriteLine("@spec values() :: [atom()]");
+            writer.WriteLine("@spec values() :: [t()]");
             writer.WriteLine("def values, do: @values");
             writer.WriteLine();
-            writer.WriteDoc("doc", "Returns the wire form of a value.");
-            writer.WriteLine("@spec to_wire(atom() | String.t()) :: String.t()");
-            writer.WriteLine("def to_wire(value) when is_binary(value), do: value");
+            writer.WriteDoc("doc", $"""
+                Returns the wire form of a value. Raises `ArgumentError` on an unknown value.
+
+                The error message names every value the enum accepts.
+                """);
+            writer.WriteLine("@spec to_wire!(t() | String.t()) :: String.t()");
+            writer.WriteLine("def to_wire!(value) when is_binary(value), do: value");
             writer.WriteLine();
-            writer.WriteLine("def to_wire(value) when is_atom(value) do");
+            writer.WriteLine("def to_wire!(value) when is_atom(value) do");
             writer.Indent();
             writer.WriteLine("case Map.fetch(@to_wire, value) do");
             writer.Indent();
-            writer.WriteLine("{:ok, name} -> name");
-            writer.WriteLine($":error -> raise ArgumentError, \"{moduleName} has no value #{{inspect(value)}}\"");
+            writer.WriteLine("{:ok, name} ->");
+            writer.Indent();
+            writer.WriteLine("name");
+            writer.Outdent();
+            writer.WriteLine();
+            writer.WriteLine(":error ->");
+            writer.Indent();
+            writer.WriteLine("raise ArgumentError,");
+            writer.Indent();
+            writer.WriteLine($"\"{moduleName} does not accept #{{inspect(value)}}. It accepts {EscapeInterpolation(allowed)}.\"");
+            writer.Outdent();
+            writer.Outdent();
             writer.Outdent();
             writer.WriteLine("end");
             writer.Outdent();
             writer.WriteLine("end");
             writer.WriteLine();
-            writer.WriteDoc("doc", "Returns the value of a wire form.");
-            writer.WriteLine("@spec from_wire(term()) :: term()");
+            writer.WriteDoc("doc", "Returns `{:ok, wire_form}`, or `:error` when the enum has no such value.");
+            writer.WriteLine("@spec to_wire(t() | String.t()) :: {:ok, String.t()} | :error");
+            writer.WriteLine("def to_wire(value) when is_binary(value), do: {:ok, value}");
+            writer.WriteLine("def to_wire(value) when is_atom(value), do: Map.fetch(@to_wire, value)");
+            writer.WriteLine();
+            writer.WriteDoc("doc", "Returns the value of a wire form. An unknown form returns without a change.");
+            writer.WriteLine("@spec from_wire(term()) :: t() | term()");
             writer.WriteLine("def from_wire(name) when is_binary(name), do: Map.get(@from_wire, name, name)");
             writer.WriteLine("def from_wire(value), do: value");
             writer.Outdent();
@@ -363,20 +450,13 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
         return modules;
     }
 
-    private static string BuildEnumModuleDoc(AtsEnumTypeInfo enumType)
-    {
-        var summary = enumType.Documentation?.Summary;
-        var lines = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(summary))
-        {
-            lines.Add(summary.Trim());
-            lines.Add("");
-        }
-
-        lines.Add($"The `{enumType.Name}` enum. A value is an atom. The wire form is the .NET member name.");
-        return string.Join("\n", lines);
-    }
+    /// <summary>
+    /// Escapes the text that goes inside a generated interpolated string literal.
+    /// </summary>
+    private static string EscapeInterpolation(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal)
+            .Replace("#{", "\\#{", StringComparison.Ordinal);
 
     // ── DTOs ─────────────────────────────────────────────────────────────────
 
@@ -397,11 +477,51 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             var writer = new ElixirWriter();
             writer.WriteLine($"defmodule {moduleName} do");
             writer.Indent();
-            writer.WriteDoc("moduledoc", BuildTypeDoc(dto.Documentation?.Summary ?? dto.Description, $"The `{dto.Name}` data object."));
+            writer.WriteDoc("moduledoc", BuildDoc(
+                dto.Documentation,
+                dto.Description,
+                $"The `{dto.Name}` data object.",
+                sections: [
+                    new DocSection(
+                        "## Properties",
+                        properties
+                            .Select(property => (
+                                Name: $"`:{fieldNames[property.Name]}`",
+                                Description: property.Documentation?.Summary ?? property.Description))
+                            .ToList())
+                ]));
             writer.WriteLine();
             writer.WriteLine($"defstruct [{string.Join(", ", properties.Select(p => ":" + fieldNames[p.Name]))}]");
             writer.WriteLine();
-            writer.WriteLine("@type t :: %__MODULE__{}");
+
+            if (properties.Count == 0)
+            {
+                writer.WriteLine("@type t :: %__MODULE__{}");
+            }
+            else
+            {
+                writer.WriteLine("@type t :: %__MODULE__{");
+                writer.Indent();
+                for (var i = 0; i < properties.Count; i++)
+                {
+                    var property = properties[i];
+                    var separator = i == properties.Count - 1 ? "" : ",";
+                    var spec = TypeSpecOf(model, property.Type, property.IsCallback, byValue: true);
+                    writer.WriteLine($"{fieldNames[property.Name]}: {spec} | nil{separator}");
+                }
+                writer.Outdent();
+                writer.WriteLine("}");
+            }
+
+            writer.WriteLine();
+            writer.WriteDoc("doc", """
+                Builds the struct from a keyword list.
+
+                A capability that flattens its `options` argument calls this function.
+                """);
+            writer.WriteLine("@spec new(keyword() | t()) :: t()");
+            writer.WriteLine("def new(%__MODULE__{} = value), do: value");
+            writer.WriteLine("def new(opts) when is_list(opts), do: struct!(__MODULE__, opts)");
             writer.WriteLine();
             writer.WriteDoc("doc", "Returns the wire form of the struct. The nil properties are removed.");
             writer.WriteLine("@spec to_wire(t()) :: map()");
@@ -418,8 +538,31 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
                 writer.Indent();
                 for (var i = 0; i < properties.Count; i++)
                 {
+                    var property = properties[i];
                     var separator = i == properties.Count - 1 ? "" : ",";
-                    writer.WriteLine($"{{\"{properties[i].Name}\", value.{fieldNames[properties[i].Name]}}}{separator}");
+                    var field = $"value.{fieldNames[property.Name]}";
+
+                    if (property.IsCallback && property.CallbackParameters is { } callbackParameters)
+                    {
+                        // A callback property carries an Elixir function. The wrapper decodes the
+                        // arguments of the host before the function runs, so a nested callback sees
+                        // the same typed values as a callback the caller passes to a capability.
+                        writer.WriteLine($"{{\"{property.Name}\", {RuntimeModule}.wrap_callback({field}, fn callback ->");
+                        writer.Indent();
+                        WriteCallbackFunction(
+                            model,
+                            writer,
+                            "callback",
+                            callbackParameters,
+                            property.CallbackReturnType,
+                            transportExpression: "nil");
+                        writer.Outdent();
+                        writer.WriteLine($"end)}}{separator}");
+                    }
+                    else
+                    {
+                        writer.WriteLine($"{{\"{property.Name}\", {field}}}{separator}");
+                    }
                 }
                 writer.Outdent();
                 writer.WriteLine("])");
@@ -428,8 +571,13 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             }
 
             writer.WriteLine();
-            writer.WriteDoc("doc", "Builds the struct from a wire map.");
-            writer.WriteLine("@spec from_wire(term()) :: term()");
+            writer.WriteDoc("doc", """
+                Builds the struct from a wire map.
+
+                A property the map does not hold becomes nil. A property the decoder cannot
+                convert keeps its wire value, so one unknown shape never fails the whole struct.
+                """);
+            writer.WriteLine("@spec from_wire(term()) :: t() | term()");
 
             if (properties.Count == 0)
             {
@@ -445,7 +593,7 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
                 {
                     var property = properties[i];
                     var separator = i == properties.Count - 1 ? "" : ",";
-                    var decoder = BuildDecoder(model, property.Type, property.IsCallback);
+                    var decoder = BuildDecoder(model, property.Type, property.IsCallback, byValue: true);
                     var call = decoder is null
                         ? $"{RuntimeModule}.wire_get(wire, \"{property.Name}\")"
                         : $"{RuntimeModule}.wire_get(wire, \"{property.Name}\", {decoder})";
@@ -490,7 +638,12 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             var writer = new ElixirWriter();
             writer.WriteLine($"defmodule {group.Key} do");
             writer.Indent();
-            writer.WriteDoc("moduledoc", "Exported Aspire values. The values are snapped when the SDK is generated.");
+            writer.WriteDoc("moduledoc", """
+                Exported Aspire values.
+
+                The values are snapped when the SDK is generated. A value that has a DTO type
+                arrives as the struct of that DTO.
+                """);
 
             var values = group.OrderBy(value => value.PathSegments[^1], StringComparer.Ordinal).ToList();
             var functionNames = AssignUniqueNames(
@@ -499,14 +652,15 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
 
             foreach (var value in values)
             {
-                var summary = value.Documentation?.Summary ?? value.Description;
+                var functionName = functionNames[value.PathSegments[^1]];
                 writer.WriteLine();
-                if (!string.IsNullOrWhiteSpace(summary))
-                {
-                    writer.WriteDoc("doc", summary.Trim());
-                }
+                writer.WriteDoc("doc", BuildDoc(
+                    value.Documentation,
+                    value.Description,
+                    $"The exported `{string.Join(".", value.PathSegments)}` value."));
 
-                writer.WriteLine($"def {functionNames[value.PathSegments[^1]]} do");
+                writer.WriteLine($"@spec {functionName}() :: {TypeSpecOf(model, value.Type)}");
+                writer.WriteLine($"def {functionName} do");
                 writer.Indent();
 
                 // A snapped value arrives in its wire form. The decoder turns a DTO into its struct
@@ -539,6 +693,12 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
 
         foreach (var typeId in model.HandleModules.Keys.OrderBy(id => model.HandleModules[id], StringComparer.Ordinal))
         {
+            if (model.RuntimeProvidedTypeIds.Contains(typeId))
+            {
+                // base.ex already defines the module. See ReferenceExpressionModule.
+                continue;
+            }
+
             var moduleName = model.HandleModules[typeId];
             var writer = new ElixirWriter();
 
@@ -547,7 +707,8 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             writer.WriteDoc(
                 "moduledoc",
                 BuildTypeDoc(
-                    model.HandleTypeInfos.TryGetValue(typeId, out var typeInfo) ? typeInfo.Documentation?.Summary : null,
+                    model.HandleTypeInfos.TryGetValue(typeId, out var typeInfo) ? typeInfo.Documentation : null,
+                    fallback: null,
                     $"A handle to `{typeId}` in the AppHost."));
             writer.WriteLine();
             writer.WriteLine("@enforce_keys [:handle]");
@@ -593,8 +754,31 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             .Where(parameter => !string.Equals(parameter.Name, targetParameterName, StringComparison.Ordinal))
             .ToList();
 
-        var required = parameters.Where(parameter => !parameter.IsOptional).ToList();
-        var optional = parameters.Where(parameter => parameter.IsOptional).ToList();
+        // A cancellation token of a method is always optional, even when the .NET parameter has no
+        // default. The caller passes it as the `:cancellation_token` option, so
+        // `Aspire.CancellationToken.cancel/1` can stop the call. A property setter keeps its
+        // `value` parameter required, because that value is the property itself.
+        bool AlwaysOptional(AtsParameterInfo parameter) =>
+            IsCancellationTokenParameter(parameter)
+            && capability.CapabilityKind != AtsCapabilityKind.PropertySetter;
+
+        var required = parameters
+            .Where(parameter => !parameter.IsOptional && !AlwaysOptional(parameter))
+            .ToList();
+        var optional = parameters
+            .Where(parameter => parameter.IsOptional || AlwaysOptional(parameter))
+            .ToList();
+
+        // Go rule: one optional DTO named `options` and nothing else flattens into the keyword
+        // list, so the caller writes the properties of the DTO directly. A cancellation token
+        // beside it blocks the flattening, because both would share the same keyword list.
+        var flattened = AtsOptionsFlattening.TryGetDirectOptionsParameter(
+            optional,
+            IsCancellationTokenParameter,
+            cancellationTokenIsSeparateParameter: false,
+            out var directOptions)
+            && model.DtoModules.ContainsKey(directOptions.Type!.TypeId)
+            && model.DtoPropertyKeys.ContainsKey(directOptions.Type.TypeId);
 
         var localNames = AssignUniqueNames(
             parameters.Select(parameter => parameter.Name).ToList(),
@@ -604,6 +788,14 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             optional.Select(parameter => parameter.Name).ToList(),
             ToElixirAtomName);
 
+        List<(string Key, string WireName, string? Description)> flattenedKeys = [];
+        if (flattened)
+        {
+            flattenedKeys = model.DtoPropertyKeys[directOptions!.Type!.TypeId];
+        }
+
+        var hasOptions = flattened ? flattenedKeys.Count > 0 : optional.Count > 0;
+
         var signature = new StringBuilder();
         signature.Append("%__MODULE__{} = target");
         foreach (var parameter in required)
@@ -611,29 +803,69 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             signature.Append(", ").Append(localNames[parameter.Name]);
         }
 
-        if (optional.Count > 0)
+        if (hasOptions)
         {
             signature.Append(@", opts \\ []");
         }
 
-        var arity = 1 + required.Count + (optional.Count > 0 ? 1 : 0);
+        var arity = 1 + required.Count + (hasOptions ? 1 : 0);
         var decoder = BuildDecoder(model, capability.ReturnType, isCallback: false);
+        var returnSpec = ReturnTypeSpecOf(model, capability.ReturnType);
+
+        var specTypes = new List<string> { "t()" };
+        specTypes.AddRange(required.Select(parameter => TypeSpecOf(model, parameter.Type, parameter.IsCallback)));
+        if (hasOptions)
+        {
+            specTypes.Add("keyword()");
+        }
+
+        var specArguments = string.Join(", ", specTypes);
 
         writer.WriteLine();
-        WriteCapabilityDoc(writer, capability, optional, optionKeys);
+        WriteCapabilityDoc(writer, capability, required, optional, localNames, optionKeys, flattened, flattenedKeys);
+        writer.WriteLine($"@spec {functionName}({specArguments}) :: {{:ok, {returnSpec}}} | {{:error, {ErrorType}}}");
         writer.WriteLine($"def {functionName}({signature}) do");
         writer.Indent();
 
-        if (optional.Count > 0)
+        if (hasOptions)
         {
-            var allowed = string.Join(", ", optional.Select(parameter => ":" + optionKeys[parameter.Name]));
+            var allowed = flattened
+                ? string.Join(", ", flattenedKeys.Select(entry => ":" + entry.Key))
+                : string.Join(", ", optional.Select(parameter => ":" + optionKeys[parameter.Name]));
             writer.WriteLine($"{RuntimeModule}.validate_opts!(opts, [{allowed}], \"{moduleName}.{functionName}/{arity}\")");
         }
 
         writer.WriteLine($"transport = {RuntimeModule}.transport_of(target)");
+
+        // A callback needs a wrapper that decodes the arguments of the host before the function of
+        // the caller runs. The wrapper closes over `transport`, so it is built here.
+        var wrapperNames = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var parameter in parameters)
+        {
+            if (!parameter.IsCallback || parameter.CallbackParameters is not { } callbackParameters)
+            {
+                continue;
+            }
+
+            if (flattened && ReferenceEquals(parameter, directOptions))
+            {
+                continue;
+            }
+
+            var wrapperName = localNames[parameter.Name] + "_wrapper";
+            wrapperNames[parameter.Name] = wrapperName;
+
+            writer.WriteLine();
+            writer.WriteLine($"{wrapperName} = fn callback ->");
+            writer.Indent();
+            WriteCallbackFunction(model, writer, "callback", callbackParameters, parameter.CallbackReturnType, "transport");
+            writer.Outdent();
+            writer.WriteLine("end");
+        }
+
         writer.WriteLine();
 
-        if (required.Count == 0 && optional.Count == 0)
+        if (required.Count == 0 && !hasOptions)
         {
             writer.WriteLine($"args = %{{\"{targetParameterName}\" => {RuntimeModule}.handle_of(target)}}");
         }
@@ -645,12 +877,24 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
 
             foreach (var parameter in required)
             {
-                writer.WriteLine($"|> Map.put(\"{parameter.Name}\", {EncodeExpression(model, parameter, localNames[parameter.Name])})");
+                var local = localNames[parameter.Name];
+                var value = wrapperNames.TryGetValue(parameter.Name, out var wrapper)
+                    ? $"{wrapper}.({local})"
+                    : EncodeExpression(model, parameter, local, $"{moduleName}.{functionName}/{arity}");
+                writer.WriteLine($"|> Map.put(\"{parameter.Name}\", {value})");
             }
 
-            foreach (var parameter in optional)
+            if (flattened)
             {
-                writer.WriteLine($"|> {PutOptionExpression(model, parameter, optionKeys[parameter.Name])}");
+                var dtoModule = model.DtoModules[directOptions!.Type!.TypeId];
+                writer.WriteLine($"|> {RuntimeModule}.put_opts_dto(\"{directOptions.Name}\", opts, {dtoModule})");
+            }
+            else
+            {
+                foreach (var parameter in optional)
+                {
+                    writer.WriteLine($"|> {PutOptionExpression(model, parameter, optionKeys[parameter.Name], wrapperNames)}");
+                }
             }
 
             writer.Outdent();
@@ -670,13 +914,14 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
             bangArguments.Append(", ").Append(localNames[parameter.Name]);
         }
 
-        if (optional.Count > 0)
+        if (hasOptions)
         {
             bangArguments.Append(", opts");
         }
 
         writer.WriteLine();
         writer.WriteDoc("doc", $"The same as `{functionName}/{arity}`. Raises `Aspire.Error` on a failure.");
+        writer.WriteLine($"@spec {functionName}!({specArguments}) :: {returnSpec}");
         writer.WriteLine($"def {functionName}!({signature}) do");
         writer.Indent();
         writer.WriteLine($"{RuntimeModule}.ok!({functionName}({bangArguments}))");
@@ -684,53 +929,133 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
         writer.WriteLine("end");
     }
 
-    private static void WriteCapabilityDoc(
+    /// <summary>
+    /// Writes the anonymous function that the transport registers for a callback argument.
+    /// </summary>
+    /// <remarks>
+    /// The host sends the arguments as <c>p0</c>, <c>p1</c>, … The function decodes each one with
+    /// the decoder of its ATS type, so a context handle becomes its wrapper struct and a DTO
+    /// becomes its struct. An Elixir struct never changes in place, so a callback that receives a
+    /// DTO returns the changed struct and <c>callback_writeback/2</c> sends it back to the host.
+    /// </remarks>
+    private static void WriteCallbackFunction(
+        ElixirModel model,
         ElixirWriter writer,
-        AtsCapabilityInfo capability,
-        IReadOnlyList<AtsParameterInfo> optional,
-        IReadOnlyDictionary<string, string> optionKeys)
+        string callbackName,
+        IReadOnlyList<AtsCallbackParameterInfo> callbackParameters,
+        AtsTypeRef? callbackReturnType,
+        string transportExpression)
     {
-        var lines = new List<string>();
-        var summary = capability.Documentation?.Summary ?? capability.Description;
-
-        if (!string.IsNullOrWhiteSpace(summary))
+        var arguments = new List<string>();
+        for (var i = 0; i < callbackParameters.Count; i++)
         {
-            lines.Add(summary.Trim());
-        }
-        else
-        {
-            lines.Add($"Invokes the `{capability.CapabilityId}` capability.");
+            arguments.Add(string.Create(CultureInfo.InvariantCulture, $"a{i}"));
         }
 
-        if (capability.IsObsolete)
-        {
-            lines.Add("");
-            lines.Add($"> #### Obsolete {{: .warning}}\n>\n> {capability.ObsoleteMessage ?? "This capability is obsolete."}");
-        }
+        writer.WriteLine(arguments.Count == 0
+            ? "fn ->"
+            : $"fn {string.Join(", ", arguments)} ->");
+        writer.Indent();
 
-        if (optional.Count > 0)
+        var dtoArguments = new List<string>();
+        for (var i = 0; i < callbackParameters.Count; i++)
         {
-            lines.Add("");
-            lines.Add("## Options");
-            lines.Add("");
-            foreach (var parameter in optional)
+            var callbackParameter = callbackParameters[i];
+            var decoder = BuildDecoder(model, callbackParameter.Type, isCallback: false);
+
+            if (decoder is not null)
             {
-                var description = parameter.Documentation?.Summary;
-                lines.Add(string.IsNullOrWhiteSpace(description)
-                    ? $"  * `:{optionKeys[parameter.Name]}`"
-                    : $"  * `:{optionKeys[parameter.Name]}` — {Flatten(description)}");
+                writer.WriteLine($"{arguments[i]} = {RuntimeModule}.decode({arguments[i]}, {decoder}, {transportExpression})");
+            }
+
+            if (callbackParameter.Type.Category == AtsTypeCategory.Dto
+                && model.DtoModules.TryGetValue(callbackParameter.Type.TypeId, out var dtoModule))
+            {
+                dtoArguments.Add(string.Create(CultureInfo.InvariantCulture, $"{{{i}, {dtoModule}, {arguments[i]}}}"));
             }
         }
 
-        writer.WriteDoc("doc", string.Join("\n", lines));
+        var call = $"{callbackName}.({string.Join(", ", arguments)})";
+        var returnsValue = callbackReturnType is not null
+            && !string.Equals(callbackReturnType.TypeId, AtsConstants.Void, StringComparison.Ordinal);
+
+        writer.WriteLine(returnsValue
+            ? $"{RuntimeModule}.encode({call})"
+            : $"{RuntimeModule}.callback_writeback({call}, [{string.Join(", ", dtoArguments)}])");
+
+        writer.Outdent();
+        writer.WriteLine("end");
     }
 
-    private static string EncodeExpression(ElixirModel model, AtsParameterInfo parameter, string localName)
+    private static void WriteCapabilityDoc(
+        ElixirWriter writer,
+        AtsCapabilityInfo capability,
+        IReadOnlyList<AtsParameterInfo> required,
+        IReadOnlyList<AtsParameterInfo> optional,
+        IReadOnlyDictionary<string, string> localNames,
+        IReadOnlyDictionary<string, string> optionKeys,
+        bool flattened,
+        IReadOnlyList<(string Key, string WireName, string? Description)> flattenedKeys)
+    {
+        var parameterDocs = required
+            .Select(parameter => (
+                Name: $"`{localNames[parameter.Name]}`",
+                Description: parameter.Documentation?.Summary
+                    ?? DocumentationFor(capability.Documentation, parameter.Name)))
+            .ToList();
+
+        var optionDocs = flattened
+            ? flattenedKeys.Select(entry => (Name: $"`:{entry.Key}`", entry.Description)).ToList()
+            : optional
+                .Select(parameter => (
+                    Name: $"`:{optionKeys[parameter.Name]}`",
+                    Description: parameter.Documentation?.Summary
+                        ?? DocumentationFor(capability.Documentation, parameter.Name)))
+                .ToList();
+
+        var isVoid = capability.ReturnType is null
+            || string.Equals(capability.ReturnType.TypeId, AtsConstants.Void, StringComparison.Ordinal);
+
+        var sections = new List<DocSection>();
+        if (parameterDocs.Count > 0)
+        {
+            sections.Add(new DocSection("## Parameters", parameterDocs));
+        }
+
+        if (optionDocs.Count > 0)
+        {
+            sections.Add(new DocSection("## Options", optionDocs));
+        }
+
+        writer.WriteDoc("doc", BuildDoc(
+            capability.Documentation,
+            capability.Description,
+            $"Invokes the `{capability.CapabilityId}` capability.",
+            sections,
+            suppressReturns: isVoid,
+            isObsolete: capability.IsObsolete,
+            obsoleteMessage: capability.ObsoleteMessage));
+    }
+
+    private static string EncodeExpression(
+        ElixirModel model,
+        AtsParameterInfo parameter,
+        string localName,
+        string functionName)
     {
         if (parameter.IsCallback)
         {
             // The transport registers a function and sends the callback identifier.
             return localName;
+        }
+
+        if (parameter.Type is { Category: AtsTypeCategory.Union } unionType)
+        {
+            var specs = BuildUnionSpecs(model, unionType);
+            if (specs.Count > 0)
+            {
+                return $"{RuntimeModule}.encode_union!({localName}, [{string.Join(", ", specs)}], \"{functionName}\", \"{parameter.Name}\")";
+            }
         }
 
         if (parameter.Type is { Category: AtsTypeCategory.Enum } enumType
@@ -742,11 +1067,17 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
         return $"{RuntimeModule}.encode({localName})";
     }
 
-    private static string PutOptionExpression(ElixirModel model, AtsParameterInfo parameter, string optionKey)
+    private static string PutOptionExpression(
+        ElixirModel model,
+        AtsParameterInfo parameter,
+        string optionKey,
+        IReadOnlyDictionary<string, string> wrapperNames)
     {
         if (parameter.IsCallback)
         {
-            return $"{RuntimeModule}.put_opt_raw(\"{parameter.Name}\", opts, :{optionKey})";
+            return wrapperNames.TryGetValue(parameter.Name, out var wrapper)
+                ? $"{RuntimeModule}.put_opt_callback(\"{parameter.Name}\", opts, :{optionKey}, {wrapper})"
+                : $"{RuntimeModule}.put_opt_raw(\"{parameter.Name}\", opts, :{optionKey})";
         }
 
         if (parameter.Type is { Category: AtsTypeCategory.Enum } enumType
@@ -758,7 +1089,77 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
         return $"{RuntimeModule}.put_opt(\"{parameter.Name}\", opts, :{optionKey})";
     }
 
-    private static string? BuildDecoder(ElixirModel model, AtsTypeRef? typeRef, bool isCallback)
+    /// <summary>
+    /// Builds the accepted forms of an <c>[AspireUnion]</c> parameter.
+    /// </summary>
+    /// <remarks>
+    /// A handle member expands to the module of the member and to the module of every handle type
+    /// that implements or extends it, because a caller passes the concrete wrapper struct. Two
+    /// members can expand to the same module, so the list is deduplicated and sorted.
+    /// </remarks>
+    private static List<string> BuildUnionSpecs(ElixirModel model, AtsTypeRef unionType)
+    {
+        if (unionType.UnionTypes is not { Count: > 0 } members)
+        {
+            return [];
+        }
+
+        var primitives = new SortedSet<string>(StringComparer.Ordinal);
+        var modules = new SortedSet<string>(StringComparer.Ordinal);
+
+        foreach (var member in members)
+        {
+            switch (member.Category)
+            {
+                case AtsTypeCategory.Handle:
+                    foreach (var moduleName in model.ExpandUnionMember(member.TypeId))
+                    {
+                        modules.Add(moduleName);
+                    }
+
+                    break;
+
+                case AtsTypeCategory.Dto:
+                    if (model.DtoModules.TryGetValue(member.TypeId, out var dtoModule))
+                    {
+                        modules.Add(dtoModule);
+                    }
+
+                    break;
+
+                case AtsTypeCategory.Enum:
+                    primitives.Add(":string");
+                    break;
+
+                case AtsTypeCategory.Array:
+                case AtsTypeCategory.List:
+                case AtsTypeCategory.Dict:
+                case AtsTypeCategory.Callback:
+                case AtsTypeCategory.Union:
+                    primitives.Add(":any");
+                    break;
+
+                default:
+                    primitives.Add(member.TypeId switch
+                    {
+                        AtsConstants.Number => ":number",
+                        AtsConstants.Boolean => ":boolean",
+                        AtsConstants.Any => ":any",
+                        _ => ":string"
+                    });
+                    break;
+            }
+        }
+
+        var specs = new List<string>(primitives);
+        specs.AddRange(modules.Select(moduleName => $"{{:module, {moduleName}}}"));
+        return specs;
+    }
+
+    private static bool IsCancellationTokenParameter(AtsParameterInfo parameter) =>
+        IsCancellationTokenTypeId(parameter.Type?.TypeId);
+
+    private static string? BuildDecoder(ElixirModel model, AtsTypeRef? typeRef, bool isCallback, bool byValue = false)
     {
         if (typeRef is null || isCallback || string.Equals(typeRef.TypeId, AtsConstants.Void, StringComparison.Ordinal))
         {
@@ -792,9 +1193,18 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
                     ? $"{{:enum, {enumModule}}}"
                     : null;
 
+            case AtsTypeCategory.List when !byValue:
+                // A mutable list stays in the AppHost. The host returns a handle and
+                // `Aspire.List` sends every operation back. A read-only collection is category
+                // Array instead, so it arrives as a plain Elixir list.
+                return $"{{:handle, {ListModule}}}";
+
+            case AtsTypeCategory.Dict when !typeRef.IsReadOnly && !byValue:
+                return $"{{:handle, {DictModule}}}";
+
             case AtsTypeCategory.Array:
             case AtsTypeCategory.List:
-                var inner = BuildDecoder(model, typeRef.ElementType, isCallback: false);
+                var inner = BuildDecoder(model, typeRef.ElementType, isCallback: false, byValue: byValue);
                 return inner is null ? null : $"{{:list, {inner}}}";
 
             default:
@@ -804,11 +1214,284 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
 
     // ── Documentation ────────────────────────────────────────────────────────
 
-    private static string BuildTypeDoc(string? summary, string fallback) =>
-        string.IsNullOrWhiteSpace(summary) ? fallback : summary.Trim();
+    /// <summary>
+    /// Builds the text of a <c>@doc</c> or <c>@moduledoc</c> attribute.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The summary comes from <see cref="AtsDocumentationInfo.Summary"/>. An empty
+    /// <c>&lt;ats-summary&gt;</c> element suppresses the summary: the scanner then returns a
+    /// documentation object whose <c>Summary</c> is <see langword="null"/>. The generator keeps
+    /// that decision and does not fall back to the <c>[AspireExport(Description = ...)]</c> text.
+    /// The fallback applies only when the whole documentation object is missing.
+    /// </para>
+    /// </remarks>
+    private static string BuildDoc(
+        AtsDocumentationInfo? documentation,
+        string? descriptionFallback,
+        string? defaultSummary,
+        IReadOnlyList<DocSection>? sections = null,
+        bool suppressReturns = false,
+        bool isObsolete = false,
+        string? obsoleteMessage = null)
+    {
+        var summary = documentation is null
+            ? Coalesce(descriptionFallback, defaultSummary)
+            : Coalesce(documentation.Summary, defaultSummary);
+
+        var lines = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(summary))
+        {
+            lines.Add(ConvertAtsReferences(summary.Trim()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(documentation?.Remarks))
+        {
+            AddBlank(lines);
+            lines.Add(ConvertAtsReferences(documentation.Remarks.Trim()));
+        }
+
+        if (isObsolete)
+        {
+            AddBlank(lines);
+            lines.Add("> #### Obsolete {: .warning}");
+            lines.Add(">");
+            lines.Add("> " + ConvertAtsReferences(Flatten(obsoleteMessage ?? "This capability is obsolete.")));
+        }
+
+        foreach (var section in sections ?? [])
+        {
+            AddSection(lines, section.Heading, section.Entries);
+        }
+
+        if (!suppressReturns && !string.IsNullOrWhiteSpace(documentation?.Returns))
+        {
+            AddBlank(lines);
+            lines.Add("## Returns");
+            AddBlank(lines);
+            lines.Add(ConvertAtsReferences(documentation.Returns.Trim()));
+        }
+
+        return string.Join("\n", lines);
+
+        static string? Coalesce(string? first, string? second) =>
+            string.IsNullOrWhiteSpace(first) ? second : first;
+
+        static void AddBlank(List<string> lines)
+        {
+            if (lines.Count > 0)
+            {
+                lines.Add("");
+            }
+        }
+
+        static void AddSection(
+            List<string> lines,
+            string heading,
+            IReadOnlyList<(string Name, string? Description)>? entries)
+        {
+            if (entries is null || entries.Count == 0)
+            {
+                return;
+            }
+
+            AddBlank(lines);
+            lines.Add(heading);
+            AddBlank(lines);
+
+            foreach (var (name, description) in entries)
+            {
+                lines.Add(string.IsNullOrWhiteSpace(description)
+                    ? $"  * {name}"
+                    : $"  * {name} — {ConvertAtsReferences(Flatten(description))}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Turns the language neutral reference markers of the scanner into ExDoc links.
+    /// </summary>
+    /// <remarks>
+    /// The scanner writes <c>&lt;ats-see cref="!:type:Foo"/&gt;</c> as <c>{@ats-ref type:Foo}</c>,
+    /// and adds <c>|label</c> when the element holds text. A marker without a label becomes a
+    /// backticked name, which ExDoc turns into a link. A marker with a label becomes an ExDoc
+    /// link with that text.
+    /// </remarks>
+    internal static string ConvertAtsReferences(string text)
+    {
+        const string Marker = "{@ats-ref ";
+
+        if (!text.Contains(Marker, StringComparison.Ordinal))
+        {
+            return text;
+        }
+
+        var builder = new StringBuilder(text.Length);
+        var index = 0;
+
+        while (index < text.Length)
+        {
+            var start = text.IndexOf(Marker, index, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                builder.Append(text, index, text.Length - index);
+                break;
+            }
+
+            var end = text.IndexOf('}', start);
+            if (end < 0)
+            {
+                builder.Append(text, index, text.Length - index);
+                break;
+            }
+
+            builder.Append(text, index, start - index);
+
+            var reference = text[(start + Marker.Length)..end];
+            var separator = reference.IndexOf(':', StringComparison.Ordinal);
+
+            if (separator < 0)
+            {
+                // The marker carries no kind. Keep it as it is so nothing is lost.
+                builder.Append(text, start, end - start + 1);
+            }
+            else
+            {
+                var remainder = reference[(separator + 1)..];
+                var labelIndex = remainder.IndexOf('|', StringComparison.Ordinal);
+                var target = labelIndex < 0 ? remainder : remainder[..labelIndex];
+                var label = labelIndex < 0 ? null : remainder[(labelIndex + 1)..];
+
+                builder.Append(string.IsNullOrWhiteSpace(label)
+                    ? $"`{target}`"
+                    : $"[{label}](`{target}`)");
+            }
+
+            index = end + 1;
+        }
+
+        return builder.ToString();
+    }
+
+    private static string BuildTypeDoc(AtsDocumentationInfo? documentation, string? fallback, string defaultSummary) =>
+        BuildDoc(documentation, fallback, defaultSummary);
+
+    /// <summary>
+    /// A named list that a generated documentation block holds, such as the parameters of a
+    /// function or the properties of a data object.
+    /// </summary>
+    private sealed record DocSection(string Heading, IReadOnlyList<(string Name, string? Description)> Entries);
 
     private static string Flatten(string value) =>
         string.Join(" ", value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private static string? DocumentationFor(AtsDocumentationInfo? documentation, string parameterName) =>
+        documentation?.Parameters.FirstOrDefault(p => string.Equals(p.Name, parameterName, StringComparison.Ordinal))?.Description;
+
+    // ── Typespecs ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Maps an ATS type reference to an Elixir typespec.
+    /// </summary>
+    /// <remarks>
+    /// Every module the spec names has to define <c>t/0</c>, because
+    /// <c>elixirc --warnings-as-errors</c> refuses an unknown remote type. The generated modules,
+    /// <c>base.ex</c> and <c>aspire_runtime.ex</c> all define it.
+    /// </remarks>
+    private static string TypeSpecOf(ElixirModel model, AtsTypeRef? typeRef, bool isCallback = false, bool byValue = false)
+    {
+        if (isCallback)
+        {
+            return "function()";
+        }
+
+        if (typeRef is null)
+        {
+            return "term()";
+        }
+
+        if (IsCancellationTokenTypeId(typeRef.TypeId))
+        {
+            return "Aspire.CancellationToken.t()";
+        }
+
+        switch (typeRef.Category)
+        {
+            case AtsTypeCategory.Handle:
+                if (model.DtoModules.TryGetValue(typeRef.TypeId, out var dtoAsHandle))
+                {
+                    return $"{dtoAsHandle}.t()";
+                }
+
+                return model.HandleModules.TryGetValue(typeRef.TypeId, out var handleModule)
+                    ? $"{handleModule}.t()"
+                    : "term()";
+
+            case AtsTypeCategory.Dto:
+                return model.DtoModules.TryGetValue(typeRef.TypeId, out var dtoModule)
+                    ? $"{dtoModule}.t()"
+                    : "map()";
+
+            case AtsTypeCategory.Enum:
+                return model.EnumModules.TryGetValue(typeRef.TypeId, out var enumModule)
+                    ? $"{enumModule}.t()"
+                    : "atom()";
+
+            case AtsTypeCategory.Union:
+                return "term()";
+
+            case AtsTypeCategory.Array:
+                return $"[{TypeSpecOf(model, typeRef.ElementType, byValue: byValue)}]";
+
+            case AtsTypeCategory.List:
+                // A DTO carries its collections by value. A capability instead returns a handle
+                // to a mutable collection, so the caller gets an Aspire.List.
+                return byValue
+                    ? $"[{TypeSpecOf(model, typeRef.ElementType, byValue: true)}]"
+                    : $"{ListModule}.t()";
+
+            case AtsTypeCategory.Dict:
+                return typeRef.IsReadOnly || byValue
+                    ? "map()"
+                    : $"{DictModule}.t()";
+
+            case AtsTypeCategory.Callback:
+                return "function()";
+
+            default:
+                return PrimitiveTypeSpec(typeRef.TypeId);
+        }
+    }
+
+    private static string PrimitiveTypeSpec(string typeId) => typeId switch
+    {
+        AtsConstants.String or AtsConstants.Char or AtsConstants.Guid or AtsConstants.Uri
+            or AtsConstants.DateTime or AtsConstants.DateTimeOffset or AtsConstants.DateOnly
+            or AtsConstants.TimeOnly or AtsConstants.TimeSpan => "String.t()",
+        AtsConstants.Number => "number()",
+        AtsConstants.Boolean => "boolean()",
+        AtsConstants.Void => "nil",
+        _ => "term()"
+    };
+
+    /// <summary>
+    /// Returns the typespec of a value that a capability returns, after the decoder ran.
+    /// </summary>
+    private static string ReturnTypeSpecOf(ElixirModel model, AtsTypeRef? typeRef)
+    {
+        if (typeRef is null || string.Equals(typeRef.TypeId, AtsConstants.Void, StringComparison.Ordinal))
+        {
+            return "nil";
+        }
+
+        return typeRef.Category switch
+        {
+            AtsTypeCategory.List => $"{ListModule}.t()",
+            AtsTypeCategory.Dict when !typeRef.IsReadOnly => $"{DictModule}.t()",
+            _ => TypeSpecOf(model, typeRef)
+        };
+    }
 
     // ── Literals ─────────────────────────────────────────────────────────────
 
@@ -1036,6 +1719,29 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
 
         public required Dictionary<string, List<AtsCapabilityInfo>> CapabilitiesByTarget { get; init; }
 
+        /// <summary>
+        /// The ATS type ids whose Elixir module is hand written in <c>base.ex</c> or
+        /// <c>aspire_runtime.ex</c>. The generator maps them but emits no module.
+        /// </summary>
+        public required HashSet<string> RuntimeProvidedTypeIds { get; init; }
+
+        /// <summary>
+        /// The keyword keys of every DTO, in property order. A capability that flattens its
+        /// <c>options</c> argument uses them as its option names.
+        /// </summary>
+        public required Dictionary<string, List<(string Key, string WireName, string? Description)>> DtoPropertyKeys { get; init; }
+
+        /// <summary>
+        /// The Elixir modules that can be assigned to a handle type. It holds the module of the
+        /// type and the module of every handle type that implements or extends it.
+        /// </summary>
+        public required Dictionary<string, List<string>> UnionExpansions { get; init; }
+
+        public IReadOnlyList<string> ExpandUnionMember(string typeId) =>
+            UnionExpansions.TryGetValue(typeId, out var modules)
+                ? modules
+                : HandleModules.TryGetValue(typeId, out var moduleName) ? [moduleName] : [];
+
         public static ElixirModel Build(AtsContext context)
         {
             var dtoTypeIds = new HashSet<string>(context.DtoTypes.Select(dto => dto.TypeId), StringComparer.Ordinal);
@@ -1079,6 +1785,28 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
                 handleTypeInfos.TryAdd(typeInfo.AtsTypeId, typeInfo);
             }
 
+            var runtimeProvided = new HashSet<string>(StringComparer.Ordinal);
+            if (handleModules.ContainsKey(AtsConstants.ReferenceExpressionTypeId))
+            {
+                // base.ex holds the reference expression, because a guest builds one locally with
+                // Aspire.ref/1 and the host also returns one as a handle.
+                handleModules[AtsConstants.ReferenceExpressionTypeId] = ReferenceExpressionModule;
+                runtimeProvided.Add(AtsConstants.ReferenceExpressionTypeId);
+            }
+
+            var dtoPropertyKeys = new Dictionary<string, List<(string, string, string?)>>(StringComparer.Ordinal);
+            foreach (var dto in context.DtoTypes)
+            {
+                var properties = dto.Properties.ToList();
+                var keys = AssignUniqueNames(properties.Select(property => property.Name).ToList(), ToSnakeCase);
+                dtoPropertyKeys[dto.TypeId] = properties
+                    .Select(property => (
+                        keys[property.Name],
+                        property.Name,
+                        property.Documentation?.Summary ?? property.Description))
+                    .ToList();
+            }
+
             return new ElixirModel
             {
                 Context = context,
@@ -1086,8 +1814,71 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
                 DtoModules = dtoModules,
                 EnumModules = assignedEnums,
                 HandleTypeInfos = handleTypeInfos,
-                CapabilitiesByTarget = GroupCapabilitiesByTarget(context.Capabilities, handleTypeIds)
+                CapabilitiesByTarget = GroupCapabilitiesByTarget(context.Capabilities, handleTypeIds),
+                RuntimeProvidedTypeIds = runtimeProvided,
+                DtoPropertyKeys = dtoPropertyKeys,
+                UnionExpansions = BuildUnionExpansions(context, handleModules)
             };
+        }
+
+        /// <summary>
+        /// Maps every handle type id to the modules a caller can pass for it.
+        /// </summary>
+        /// <remarks>
+        /// An interface member of a union accepts every concrete wrapper struct that implements it.
+        /// Two members of the same union often expand to the same module, so the caller of this
+        /// map deduplicates the result.
+        /// </remarks>
+        private static Dictionary<string, List<string>> BuildUnionExpansions(
+            AtsContext context,
+            Dictionary<string, string> handleModules)
+        {
+            var expansions = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+
+            void Add(string typeId, string moduleName)
+            {
+                if (!expansions.TryGetValue(typeId, out var modules))
+                {
+                    modules = new SortedSet<string>(StringComparer.Ordinal);
+                    expansions[typeId] = modules;
+                }
+
+                modules.Add(moduleName);
+            }
+
+            foreach (var (typeId, moduleName) in handleModules)
+            {
+                Add(typeId, moduleName);
+            }
+
+            foreach (var typeInfo in context.HandleTypes)
+            {
+                if (typeInfo.IsInterface || !handleModules.TryGetValue(typeInfo.AtsTypeId, out var concreteModule))
+                {
+                    continue;
+                }
+
+                foreach (var implemented in typeInfo.ImplementedInterfaces)
+                {
+                    if (handleModules.ContainsKey(implemented.TypeId))
+                    {
+                        Add(implemented.TypeId, concreteModule);
+                    }
+                }
+
+                foreach (var baseType in typeInfo.BaseTypeHierarchy)
+                {
+                    if (handleModules.ContainsKey(baseType.TypeId))
+                    {
+                        Add(baseType.TypeId, concreteModule);
+                    }
+                }
+            }
+
+            return expansions.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.ToList(),
+                StringComparer.Ordinal);
         }
 
         private static bool IsInterfaceType(AtsContext context, string typeId)
@@ -1129,6 +1920,8 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
                 foreach (var parameter in capability.Parameters)
                 {
                     AddTypeRef(parameter.Type);
+                    AddTypeRef(parameter.CallbackReturnType);
+
                     if (parameter.CallbackParameters is { } callbackParameters)
                     {
                         foreach (var callbackParameter in callbackParameters)
@@ -1154,7 +1947,16 @@ internal sealed class AtsElixirCodeGenerator : ICodeGenerator
                 }
 
                 AddTypeRef(typeRef.ElementType);
+                AddTypeRef(typeRef.KeyType);
                 AddTypeRef(typeRef.ValueType);
+
+                if (typeRef.UnionTypes is { } unionTypes)
+                {
+                    foreach (var unionType in unionTypes)
+                    {
+                        AddTypeRef(unionType);
+                    }
+                }
 
                 if (typeRef.Category == AtsTypeCategory.Handle)
                 {

@@ -184,8 +184,19 @@ public class ElixirLanguageSupportTests(ITestOutputHelper outputHelper)
         Assert.Null(runtimeSpec.InstallDependencies);
         Assert.Null(runtimeSpec.Initialize);
         Assert.Null(runtimeSpec.PreExecute);
-        // Watch mode arrives with M2.8.
-        Assert.Null(runtimeSpec.WatchExecute);
+    }
+
+    [Fact]
+    public void GetRuntimeSpec_WatchExecute_UsesWatchScript()
+    {
+        var runtimeSpec = _languageSupport.GetRuntimeSpec();
+
+        // The generator emits .aspire/modules/watch.exs beside the SDK. The CLI runs the command
+        // from the AppHost directory, so the relative path resolves and {appHostFile} becomes the
+        // absolute path of the AppHost file.
+        var watchExecute = Assert.IsType<CommandSpec>(runtimeSpec.WatchExecute);
+        Assert.Equal("elixir", watchExecute.Command);
+        Assert.Equal([".aspire/modules/watch.exs", "{appHostFile}"], watchExecute.Args);
     }
 
     private static int GetPort(string url) => new Uri(url).Port;

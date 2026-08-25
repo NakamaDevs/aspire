@@ -24,10 +24,12 @@
     <EmbeddedResource Include="Resources\base.ex" LogicalName="Aspire.Hosting.CodeGeneration.Elixir.Resources.base.ex" />
     <EmbeddedResource Include="Resources\transport.ex" LogicalName="Aspire.Hosting.CodeGeneration.Elixir.Resources.transport.ex" />
     <EmbeddedResource Include="Resources\aspire_runtime.ex" LogicalName="Aspire.Hosting.CodeGeneration.Elixir.Resources.aspire_runtime.ex" />
+    <EmbeddedResource Include="Resources\watch.exs" LogicalName="Aspire.Hosting.CodeGeneration.Elixir.Resources.watch.exs" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="$(SharedDir)AppHostProfilePortGenerator.cs" Link="AppHostProfilePortGenerator.cs" />
+    <Compile Include="$(SharedDir)CodeGeneration\AtsOptionsFlattening.cs" Link="AtsOptionsFlattening.cs" />
   </ItemGroup>
 
   <ItemGroup>

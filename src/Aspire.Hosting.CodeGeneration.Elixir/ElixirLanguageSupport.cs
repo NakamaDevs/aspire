@@ -20,6 +20,12 @@ internal sealed class ElixirLanguageSupport : ILanguageSupport
     private const string AppHostFileName = "apphost.exs";
 
     /// <summary>
+    /// The path of the generated watcher script, relative to the AppHost directory.
+    /// <see cref="AtsElixirCodeGenerator"/> writes it beside the generated SDK.
+    /// </summary>
+    private const string WatchScriptPath = ".aspire/modules/watch.exs";
+
+    /// <summary>
     /// The code generation target language. This maps to the ICodeGenerator.Language property.
     /// </summary>
     private const string CodeGenTarget = "Elixir";
@@ -122,8 +128,15 @@ internal sealed class ElixirLanguageSupport : ILanguageSupport
             // no pre-execution build, and nothing to keep up to date between runs.
             InstallDependencies = null,
             PreExecute = null,
-            // Watch mode arrives with M2.8.
-            WatchExecute = null,
+            // The generator emits watch.exs beside the SDK. The script polls the mtime of every
+            // `*.ex` and `*.exs` file below the AppHost directory and restarts the AppHost on a
+            // change. The CLI runs the command from the AppHost directory, so the relative path
+            // resolves, and it replaces {appHostFile} with the absolute AppHost path.
+            WatchExecute = new CommandSpec
+            {
+                Command = "elixir",
+                Args = [WatchScriptPath, "{appHostFile}"]
+            },
             Execute = new CommandSpec
             {
                 Command = "elixir",
