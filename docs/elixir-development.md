@@ -79,3 +79,24 @@ needs an explicit export id:
 ```
 
 Every other public builder method uses the bare `[AspireExport]` attribute.
+
+## Local release for mise
+
+`eng/scripts/mise-local-release.sh` builds a release from this checkout and
+links it into mise:
+
+```sh
+eng/scripts/mise-local-release.sh --suffix elixir.20260825
+```
+
+The script runs `./localhive.sh -c Release --native-aot --archive` into
+`~/.aspire/local-releases/aspire-<version>`, writes the identity sidecar
+`bin/.aspire-install.json` with `channel`, `version`, and `packages`, and runs
+`mise link aspire@<version> <layout>`. The `packages` field points the CLI at
+`hives/local/packages`, so every `Aspire.Hosting.*` package resolves from the
+build. A project pins the release with `mise use aspire@<version>` and sets
+`channel` and `sdk.version` in `aspire.config.json`.
+
+`--link-only` rewrites the sidecar and links an existing layout without a
+build. `--no-link` builds the layout only. The `.tar.gz` next to the layout is
+the portable archive for another machine with the same RID.
