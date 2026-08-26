@@ -1,0 +1,12 @@
+name: aspire_dart_tests
+description: >-
+  Tests for the Dart transport resources that the Aspire code generator copies
+  into a guest project. The resources have no package dependency, so this
+  package declares only the test runner.
+publish_to: none
+
+environment:
+  sdk: ^3.8.0
+
+dev_dependencies:
+  test: ^1.25.0

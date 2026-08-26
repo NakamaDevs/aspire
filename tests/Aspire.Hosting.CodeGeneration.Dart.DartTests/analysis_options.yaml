@@ -1,0 +1,19 @@
+# The resources under src/Aspire.Hosting.CodeGeneration.Dart/Resources are
+# copied into a user project that has no package dependency. Keep the rules
+# here to lints that the Dart SDK supplies, so no package is necessary.
+linter:
+  rules:
+    - avoid_empty_else
+    - avoid_relative_lib_imports
+    - avoid_types_as_parameter_names
+    - await_only_futures
+    - cancel_subscriptions
+    - close_sinks
+    - control_flow_in_finally
+    - empty_statements
+    - prefer_final_locals
+    - throw_in_finally
+    - unawaited_futures
+    - unnecessary_await_in_return
+    - unnecessary_statements
+    - unrelated_type_equality_checks
