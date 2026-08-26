@@ -22,6 +22,11 @@ Aspire.Hosting.Dart/withDartServerpodRedis(cache: Aspire.Hosting/Aspire.Hosting.
 Aspire.Hosting.Dart/withEntrypoint(entrypoint: string) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
 Aspire.Hosting.Dart/withJasprDevPorts(webPort?: number, proxyPort?: number) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.JasprAppResource
 Aspire.Hosting.Dart/withJasprMode(mode: enum:Aspire.Hosting.Dart.JasprMode) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.JasprAppResource
+Aspire.Hosting.Dart/withLiveReload(enabled?: boolean) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
 Aspire.Hosting.Dart/withPubGet(install?: boolean) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
+Aspire.Hosting.Dart/withPublishEntrypoint(entrypoint: string) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
 Aspire.Hosting.Dart/withRunCommand(command: string, args: any[]) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
 Aspire.Hosting.Dart/withServerpodMode(mode: string) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.ServerpodAppResource
+Aspire.Hosting.Dart/withStaticSiteBuild(command: string, args: string[], outputDirectory: string, spaFallback?: boolean) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
+Aspire.Hosting.Dart/withStaticSiteTool(package: string) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
+Aspire.Hosting.Dart/withVmService(port?: number) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource

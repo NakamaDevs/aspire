@@ -1,11 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+#pragma warning disable ASPIREDOCKERFILEBUILDER001
 #pragma warning disable ASPIREPIPELINES001
+#pragma warning disable ASPIREEXTENSION001 // WithDebugSupport is experimental but used internally for debug support.
 
 using System.Globalization;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Dart;
+using Aspire.Hosting.Lifecycle;
 using Aspire.Hosting.Pipelines;
 
 namespace Aspire.Hosting;
@@ -105,6 +108,11 @@ public static class DartHostingExtensions
     /// position and no other tool accepts them.
     /// </para>
     /// <para>A second call replaces the command line of the first call.</para>
+    /// <para>
+    /// Debugging follows the command. The Dart-Code debug adapter starts <c>dart</c> itself, so it
+    /// can debug a <c>dart</c> command line only. Every other tool has no debugger contract, so the
+    /// method removes the debug support and Aspire starts a plain process.
+    /// </para>
     /// </remarks>
     /// <example>
     /// Run a Dart Frog application:
@@ -129,10 +137,29 @@ public static class DartHostingExtensions
         builder.WithAnnotation(new DartRunCommandAnnotation(command, args), ResourceAnnotationMutationBehavior.Replace);
 
         // The executable resource holds the command, so the model must change with the annotation.
-        return builder
+        builder
             .WithCommand(command)
             .WithRequiredCommand(command);
+
+        if (IsDartCommand(command))
+        {
+            // A second call can bring the command line back to `dart`, so the debug support returns.
+            return builder.WithVSCodeDebugging();
+        }
+
+        foreach (var annotation in builder.Resource.Annotations.OfType<SupportsDebuggingAnnotation>().ToArray())
+        {
+            builder.Resource.Annotations.Remove(annotation);
+        }
+
+        return builder;
     }
+
+    /// <summary>
+    /// Reports whether a command line starts the Dart SDK itself.
+    /// </summary>
+    private static bool IsDartCommand(string command)
+        => string.Equals(command, "dart", StringComparison.Ordinal);
 
     /// <summary>
     /// Replaces the Dart file that <c>dart run</c> starts.
@@ -202,6 +229,383 @@ public static class DartHostingExtensions
     }
 
     /// <summary>
+    /// Starts the Dart VM service, which a profiler or a debugger connects to.
+    /// </summary>
+    /// <typeparam name="T">The type of the Dart application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Dart application.</param>
+    /// <param name="port">The port of the VM service, or <see langword="null"/> to let the VM select a free port.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// The method adds <c>--enable-vm-service</c> to the options of <c>dart run</c>. With a port it
+    /// adds <c>--enable-vm-service=&lt;port&gt;</c>, so a tool such as Dart DevTools reaches a known
+    /// address. Aspire does not allocate that port, so give each application its own value.
+    /// </para>
+    /// <para>
+    /// The option belongs to <c>dart run</c>, so a command line that another tool starts drops it.
+    /// </para>
+    /// <para>A second call replaces the value of the first call.</para>
+    /// </remarks>
+    /// <example>
+    /// Open the VM service on a known port:
+    /// <code lang="csharp">
+    /// builder.AddDartApp("api", "../dart-api")
+    ///        .WithVmService(8181);
+    /// // dart run --enable-vm-service=8181 bin/main.dart
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<T> WithVmService<T>(this IResourceBuilder<T> builder, int? port = null)
+        where T : DartAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        return builder.WithAnnotation(new DartVmServiceAnnotation(port), ResourceAnnotationMutationBehavior.Replace);
+    }
+
+    /// <summary>
+    /// Restarts the Dart application when its source files change.
+    /// </summary>
+    /// <typeparam name="T">The type of the Dart application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Dart application.</param>
+    /// <param name="enabled">
+    /// <see langword="true"/> to restart the application on a change.
+    /// <see langword="false"/> to stop the automatic restart.
+    /// </param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// Aspire looks at the <c>lib</c> and <c>bin</c> directories below the application directory, and
+    /// at <c>pubspec.yaml</c> in that directory. It accepts the <c>.dart</c> and <c>.yaml</c>
+    /// extensions, and it ignores <c>build</c> and every directory whose name starts with a period,
+    /// which covers <c>.dart_tool</c>. An editor and a code generator write many files at one time,
+    /// so Aspire waits 500 milliseconds after the last change and then runs the restart command once.
+    /// </para>
+    /// <para>
+    /// <see cref="AddDartApp"/> and <see cref="AddServerpodApp"/> call this method, because
+    /// <c>dart run</c> does not reload code. <see cref="AddJasprApp"/> does not, because
+    /// <c>jaspr serve</c> watches the files itself. Call <c>WithLiveReload(false)</c> for a different
+    /// development server that also reloads itself.
+    /// </para>
+    /// <para>
+    /// The method does nothing in publish mode, because the image holds a compiled executable and no
+    /// source.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// Stop the restart for a tool that reloads itself:
+    /// <code lang="csharp">
+    /// builder.AddDartApp("api", "../api")
+    ///        .WithRunCommand("dart_frog", "dev")
+    ///        .WithLiveReload(false);
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<T> WithLiveReload<T>(this IResourceBuilder<T> builder, bool enabled = true)
+        where T : DartAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
+        {
+            return builder;
+        }
+
+        if (!enabled)
+        {
+            foreach (var annotation in builder.Resource.Annotations.OfType<DartLiveReloadAnnotation>().ToArray())
+            {
+                builder.Resource.Annotations.Remove(annotation);
+            }
+
+            return builder;
+        }
+
+        // The subscriber is a singleton that watches every resource with the annotation, so one
+        // registration is enough for the complete application.
+        builder.ApplicationBuilder.Services.TryAddEventingSubscriber<DartLiveReloadSubscriber>();
+
+        return builder.WithAnnotation(new DartLiveReloadAnnotation(), ResourceAnnotationMutationBehavior.Replace);
+    }
+
+    /// <summary>
+    /// Lets an IDE start the Dart application under the Dart-Code debug adapter.
+    /// </summary>
+    /// <typeparam name="T">The type of the Dart application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Dart application.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// <see cref="AddDartApp"/> and <see cref="AddServerpodApp"/> call this method, so debugging is
+    /// available by default. The method does nothing in publish mode, because
+    /// <c>WithDebugSupport</c> adds its annotation in run mode only.
+    /// </para>
+    /// <para>
+    /// The launch configuration type is <c>dart</c>. An IDE that can start Dart-Code advertises that
+    /// type. An IDE that does not advertise it makes Aspire start the resource as a plain process.
+    /// </para>
+    /// <para>
+    /// The adapter starts <c>dart run</c> itself, so the launch configuration carries the entrypoint,
+    /// the options of <c>dart run</c>, and the arguments of the program, and not the <c>dart</c>
+    /// command. The resource command line does not change, so the dashboard shows the same command
+    /// line in a debug session and in a plain run.
+    /// </para>
+    /// </remarks>
+    [System.Diagnostics.CodeAnalysis.Experimental("ASPIREEXTENSION001", UrlFormat = "https://aka.ms/aspire/diagnostics/{0}")]
+    internal static IResourceBuilder<T> WithVSCodeDebugging<T>(this IResourceBuilder<T> builder)
+        where T : DartAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        var resource = builder.Resource;
+
+        return builder.WithDebugSupport(
+            async context =>
+            {
+                // Resolve the annotations when DCP creates the launch configuration, so later
+                // mutations such as WithEntrypoint(...) or WithWorkingDirectory(...) are reflected.
+                var workingDirectory = Path.GetFullPath(resource.WorkingDirectory);
+
+                var toolArgs = new List<string>();
+                var appArgs = new List<string>();
+                string program;
+
+                if (resource.TryGetLastAnnotation<DartRunCommandAnnotation>(out var runCommand))
+                {
+                    // WithRunCommand removes the debug support for every command that is not `dart`,
+                    // so the command line here always starts the SDK.
+                    var (file, arguments) = await SplitDartRunCommandAsync(runCommand, context.CancellationToken)
+                        .ConfigureAwait(false);
+
+                    program = file;
+                    toolArgs.AddRange(arguments.ToolArgs);
+                    appArgs.AddRange(arguments.AppArgs);
+                }
+                else
+                {
+                    program = DartEntrypointAnnotation.Resolve(resource);
+                }
+
+                // The options of `dart run` reach the adapter through toolArgs, because the adapter
+                // puts everything in args after the file name and `dart run` gives that to the program.
+                toolArgs.AddRange(ReadDartRunOptions(resource));
+
+                if (resource.TryGetLastAnnotation<DartAppArgsAnnotation>(out var argsAnnotation))
+                {
+                    await AppendArgumentsAsync(appArgs, argsAnnotation.Args, context.CancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                return new DartLaunchConfiguration
+                {
+                    Mode = context.Mode,
+                    // Dart-Code resolves a relative program against the workspace folder and not
+                    // against cwd, so the configuration carries an absolute path.
+                    Program = Path.GetFullPath(program, workingDirectory),
+                    Cwd = workingDirectory,
+                    Args = [.. appArgs],
+                    ToolArgs = [.. toolArgs],
+                    WorkingDirectory = workingDirectory
+                };
+            },
+            "dart");
+    }
+
+    /// <summary>
+    /// Splits the command line of <see cref="WithRunCommand{T}"/> into the file that <c>dart run</c>
+    /// starts, the options of <c>dart run</c>, and the arguments of the program.
+    /// </summary>
+    /// <remarks>
+    /// <c>dart run</c> reads its own options before the file name and gives every argument after the
+    /// file name to the program, so the first argument that names a Dart file separates the two
+    /// groups. A command line without such a file keeps every argument as an option, and the file
+    /// falls back to the entrypoint annotation.
+    /// </remarks>
+    private static async Task<(string Program, (List<string> ToolArgs, List<string> AppArgs) Arguments)>
+        SplitDartRunCommandAsync(DartRunCommandAnnotation runCommand, CancellationToken cancellationToken)
+    {
+        var resolved = new List<string>();
+        await AppendArgumentsAsync(resolved, runCommand.Args, cancellationToken).ConfigureAwait(false);
+
+        // The `run` verb is the command of the SDK, not an option, so it never reaches the adapter.
+        if (resolved.Count > 0 && string.Equals(resolved[0], "run", StringComparison.Ordinal))
+        {
+            resolved.RemoveAt(0);
+        }
+
+        var fileIndex = resolved.FindIndex(
+            argument => argument.EndsWith(".dart", StringComparison.OrdinalIgnoreCase));
+
+        if (fileIndex < 0)
+        {
+            return (DartEntrypointAnnotation.DefaultEntrypoint, (resolved, []));
+        }
+
+        return (
+            resolved[fileIndex],
+            (resolved[..fileIndex], resolved[(fileIndex + 1)..]));
+    }
+
+    /// <summary>
+    /// Replaces the Dart file that the published image compiles.
+    /// </summary>
+    /// <typeparam name="T">The type of the Dart application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Dart application.</param>
+    /// <param name="entrypoint">The Dart file that the image compiles, relative to the application directory.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// The generated Dockerfile runs <c>dart compile exe</c> on the run entrypoint. Call this method
+    /// when the image must compile a different file, for example a file that reads no development
+    /// configuration.
+    /// </para>
+    /// <para>A second call replaces the file of the first call.</para>
+    /// </remarks>
+    /// <example>
+    /// Compile a different file for the image:
+    /// <code lang="csharp">
+    /// builder.AddDartApp("api", "../dart-api")
+    ///        .WithPublishEntrypoint("bin/production.dart");
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<T> WithPublishEntrypoint<T>(this IResourceBuilder<T> builder, string entrypoint)
+        where T : DartAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrEmpty(entrypoint);
+
+        return builder.WithAnnotation(
+            new DartPublishEntrypointAnnotation(entrypoint), ResourceAnnotationMutationBehavior.Replace);
+    }
+
+    /// <summary>
+    /// Publishes the application as a directory of static files that Nginx sends to the browser.
+    /// </summary>
+    /// <typeparam name="T">The type of the Dart application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Dart application.</param>
+    /// <param name="command">The build command, for example <c>flutter</c>.</param>
+    /// <param name="args">The arguments of the build command, for example <c>build</c>, <c>web</c>.</param>
+    /// <param name="outputDirectory">
+    /// The directory that the command writes, relative to the application directory, for example
+    /// <c>build/web</c>.
+    /// </param>
+    /// <param name="spaFallback">
+    /// <see langword="true"/> when the browser owns the routes. Nginx then sends <c>index.html</c>
+    /// for every path that names no file.
+    /// </param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// The generated Dockerfile keeps the Dart build stage and replaces the runtime stage. The build
+    /// stage resolves the pub dependencies and runs the command. The runtime stage is an Nginx image
+    /// that carries the output directory only, so the image holds no Dart process.
+    /// </para>
+    /// <para>
+    /// Nginx binds port 80, so the method sets the target port of the <c>http</c> endpoint to 80 in
+    /// publish mode. It creates that endpoint when the resource has none.
+    /// </para>
+    /// <para>
+    /// The build stage starts from the official <c>dart</c> image, which holds the Dart SDK only. A
+    /// command such as <c>flutter</c> is not in that image, so name an image that holds it with
+    /// <c>WithDockerfileBaseImage</c>. Use <see cref="WithStaticSiteTool{T}"/> for a command that
+    /// comes from a pub package.
+    /// </para>
+    /// <para>A second call replaces the values of the first call.</para>
+    /// </remarks>
+    /// <example>
+    /// Publish a Flutter web application:
+    /// <code lang="csharp">
+    /// builder.AddDartApp("web", "../flutter-web")
+    ///        .WithStaticSiteBuild("flutter", ["build", "web", "--release"], "build/web", spaFallback: true)
+    ///        .WithDockerfileBaseImage(buildImage: "ghcr.io/cirruslabs/flutter:stable");
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<T> WithStaticSiteBuild<T>(
+        this IResourceBuilder<T> builder,
+        string command,
+        string[] args,
+        string outputDirectory,
+        bool spaFallback = false)
+        where T : DartAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrEmpty(command);
+        ArgumentNullException.ThrowIfNull(args);
+        ArgumentException.ThrowIfNullOrEmpty(outputDirectory);
+
+        builder.WithAnnotation(
+            new DartStaticSiteBuildAnnotation(command, args, outputDirectory, spaFallback),
+            ResourceAnnotationMutationBehavior.Replace);
+
+        // A compiled executable and a static site are two different runtime stages, so the second
+        // shape must not stay behind on the resource.
+        RemoveAnnotations<T, DartCompiledBuildAnnotation>(builder);
+
+        if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
+        {
+            // The default Nginx image binds port 80, so the endpoint must reach that port.
+            builder.WithEndpoint("http", endpoint => endpoint.TargetPort = DartDockerfileGenerator.NginxPort, createIfNotExists: true);
+        }
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Activates a pub package in the build stage of the published image, so its executable is
+    /// available to the build command.
+    /// </summary>
+    /// <typeparam name="T">The type of the Dart application resource.</typeparam>
+    /// <param name="builder">The resource builder for the Dart application.</param>
+    /// <param name="package">The pub package name, for example <c>jaspr_cli</c>.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
+    /// <ats-returns>The resource builder.</ats-returns>
+    /// <remarks>
+    /// <para>
+    /// The build stage runs <c>dart pub global activate &lt;package&gt;</c> before the build command,
+    /// and it adds <c>/root/.pub-cache/bin</c> to the search path. Name the package, not the command:
+    /// the package <c>jaspr_cli</c> supplies the command <c>jaspr</c>.
+    /// </para>
+    /// <para>A second call replaces the package of the first call.</para>
+    /// </remarks>
+    /// <example>
+    /// Build a site with a command from a pub package:
+    /// <code lang="csharp">
+    /// builder.AddDartApp("web", "../site")
+    ///        .WithStaticSiteTool("jaspr_cli")
+    ///        .WithStaticSiteBuild("jaspr", ["build"], "build/jaspr");
+    /// </code>
+    /// </example>
+    [AspireExport]
+    public static IResourceBuilder<T> WithStaticSiteTool<T>(this IResourceBuilder<T> builder, string package)
+        where T : DartAppResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrEmpty(package);
+
+        return builder.WithAnnotation(
+            new DartPublishToolAnnotation(package), ResourceAnnotationMutationBehavior.Replace);
+    }
+
+    /// <summary>
+    /// Removes every annotation of one type from a resource.
+    /// </summary>
+    private static void RemoveAnnotations<T, TAnnotation>(IResourceBuilder<T> builder)
+        where T : IResource
+        where TAnnotation : IResourceAnnotation
+    {
+        foreach (var annotation in builder.Resource.Annotations.OfType<TAnnotation>().ToArray())
+        {
+            builder.Resource.Annotations.Remove(annotation);
+        }
+    }
+
+    /// <summary>
     /// Adds a Jaspr web application to the application model. The Dart SDK and the Jaspr
     /// command-line tool must be available on the PATH.
     /// </summary>
@@ -266,7 +670,7 @@ public static class DartHostingExtensions
         // argument callback runs, which happens after that call.
         var endpoint = new EndpointReference(resource, "http");
 
-        return ConfigureDartApp(builder, resource, appDirectory, ctx =>
+        var rb = ConfigureDartApp(builder, resource, appDirectory, ctx =>
             {
                 ctx.Args.Add("serve");
 
@@ -302,6 +706,62 @@ public static class DartHostingExtensions
             })
             .WithHttpEndpoint(env: "PORT")
             .WithRequiredCommand("jaspr", "https://docs.jaspr.site/get_started/installation");
+
+        // `jaspr build` writes a different output for each mode, so the publish shape follows the
+        // mode. WithJasprMode applies the shape again.
+        return ApplyJasprPublishShape(rb, JasprMode.Static);
+    }
+
+    /// <summary>The pub package that supplies the <c>jaspr</c> command.</summary>
+    private const string JasprCliPackage = "jaspr_cli";
+
+    /// <summary>The directory that <c>jaspr build</c> writes. The command takes no output option.</summary>
+    private const string JasprOutputDirectory = "build/jaspr";
+
+    /// <summary>
+    /// Applies the publish shape of one Jaspr rendering mode.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>jaspr build</c> writes <c>build/jaspr</c> in every mode. In server mode the directory holds
+    /// the compiled server <c>app</c> and the browser bundle below <c>web</c>. The server reads that
+    /// bundle from the directory that holds the executable, so the image needs the complete
+    /// directory. In static mode and client mode the directory holds files only, so a web server
+    /// sends them and the image needs no Dart process.
+    /// </para>
+    /// <para>
+    /// The method reads the mode from the annotation, so a later <see cref="WithJasprMode{T}"/>
+    /// replaces the shape of an earlier mode.
+    /// </para>
+    /// </remarks>
+    private static IResourceBuilder<T> ApplyJasprPublishShape<T>(IResourceBuilder<T> builder, JasprMode fallback)
+        where T : JasprAppResource
+    {
+        var mode = builder.Resource.TryGetLastAnnotation<JasprModeAnnotation>(out var annotation)
+            ? annotation.Mode
+            : fallback;
+
+        // Every mode runs the same command from the same pub package.
+        builder.WithStaticSiteTool(JasprCliPackage);
+
+        if (mode is not JasprMode.Server)
+        {
+            return builder.WithStaticSiteBuild("jaspr", ["build"], JasprOutputDirectory);
+        }
+
+        RemoveAnnotations<T, DartStaticSiteBuildAnnotation>(builder);
+
+        if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
+        {
+            // A server image runs the Jaspr server and not a web server, so the port 80 of an
+            // earlier static shape must not stay behind. Aspire allocates the port again and passes
+            // it in PORT, as it does in run mode.
+            builder.WithEndpoint("http", endpoint => endpoint.TargetPort = null, createIfNotExists: false);
+        }
+
+        return builder.WithAnnotation(
+            new DartCompiledBuildAnnotation("jaspr", ["build"], JasprOutputDirectory, "app"),
+            ResourceAnnotationMutationBehavior.Replace);
     }
 
     /// <summary>
@@ -316,6 +776,10 @@ public static class DartHostingExtensions
     /// <para>
     /// <see cref="AddJasprApp"/> reads the mode from <c>pubspec.yaml</c>. Call this method when the
     /// AppHost must hold a different value, for example while the two files change.
+    /// </para>
+    /// <para>
+    /// The mode also selects the publish shape, because <c>jaspr build</c> writes a compiled server
+    /// in server mode and a directory of files in every other mode.
     /// </para>
     /// <para>A second call replaces the mode of the first call.</para>
     /// </remarks>
@@ -332,7 +796,9 @@ public static class DartHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        return builder.WithAnnotation(new JasprModeAnnotation(mode), ResourceAnnotationMutationBehavior.Replace);
+        builder.WithAnnotation(new JasprModeAnnotation(mode), ResourceAnnotationMutationBehavior.Replace);
+
+        return ApplyJasprPublishShape(builder, mode);
     }
 
     /// <summary>
@@ -508,6 +974,25 @@ public static class DartHostingExtensions
         // `serverpod create` writes the migrations into the repository, so the server applies them by
         // default. WithApplyMigrations replaces the annotation.
         resource.Annotations.Add(new ServerpodApplyMigrationsAnnotation(true));
+
+        // The image runs the compiled server, so the two options and the run mode must come from the
+        // Dockerfile. The callback runs when Aspire generates that file, so WithServerpodMode and
+        // WithApplyMigrations still change the values.
+        resource.Annotations.Add(new DartPublishRuntimeAnnotation(static (r, publishContext) =>
+        {
+            var mode = ServerpodModeAnnotation.Resolve(r);
+
+            publishContext.Args.Add("--mode");
+            publishContext.Args.Add(mode);
+
+            if (ServerpodApplyMigrationsAnnotation.Resolve(r))
+            {
+                publishContext.Args.Add("--apply-migrations");
+            }
+
+            // The server reads the variable when it starts outside Aspire as well.
+            publishContext.EnvironmentVariables["SERVERPOD_RUN_MODE"] = mode;
+        }));
 
         var rb = ConfigureDartApp(builder, resource, serverDirectory)
             .WithArgs(ctx =>
@@ -868,6 +1353,14 @@ public static class DartHostingExtensions
             .WithRequiredCommand("dart", "https://dart.dev/get-dart")
             .WithOtlpExporter();
 
+        if (IsDartCommand(resource.Command))
+        {
+            // The Dart-Code debug adapter starts `dart` itself, so it has a contract with this
+            // command line only. A shape that a different tool starts, for example `jaspr serve`,
+            // runs as a plain process.
+            rb.WithVSCodeDebugging();
+        }
+
         // The Dart runtime replaces its trust set with the file that SSL_CERT_FILE names. It cannot
         // add to the trust set, so the default scope is System. That scope makes Aspire put the
         // system authorities and the custom authorities in one bundle.
@@ -909,7 +1402,30 @@ public static class DartHostingExtensions
             {
                 rb.WithPubGet();
             }
+
+            if (!resource.HasAnnotationOfType<JasprSelfReloadsAnnotation>())
+            {
+                // `dart run` does not reload code, so a change needs a restart. A tool that watches
+                // the files itself carries the marker, and Aspire keeps its own restart off.
+                rb.WithLiveReload();
+            }
         }
+
+        // `aspire publish` turns the executable into a container image. The generated Dockerfile
+        // compiles the application, so the image holds no SDK and no source.
+        rb.PublishAsDockerFile(containerBuilder =>
+        {
+            // An authored Dockerfile is the contract of the repository, so Aspire must not replace
+            // it. A Serverpod project ships one.
+            if (File.Exists(Path.Combine(appDirectory, "Dockerfile")))
+            {
+                return;
+            }
+
+            containerBuilder.WithDockerfileBuilder(
+                appDirectory,
+                ctx => DartDockerfileGenerator.Write(appDirectory, ctx));
+        });
 
         AddContainerFilesBuildDependencies(rb);
 
@@ -961,8 +1477,7 @@ public static class DartHostingExtensions
     }
 
     /// <summary>
-    /// Writes the options of <c>dart run</c> itself: the <c>--define</c> options and the options of
-    /// <see cref="WithDartRunArgs{T}"/>.
+    /// Writes the options of <c>dart run</c> itself.
     /// </summary>
     /// <remarks>
     /// The options go directly after the <c>run</c> argument, because <c>dart run</c> gives every
@@ -970,32 +1485,74 @@ public static class DartHostingExtensions
     /// </remarks>
     private static void WriteDartRunOptions(DartAppResource resource, CommandLineArgsCallbackContext ctx)
     {
-        WriteDartDefines(resource, ctx);
-
-        if (!resource.TryGetLastAnnotation<DartRunArgsAnnotation>(out var runArgs))
+        foreach (var option in ReadDartRunOptions(resource))
         {
-            return;
-        }
-
-        foreach (var arg in runArgs.Args)
-        {
-            ctx.Args.Add(arg);
+            ctx.Args.Add(option);
         }
     }
 
     /// <summary>
-    /// Writes one <c>--define</c> option for each <see cref="DartDefineAnnotation"/>.
+    /// Reads the options of <c>dart run</c> itself: the <c>--define</c> options, the options of
+    /// <see cref="WithDartRunArgs{T}"/>, and the VM service option.
     /// </summary>
-    private static void WriteDartDefines(DartAppResource resource, CommandLineArgsCallbackContext ctx)
+    /// <remarks>
+    /// The command line and the debug launch configuration both read this list, so a debug session
+    /// and a plain run give the runtime the same options.
+    /// </remarks>
+    private static List<string> ReadDartRunOptions(DartAppResource resource)
     {
-        if (!resource.TryGetAnnotationsOfType<DartDefineAnnotation>(out var defines))
+        var options = new List<string>();
+
+        if (resource.TryGetAnnotationsOfType<DartDefineAnnotation>(out var defines))
         {
-            return;
+            foreach (var define in defines)
+            {
+                options.Add($"--define={define.Key}={define.Value}");
+            }
         }
 
-        foreach (var define in defines)
+        if (resource.TryGetLastAnnotation<DartRunArgsAnnotation>(out var runArgs))
         {
-            ctx.Args.Add($"--define={define.Key}={define.Value}");
+            options.AddRange(runArgs.Args);
+        }
+
+        if (resource.TryGetLastAnnotation<DartVmServiceAnnotation>(out var vmService))
+        {
+            options.Add(vmService.ToOption());
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// Resolves the arguments that a caller supplied as objects into text.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="WithAppArgs{T}"/> and <see cref="WithRunCommand{T}"/> accept an object, so an
+    /// argument can be a parameter, an endpoint reference, or another expression. The command line
+    /// resolves those values, and the launch configuration must resolve them in the same way. A plain
+    /// text form would give the IDE the name of the CLR type instead of the value.
+    /// </remarks>
+    private static async Task AppendArgumentsAsync(
+        List<string> target,
+        object[] args,
+        CancellationToken cancellationToken)
+    {
+        foreach (var arg in args)
+        {
+            if (arg is string text)
+            {
+                target.Add(text);
+                continue;
+            }
+
+            if (arg is IValueProvider valueProvider)
+            {
+                target.Add(await valueProvider.GetValueAsync(cancellationToken).ConfigureAwait(false) ?? string.Empty);
+                continue;
+            }
+
+            target.Add(Convert.ToString(arg, CultureInfo.InvariantCulture) ?? string.Empty);
         }
     }
 

@@ -17,7 +17,7 @@ internal sealed class ServerpodApplyMigrationsAnnotation(bool applyMigrations) :
     public bool ApplyMigrations { get; } = applyMigrations;
 
     /// <summary>Returns the value of <paramref name="resource"/>, or the default value.</summary>
-    public static bool Resolve(ServerpodAppResource resource)
+    public static bool Resolve(IResource resource)
         => !resource.TryGetLastAnnotation<ServerpodApplyMigrationsAnnotation>(out var annotation)
             || annotation.ApplyMigrations;
 }

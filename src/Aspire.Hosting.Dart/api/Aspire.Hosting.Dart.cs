@@ -48,7 +48,15 @@ namespace Aspire.Hosting
             where T : Dart.JasprAppResource { throw null; }
 
         [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithLiveReload<T>(this ApplicationModel.IResourceBuilder<T> builder, bool enabled = true)
+            where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<T> WithPubGet<T>(this ApplicationModel.IResourceBuilder<T> builder, bool install = true)
+            where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithPublishEntrypoint<T>(this ApplicationModel.IResourceBuilder<T> builder, string entrypoint)
             where T : Dart.DartAppResource { throw null; }
 
         [AspireExport]
@@ -66,6 +74,18 @@ namespace Aspire.Hosting
         [AspireExport("withDartServerpodRedis", MethodName = "withServerpodRedis")]
         public static ApplicationModel.IResourceBuilder<T> WithServerpodRedis<T>(this ApplicationModel.IResourceBuilder<T> builder, ApplicationModel.IResourceBuilder<ApplicationModel.IResourceWithConnectionString> cache)
             where T : Dart.ServerpodAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithStaticSiteBuild<T>(this ApplicationModel.IResourceBuilder<T> builder, string command, string[] args, string outputDirectory, bool spaFallback = false)
+            where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithStaticSiteTool<T>(this ApplicationModel.IResourceBuilder<T> builder, string package)
+            where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithVmService<T>(this ApplicationModel.IResourceBuilder<T> builder, int? port = null)
+            where T : Dart.DartAppResource { throw null; }
     }
 }
 

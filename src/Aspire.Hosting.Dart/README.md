@@ -298,6 +298,178 @@ runs in run mode only and stays out of the manifest. Every preset inherits the s
 Call `.WithPubGet(install: false)` to keep the step but start it by hand from the dashboard. Call
 `.WithPubGet()` again to turn the automatic run back on.
 
+### Live reload
+
+`dart run` does not reload code, so a change needs a restart. `AddDartApp` and `AddServerpodApp`
+therefore watch the source files and restart the resource. `AddJasprApp` does not, because
+`jaspr serve` holds its own watcher.
+
+Aspire looks at:
+
+| Path | Accepts |
+|---|---|
+| `lib/`, with its subdirectories | `.dart` and `.yaml` files |
+| `bin/`, with its subdirectories | `.dart` and `.yaml` files |
+| `pubspec.yaml` in the application directory | the file itself |
+
+Aspire ignores `build/` and every directory whose name starts with a period, which covers
+`.dart_tool/` and `.git/`. An editor and a code generator write many files at one time, so Aspire
+waits 500 milliseconds after the last change and then runs the restart command once.
+
+Turn the restart off for a development server that reloads itself:
+
+```csharp
+builder.AddDartApp("api", "../api")
+    .WithRunCommand("dart_frog", "dev")
+    .WithLiveReload(false);
+```
+
+The method does nothing in publish mode, because the image holds a compiled executable and no source.
+
+### Debugging
+
+`AddDartApp` and `AddServerpodApp` make the resource debuggable in run mode. Aspire sends a `dart`
+launch configuration to the IDE, and the
+[Dart-Code](https://marketplace.visualstudio.com/items?itemName=Dart-Code.dart-code) extension starts
+the session. An IDE that cannot start a `dart` launch configuration makes Aspire run a plain process.
+
+The configuration carries the entrypoint, the working directory, the options of `dart run`, and the
+arguments of the program. The resource command line does not change, so the dashboard shows the same
+command line in a debug session and in a plain run.
+
+Debugging follows the command:
+
+| Command | Debuggable |
+|---|---|
+| `dart run <entrypoint>`, the default | yes |
+| `.WithRunCommand("dart", "run", "bin/worker.dart")` | yes |
+| `.WithRunCommand("dart_frog", "dev")`, or any other tool | no |
+| `AddJasprApp`, which runs `jaspr serve` | no |
+
+Only the Dart SDK has a contract with the Dart-Code debug adapter, so every other tool runs as a
+plain process.
+
+To attach a profiler or Dart DevTools instead, start the Dart VM service:
+
+```csharp
+builder.AddDartApp("api", "../dart-api")
+    .WithVmService(8181);
+// dart run --enable-vm-service=8181 bin/main.dart
+```
+
+Aspire does not allocate that port, so give each application its own value. Call `.WithVmService()`
+without a port to let the VM select a free one.
+
+## Publish mode
+
+`aspire publish` turns the executable into a container image. Aspire generates the Dockerfile, unless
+the application directory already contains a `Dockerfile`. That file is the contract of the
+repository, so Aspire never replaces it. A Serverpod project ships one.
+
+Both shapes below share one build stage. It starts from the official `dart` image, copies
+`pubspec.*`, runs `dart pub get`, copies the rest of the source, and runs `dart pub get --offline`.
+The manifest is copied first, so the dependency layer stays in the cache across source edits.
+
+### The executable shape, which is the default
+
+The build stage runs `dart compile exe` on the entrypoint. The runtime stage is `scratch` with the
+`/runtime` directory of the Dart image, so the image holds no SDK, no source, and no shell.
+
+```dockerfile
+FROM docker.io/library/dart:3.9.4 AS build
+WORKDIR /app
+COPY pubspec.* ./
+RUN dart pub get
+COPY . .
+RUN dart pub get --offline
+RUN dart compile exe bin/main.dart -o /app/bin/server
+
+FROM scratch
+COPY --from=build /runtime/ /
+WORKDIR /app
+COPY --from=build /app/bin/server /app/bin/
+CMD ["/app/bin/server"]
+```
+
+Use `.WithPublishEntrypoint("bin/production.dart")` when the image must compile a file other than the
+run entrypoint.
+
+### The static-site shape
+
+A Dart web framework can build a directory of files that a web server sends to the browser. No Dart
+process is left, so the runtime stage is `nginx:alpine`.
+
+```csharp
+builder.AddDartApp("web", "../flutter-web")
+    .WithStaticSiteBuild("flutter", ["build", "web", "--release"], "build/web")
+    .WithDockerfileBaseImage(buildImage: "ghcr.io/cirruslabs/flutter:stable");
+```
+
+```dockerfile
+FROM ghcr.io/cirruslabs/flutter:stable AS build
+WORKDIR /app
+COPY pubspec.* ./
+RUN dart pub get
+COPY . .
+RUN dart pub get --offline
+RUN flutter build web --release
+
+FROM docker.io/library/nginx:alpine
+COPY --from=build /app/build/web /usr/share/nginx/html
+EXPOSE 80
+```
+
+The default build image holds the Dart SDK only, so name an image that holds `flutter` as the example
+above does. For a command that comes from a pub package, use `.WithStaticSiteTool("<package>")`
+instead. The build stage then runs `dart pub global activate <package>` and puts
+`/root/.pub-cache/bin` on the search path.
+
+Nginx binds port 80, so `WithStaticSiteBuild` sets the target port of the `http` endpoint to 80 in
+publish mode, and it creates that endpoint when the resource has none. It changes nothing in run mode.
+
+Pass `spaFallback: true` when the browser owns the routes. Nginx then sends `index.html` for every
+path that names no file:
+
+```csharp
+builder.AddDartApp("web", "../flutter-web")
+    .WithStaticSiteBuild("flutter", ["build", "web"], "build/web", spaFallback: true);
+```
+
+### What each preset chooses
+
+| Preset | Shape | Image contents |
+|---|---|---|
+| `AddDartApp` | executable | `dart compile exe` on the run entrypoint, or on `WithPublishEntrypoint`. |
+| `AddServerpodApp` | executable | `dart compile exe bin/main.dart`, plus `--mode <mode>` and `--apply-migrations` in `CMD` and `SERVERPOD_RUN_MODE` in `ENV`. |
+| `AddJasprApp`, mode `static` or `client` | static site | `jaspr build` from `jaspr_cli`, output `build/jaspr`, served by Nginx. |
+| `AddJasprApp`, mode `server` | executable | `jaspr build` from `jaspr_cli`. The image gets the complete `build/jaspr` directory and runs `/app/app`. |
+
+The Serverpod values follow `WithServerpodMode` and `WithApplyMigrations`, because Aspire reads both
+when it generates the Dockerfile. The default mode in publish mode is `production`.
+
+`jaspr build` writes `build/jaspr` in every mode and takes no output option. In server mode the
+directory holds the compiled server `app` and the browser bundle below `web`. The server reads that
+bundle from the directory that holds the executable, so the image receives the complete directory.
+`WithJasprMode` replaces the shape of the earlier mode.
+
+### Base images
+
+`WithDockerfileBaseImage(buildImage: ..., runtimeImage: ...)` replaces either image. When the runtime
+image is not `scratch`, Aspire leaves out the `/runtime` copy, because a full base image already holds
+a C library and a loader. It still copies the executable and sets `CMD`.
+
+The default build image tag comes from the detected Dart version: `.tool-versions` first, then the
+`environment: sdk:` lower bound in `pubspec.yaml`, then `3.12.2`. A `pubspec.yaml` lower bound is a
+constraint and not a released SDK version, so the tag can name an image that does not exist. Pin the
+toolchain in `.tool-versions`, or name the image with `WithDockerfileBaseImage`.
+
+### `.dockerignore`
+
+Aspire writes a `.dockerignore` next to the generated Dockerfile, unless the application directory
+already contains one. The rules keep `.dart_tool`, `build`, `node_modules`, and the files of a
+checkout out of the build context. Both are rebuilt inside the image, so neither must reach the
+daemon.
+
 ## OpenTelemetry
 
 Every Dart resource gets the OpenTelemetry environment variables of the Aspire dashboard. The
@@ -383,8 +555,14 @@ the variables.
 - **The Dart OpenTelemetry package sends OTLP over HTTP.** Aspire gives a resource the gRPC endpoint
   of the dashboard by default. Use `.WithOtlpExporter(OtlpProtocol.HttpProtobuf)` for a Dart
   application, and configure `ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL`.
-- **The Jaspr preset has no publish path yet.** `AddJasprApp` runs `jaspr serve`. It does not build a
-  publish artifact with `jaspr build`.
+- **The published image runs as root.** A `scratch` image holds no account database, so the image
+  cannot name a different user. The image also holds no shell and no package manager.
+- **The Dart version of the default build image comes from a constraint.** A `pubspec.yaml` lower
+  bound is not always a released SDK version. Pin the version in `.tool-versions`, or name the image
+  with `WithDockerfileBaseImage`.
+- **The Jaspr server image reads its port from the application.** In run mode `jaspr serve` binds the
+  port that Aspire gives it with `-p`. The published image has no such option, so the Jaspr server
+  must read `PORT` itself.
 
 ## Feedback & contributing
 

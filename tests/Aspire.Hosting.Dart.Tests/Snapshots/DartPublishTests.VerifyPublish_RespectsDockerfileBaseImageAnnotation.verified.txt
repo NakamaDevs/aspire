@@ -1,0 +1,12 @@
+﻿FROM docker.io/library/dart:3.9.4-sdk AS build
+WORKDIR /app
+COPY pubspec.* ./
+RUN dart pub get
+COPY . .
+RUN dart pub get --offline
+RUN dart compile exe bin/main.dart -o /app/bin/server
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=build /app/bin/server /app/bin/
+CMD ["/app/bin/server"]

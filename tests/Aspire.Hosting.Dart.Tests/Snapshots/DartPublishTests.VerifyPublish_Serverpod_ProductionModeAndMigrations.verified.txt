@@ -1,0 +1,14 @@
+﻿FROM docker.io/library/dart:3.9.0 AS build
+WORKDIR /app
+COPY pubspec.* ./
+RUN dart pub get
+COPY . .
+RUN dart pub get --offline
+RUN dart compile exe bin/main.dart -o /app/bin/server
+
+FROM scratch
+COPY --from=build /runtime/ /
+WORKDIR /app
+COPY --from=build /app/bin/server /app/bin/
+ENV SERVERPOD_RUN_MODE=production
+CMD ["/app/bin/server","--mode","production","--apply-migrations"]

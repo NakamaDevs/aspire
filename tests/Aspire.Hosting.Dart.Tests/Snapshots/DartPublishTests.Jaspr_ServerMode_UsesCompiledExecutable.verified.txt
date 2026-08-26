@@ -1,0 +1,15 @@
+﻿FROM docker.io/library/dart:3.9.0 AS build
+WORKDIR /app
+COPY pubspec.* ./
+RUN dart pub get
+COPY . .
+RUN dart pub get --offline
+RUN dart pub global activate jaspr_cli
+ENV PATH=/root/.pub-cache/bin:$PATH
+RUN jaspr build
+
+FROM scratch
+COPY --from=build /runtime/ /
+WORKDIR /app
+COPY --from=build /app/build/jaspr/ /app/
+CMD ["/app/app"]

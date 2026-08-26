@@ -1,0 +1,11 @@
+﻿FROM docker.io/library/dart:3.9.0 AS build
+WORKDIR /app
+COPY pubspec.* ./
+RUN dart pub get
+COPY . .
+RUN dart pub get --offline
+RUN build.sh --name 'it'\''s alive' '--flag=$HOME'
+
+FROM docker.io/library/nginx:alpine
+COPY --from=build /app/build/web /usr/share/nginx/html
+EXPOSE 80

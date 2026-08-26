@@ -24,7 +24,7 @@ internal sealed class ServerpodModeAnnotation(string mode) : IResourceAnnotation
     public string Mode { get; } = mode;
 
     /// <summary>Returns the run mode of <paramref name="resource"/>, or the default value.</summary>
-    public static string Resolve(ServerpodAppResource resource)
+    public static string Resolve(IResource resource)
         => resource.TryGetLastAnnotation<ServerpodModeAnnotation>(out var annotation)
             ? annotation.Mode
             : Development;
