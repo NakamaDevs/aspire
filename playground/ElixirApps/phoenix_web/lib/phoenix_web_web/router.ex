@@ -14,6 +14,7 @@ defmodule PhoenixWebWeb.Router do
   scope "/", PhoenixWebWeb do
     pipe_through :api
 
+    get "/", HelloController, :index
     get "/health", HelloController, :health
   end
 end

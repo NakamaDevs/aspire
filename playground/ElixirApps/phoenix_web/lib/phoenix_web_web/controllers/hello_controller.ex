@@ -16,4 +16,16 @@ defmodule PhoenixWebWeb.HelloController do
   def health(conn, _params) do
     send_resp(conn, 200, "ok")
   end
+
+  # The Aspire dashboard opens the endpoint at "/". Answer with an index of the
+  # routes so the first click does not land on a NoRouteError page.
+  def index(conn, _params) do
+    json(conn, %{
+      service: "phoenix_web",
+      routes: [
+        %{method: "GET", path: "/api/hello", description: "Greeting with the Ecto row count"},
+        %{method: "GET", path: "/health", description: "Health check"}
+      ]
+    })
+  end
 end
