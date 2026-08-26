@@ -1,0 +1,7 @@
+name: worker
+description: A plain Dart console application for the Aspire DartApps playground.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.8.0

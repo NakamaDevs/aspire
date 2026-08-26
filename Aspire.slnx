@@ -366,6 +366,9 @@
   <Folder Name="/playground/ElixirApps/">
     <Project Path="playground/ElixirApps/ElixirApps.AppHost/ElixirApps.AppHost.csproj" />
   </Folder>
+  <Folder Name="/playground/DartApps/">
+    <Project Path="playground/DartApps/DartApps.AppHost/DartApps.AppHost.csproj" />
+  </Folder>
   <Folder Name="/playground/qdrant/">
     <Project Path="playground/Qdrant/Qdrant.ApiService/Qdrant.ApiService.csproj" />
     <Project Path="playground/Qdrant/Qdrant.AppHost/Qdrant.AppHost.csproj" />

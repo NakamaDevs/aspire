@@ -202,6 +202,14 @@ playground/**/deps/
 playground/**/.elixir_ls/
 playground/**/erl_crash.dump
 playground/**/apphost.log
+
+# Dart AppHost
+# The rule above ignores every playground .gitignore, so the Dart output needs a rule here.
+playground/**/.dart_tool/
+playground/DartApps/**/build/
+playground/DartApps/serverpod_api/serverpod_api_server/web/app/
+playground/**/out/
+tests/PolyglotAppHosts/**/Dart/**/.dart_tool/
 tests/PolyglotAppHosts/**/Elixir/**/_build/
 tests/PolyglotAppHosts/**/Elixir/**/deps/
 

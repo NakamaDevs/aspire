@@ -1,0 +1,16 @@
+{
+  "appHost": {
+    "path": "apphost.dart",
+    "language": "dart"
+  },
+  "features": {
+    "experimentalPolyglot:dart": true,
+    "defaultWatchEnabled": true
+  },
+  "packages": {
+    "Aspire.Hosting.Dart": "",
+    "Aspire.Hosting.Docker": "",
+    "Aspire.Hosting.PostgreSQL": "",
+    "Aspire.Hosting.Redis": ""
+  }
+}
