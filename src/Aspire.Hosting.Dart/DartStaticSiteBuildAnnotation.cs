@@ -19,8 +19,14 @@ namespace Aspire.Hosting.Dart;
 /// <see langword="true"/> when the web server must send <c>index.html</c> for a path that names no
 /// file. A single-page application needs that rule, because the browser owns the routes.
 /// </param>
+/// <param name="BuildImage">
+/// The image of the build stage, or <see langword="null"/> for the official <c>dart</c> image. A
+/// build command that the Dart SDK does not supply needs an image that holds it, for example
+/// <c>ghcr.io/cirruslabs/flutter:stable</c> for <c>flutter build web</c>.
+/// </param>
 internal sealed record DartStaticSiteBuildAnnotation(
     string Command,
     string[] Args,
     string OutputDirectory,
-    bool SpaFallback) : IResourceAnnotation;
+    bool SpaFallback,
+    string? BuildImage = null) : IResourceAnnotation;

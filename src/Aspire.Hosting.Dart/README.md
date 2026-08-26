@@ -189,8 +189,11 @@ The preset adds exactly this to `AddDartApp`:
    name `{name}-service-secret`.
 
 A Serverpod environment variable wins over the value in the configuration file below `config`, so the
-server listens on the ports that Aspire assigns. Serverpod builds the URLs that it sends to a client
-from the public values.
+server listens on the ports that the table above names. Serverpod builds the URLs that it sends to a
+client from the public values.
+
+The `insights` endpoint carries the service protocol of the Serverpod tools, so `.WithReference(api)`
+gives another resource the `api` and `web` endpoints only.
 
 `.WithServerpodDatabase(db)` sets `SERVERPOD_DATABASE_HOST`, `_PORT`, `_NAME`, `_USER`, and
 `SERVERPOD_PASSWORD_database`. It also adds a reference to the database and makes the server wait for
@@ -401,8 +404,11 @@ process is left, so the runtime stage is `nginx:alpine`.
 
 ```csharp
 builder.AddDartApp("web", "../flutter-web")
-    .WithStaticSiteBuild("flutter", ["build", "web", "--release"], "build/web")
-    .WithDockerfileBaseImage(buildImage: "ghcr.io/cirruslabs/flutter:stable");
+    .WithStaticSiteBuild(
+        "flutter",
+        ["build", "web", "--release"],
+        "build/web",
+        buildImage: "ghcr.io/cirruslabs/flutter:stable");
 ```
 
 ```dockerfile
@@ -419,10 +425,13 @@ COPY --from=build /app/build/web /usr/share/nginx/html
 EXPOSE 80
 ```
 
-The default build image holds the Dart SDK only, so name an image that holds `flutter` as the example
-above does. For a command that comes from a pub package, use `.WithStaticSiteTool("<package>")`
-instead. The build stage then runs `dart pub global activate <package>` and puts
-`/root/.pub-cache/bin` on the search path.
+The default build image holds the Dart SDK only, so name an image that holds `flutter` with the
+`buildImage` parameter, as the example above does. For a command that comes from a pub package, use
+`.WithStaticSiteTool("<package>")` instead. The build stage then runs
+`dart pub global activate <package>` and puts `/root/.pub-cache/bin` on the search path.
+
+`WithDockerfileBaseImage(buildImage: ...)` wins over the `buildImage` parameter, because it is the
+general override of both stage images.
 
 Nginx binds port 80, so `WithStaticSiteBuild` sets the target port of the `http` endpoint to 80 in
 publish mode, and it creates that endpoint when the resource has none. It changes nothing in run mode.
@@ -432,7 +441,12 @@ path that names no file:
 
 ```csharp
 builder.AddDartApp("web", "../flutter-web")
-    .WithStaticSiteBuild("flutter", ["build", "web"], "build/web", spaFallback: true);
+    .WithStaticSiteBuild(
+        "flutter",
+        ["build", "web"],
+        "build/web",
+        spaFallback: true,
+        buildImage: "ghcr.io/cirruslabs/flutter:stable");
 ```
 
 ### What each preset chooses
@@ -560,9 +574,26 @@ the variables.
 - **The Dart version of the default build image comes from a constraint.** A `pubspec.yaml` lower
   bound is not always a released SDK version. Pin the version in `.tool-versions`, or name the image
   with `WithDockerfileBaseImage`.
+- **A pub workspace does not publish with a generated Dockerfile.** The build context is the
+  application directory alone, so `dart pub get` in the image finds no workspace root and stops with
+  `found no workspace root including it in parent directories`. Author a Dockerfile for a package
+  that carries `resolution: workspace`. A Serverpod project is such a workspace, and
+  `serverpod create` already writes a Dockerfile that Aspire keeps.
+- **A Serverpod server binds the fixed target ports 8080, 8081, and 8082.** The ports match the
+  Serverpod documentation and the generated client, so Aspire does not allocate them. Two Serverpod
+  servers in one AppHost therefore collide in run mode. Give the second server different target
+  ports with `.WithEndpoint(...)`.
 - **The Jaspr server image reads its port from the application.** In run mode `jaspr serve` binds the
   port that Aspire gives it with `-p`. The published image has no such option, so the Jaspr server
   must read `PORT` itself.
+
+## Additional documentation
+
+- https://aspire.dev/integrations/gallery/
+- [Aspire documentation](https://aspire.dev/)
+- [Dart documentation](https://dart.dev/)
+- [Serverpod documentation](https://docs.serverpod.dev/)
+- [Jaspr documentation](https://docs.jaspr.site/)
 
 ## Feedback & contributing
 

@@ -277,6 +277,65 @@ public class DartPublishTests(ITestOutputHelper outputHelper)
     }
 
     [Fact]
+    public async Task VerifyPublish_StaticSite_FlutterWeb_UsesFlutterBuildImage()
+    {
+        using var workspace = TemporaryWorkspace.Create(outputHelper);
+        var sourceDir = workspace.CreateDirectory("source");
+        var outputDir = workspace.CreateDirectory("output");
+
+        WritePubspec(sourceDir.FullName, "web_app");
+
+        using var builder = TestDistributedApplicationBuilder.Create(DistributedApplicationOperation.Publish, outputDir.FullName, step: "publish-manifest");
+
+        // The official dart image holds the SDK only, so `flutter build web` needs an image that
+        // carries Flutter.
+        builder.AddDartApp("web", sourceDir.FullName)
+               .WithStaticSiteBuild(
+                   "flutter",
+                   ["build", "web", "--release"],
+                   "build/web",
+                   spaFallback: true,
+                   buildImage: "ghcr.io/cirruslabs/flutter:stable");
+
+        builder.Build().Run();
+
+        var content = await File.ReadAllTextAsync(Path.Combine(outputDir.FullName, "web.Dockerfile"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("FROM ghcr.io/cirruslabs/flutter:stable AS build", content);
+        Assert.Contains("RUN flutter build web --release", content);
+
+        // The parameter changes the build stage only. The runtime stage stays the web server.
+        Assert.Contains("FROM docker.io/library/nginx:alpine", content);
+        Assert.DoesNotContain("docker.io/library/dart:", content);
+
+        await Verify(content);
+    }
+
+    [Fact]
+    public async Task VerifyPublish_StaticSite_DockerfileBaseImageWinsOverStaticSiteBuildImage()
+    {
+        using var workspace = TemporaryWorkspace.Create(outputHelper);
+        var sourceDir = workspace.CreateDirectory("source");
+        var outputDir = workspace.CreateDirectory("output");
+
+        WritePubspec(sourceDir.FullName, "web_app");
+
+        using var builder = TestDistributedApplicationBuilder.Create(DistributedApplicationOperation.Publish, outputDir.FullName, step: "publish-manifest");
+
+        // WithDockerfileBaseImage is the general override of both stage images, so it wins.
+        builder.AddDartApp("web", sourceDir.FullName)
+               .WithStaticSiteBuild("flutter", ["build", "web"], "build/web", buildImage: "ghcr.io/cirruslabs/flutter:stable")
+               .WithDockerfileBaseImage(buildImage: "example.invalid/custom-flutter:1.0");
+
+        builder.Build().Run();
+
+        var content = await File.ReadAllTextAsync(Path.Combine(outputDir.FullName, "web.Dockerfile"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("FROM example.invalid/custom-flutter:1.0 AS build", content);
+        Assert.DoesNotContain("ghcr.io/cirruslabs/flutter:stable", content);
+    }
+
+    [Fact]
     public async Task VerifyPublish_StaticSite_SpaFallback()
     {
         using var workspace = TemporaryWorkspace.Create(outputHelper);

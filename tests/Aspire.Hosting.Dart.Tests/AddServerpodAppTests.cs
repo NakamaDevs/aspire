@@ -80,6 +80,21 @@ public class AddServerpodAppTests
         Assert.Equal(8082, web.TargetPort);
     }
 
+    [Fact]
+    public void AddServerpodApp_ExcludesInsightsFromReferenceEndpoints()
+    {
+        using var builder = TestDistributedApplicationBuilder.Create();
+        var app = builder.AddServerpodApp("api", builder.AppHostDirectory);
+
+        var endpoints = app.Resource.Annotations.OfType<EndpointAnnotation>().ToList();
+
+        // The Insights server carries the service protocol of the Serverpod tools, so WithReference
+        // must not inject it. The API server and the web server stay reference endpoints.
+        Assert.True(Assert.Single(endpoints, e => e.Name == "insights").ExcludeReferenceEndpoint);
+        Assert.False(Assert.Single(endpoints, e => e.Name == "api").ExcludeReferenceEndpoint);
+        Assert.False(Assert.Single(endpoints, e => e.Name == "web").ExcludeReferenceEndpoint);
+    }
+
     // ---- Environment ---------------------------------------------------------------
 
     [Fact]

@@ -15,8 +15,9 @@ namespace Aspire.Hosting.Dart;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every shape gets two stages. The build stage always starts from the official <c>dart</c> image,
-/// because every shape needs the Dart SDK and the pub dependencies.
+/// Every shape gets two stages. The build stage starts from the official <c>dart</c> image, because
+/// every shape needs the Dart SDK and the pub dependencies. A static site can name a different build
+/// image, and <c>WithDockerfileBaseImage</c> replaces the image of either stage.
 /// </para>
 /// <para>
 /// The runtime stage follows the output of the build. An application that compiles to a native
@@ -77,8 +78,9 @@ internal static class DartDockerfileGenerator
     /// </summary>
     /// <remarks>
     /// The official <c>dart</c> image carries the SDK and a <c>/runtime</c> directory that holds the
-    /// libraries that a compiled executable needs. Use <c>WithDockerfileBaseImage</c> to select a
-    /// different image, for example an image that also carries Flutter.
+    /// libraries that a compiled executable needs. Use the <c>buildImage</c> parameter of
+    /// <c>WithStaticSiteBuild</c>, or <c>WithDockerfileBaseImage</c>, to select a different image,
+    /// for example an image that also carries Flutter.
     /// </remarks>
     internal static string BuildImage(string dartVersion)
         => $"docker.io/library/dart:{dartVersion}";
@@ -110,7 +112,11 @@ internal static class DartDockerfileGenerator
 
         var isStaticSite = context.Resource.TryGetLastAnnotation<DartStaticSiteBuildAnnotation>(out var staticSite);
 
-        var build = context.Builder.From(baseImage?.BuildImage ?? BuildImage(version.Version), "build");
+        // WithDockerfileBaseImage is the general override of both stage images, so it wins over the
+        // build image of the static-site shape, which in turn wins over the official dart image.
+        var buildImage = baseImage?.BuildImage ?? staticSite?.BuildImage ?? BuildImage(version.Version);
+
+        var build = context.Builder.From(buildImage, "build");
 
         WriteDependencyStage(appDirectory, build);
 

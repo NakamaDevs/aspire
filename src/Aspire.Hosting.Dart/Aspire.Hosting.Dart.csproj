@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
     <IsPackable>true</IsPackable>
-    <PackageTags>aspire integration hosting dart pub framework runtime</PackageTags>
+    <PackageTags>aspire integration hosting dart serverpod jaspr flutter pub framework runtime</PackageTags>
     <Description>Dart support for Aspire.</Description>
     <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
   </PropertyGroup>

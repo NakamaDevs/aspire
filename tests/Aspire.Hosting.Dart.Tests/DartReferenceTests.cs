@@ -46,6 +46,33 @@ public class DartReferenceTests
         Assert.Equal("http://localhost:8080", env["services__backend__http__0"]);
     }
 
+    [Fact]
+    public async Task WithReference_Serverpod_InjectsApiAndWebButNotInsights()
+    {
+        using var builder = TestDistributedApplicationBuilder.Create();
+
+        var serverpod = builder.AddServerpodApp("backend", builder.AppHostDirectory);
+
+        // Service discovery reads the allocated endpoint, so the test allocates the three of them.
+        foreach (var name in new[] { "api", "insights", "web" })
+        {
+            serverpod.WithEndpoint(name, e => e.AllocatedEndpoint = new AllocatedEndpoint(e, "localhost", e.TargetPort!.Value));
+        }
+
+        var app = builder.AddDartApp("api", builder.AppHostDirectory)
+            .WithReference(serverpod);
+
+        var env = await EnvironmentVariableEvaluator.GetEnvironmentVariablesAsync(
+            app.Resource, DistributedApplicationOperation.Run, TestServiceProvider.Instance);
+
+        Assert.Equal("http://localhost:8080", env["services__backend__api__0"]);
+        Assert.Equal("http://localhost:8082", env["services__backend__web__0"]);
+
+        // The Insights server carries the service protocol of the Serverpod tools, so a client of the
+        // application never calls it.
+        Assert.DoesNotContain("services__backend__insights__0", env.Keys);
+    }
+
     // ---- Manifest ---------------------------------------------------------------------
 
     [Fact]

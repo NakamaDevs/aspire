@@ -27,6 +27,6 @@ Aspire.Hosting.Dart/withPubGet(install?: boolean) -> Aspire.Hosting.Dart/Aspire.
 Aspire.Hosting.Dart/withPublishEntrypoint(entrypoint: string) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
 Aspire.Hosting.Dart/withRunCommand(command: string, args: any[]) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
 Aspire.Hosting.Dart/withServerpodMode(mode: string) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.ServerpodAppResource
-Aspire.Hosting.Dart/withStaticSiteBuild(command: string, args: string[], outputDirectory: string, spaFallback?: boolean) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
+Aspire.Hosting.Dart/withStaticSiteBuild(command: string, args: string[], outputDirectory: string, spaFallback?: boolean, buildImage?: string) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
 Aspire.Hosting.Dart/withStaticSiteTool(package: string) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource
 Aspire.Hosting.Dart/withVmService(port?: number) -> Aspire.Hosting.Dart/Aspire.Hosting.Dart.DartAppResource

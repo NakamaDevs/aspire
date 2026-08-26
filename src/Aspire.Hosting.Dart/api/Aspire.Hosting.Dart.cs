@@ -76,7 +76,7 @@ namespace Aspire.Hosting
             where T : Dart.ServerpodAppResource { throw null; }
 
         [AspireExport]
-        public static ApplicationModel.IResourceBuilder<T> WithStaticSiteBuild<T>(this ApplicationModel.IResourceBuilder<T> builder, string command, string[] args, string outputDirectory, bool spaFallback = false)
+        public static ApplicationModel.IResourceBuilder<T> WithStaticSiteBuild<T>(this ApplicationModel.IResourceBuilder<T> builder, string command, string[] args, string outputDirectory, bool spaFallback = false, string? buildImage = null)
             where T : Dart.DartAppResource { throw null; }
 
         [AspireExport]

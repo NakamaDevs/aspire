@@ -497,6 +497,9 @@ public static class DartHostingExtensions
     /// <see langword="true"/> when the browser owns the routes. Nginx then sends <c>index.html</c>
     /// for every path that names no file.
     /// </param>
+    /// <param name="buildImage">
+    /// The image of the build stage, or <see langword="null"/> for the official <c>dart</c> image.
+    /// </param>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/> for chaining.</returns>
     /// <ats-returns>The resource builder.</ats-returns>
     /// <remarks>
@@ -512,8 +515,12 @@ public static class DartHostingExtensions
     /// <para>
     /// The build stage starts from the official <c>dart</c> image, which holds the Dart SDK only. A
     /// command such as <c>flutter</c> is not in that image, so name an image that holds it with
-    /// <c>WithDockerfileBaseImage</c>. Use <see cref="WithStaticSiteTool{T}"/> for a command that
+    /// <paramref name="buildImage"/>. Use <see cref="WithStaticSiteTool{T}"/> for a command that
     /// comes from a pub package.
+    /// </para>
+    /// <para>
+    /// <c>WithDockerfileBaseImage</c> wins over <paramref name="buildImage"/>, because it is the
+    /// general override of both stage images.
     /// </para>
     /// <para>A second call replaces the values of the first call.</para>
     /// </remarks>
@@ -521,8 +528,12 @@ public static class DartHostingExtensions
     /// Publish a Flutter web application:
     /// <code lang="csharp">
     /// builder.AddDartApp("web", "../flutter-web")
-    ///        .WithStaticSiteBuild("flutter", ["build", "web", "--release"], "build/web", spaFallback: true)
-    ///        .WithDockerfileBaseImage(buildImage: "ghcr.io/cirruslabs/flutter:stable");
+    ///        .WithStaticSiteBuild(
+    ///            "flutter",
+    ///            ["build", "web", "--release"],
+    ///            "build/web",
+    ///            spaFallback: true,
+    ///            buildImage: "ghcr.io/cirruslabs/flutter:stable");
     /// </code>
     /// </example>
     [AspireExport]
@@ -531,7 +542,8 @@ public static class DartHostingExtensions
         string command,
         string[] args,
         string outputDirectory,
-        bool spaFallback = false)
+        bool spaFallback = false,
+        string? buildImage = null)
         where T : DartAppResource
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -540,7 +552,7 @@ public static class DartHostingExtensions
         ArgumentException.ThrowIfNullOrEmpty(outputDirectory);
 
         builder.WithAnnotation(
-            new DartStaticSiteBuildAnnotation(command, args, outputDirectory, spaFallback),
+            new DartStaticSiteBuildAnnotation(command, args, outputDirectory, spaFallback, buildImage),
             ResourceAnnotationMutationBehavior.Replace);
 
         // A compiled executable and a static site are two different runtime stages, so the second
@@ -1016,6 +1028,10 @@ public static class DartHostingExtensions
             .WithHttpEndpoint(name: ServerpodApiEndpointName, env: "SERVERPOD_API_SERVER_PORT", targetPort: 8080)
             .WithHttpEndpoint(name: ServerpodInsightsEndpointName, env: "SERVERPOD_INSIGHTS_SERVER_PORT", targetPort: 8081)
             .WithHttpEndpoint(name: ServerpodWebEndpointName, env: "SERVERPOD_WEB_SERVER_PORT", targetPort: 8082);
+
+        // The Insights server carries the service protocol of the Serverpod tools, and a client of
+        // the application never calls it. WithReference must therefore not inject it.
+        rb.WithEndpoint(ServerpodInsightsEndpointName, endpoint => endpoint.ExcludeReferenceEndpoint = true);
 
         var apiEndpoint = rb.GetEndpoint(ServerpodApiEndpointName);
         var insightsEndpoint = rb.GetEndpoint(ServerpodInsightsEndpointName);
