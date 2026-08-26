@@ -68,6 +68,9 @@ if [[ $link_only -eq 0 ]]; then
   # build succeeds, so a failed build never removes a working release.
   staging="$output.build"
   rm -rf "$staging" "$staging.tar.gz"
+  # The native symbols pack requires exactly one Aspire.Cli.<rid>.*.symbols.nupkg
+  # in its output directory. Remove packages left by a build with another suffix.
+  rm -rf "$repo_root"/artifacts/obj/Aspire.Cli.*/Release/net10.0/native-symbols-pack
   (cd "$repo_root" && ./localhive.sh -c Release -o "$staging" -v "$suffix" --archive --native-aot)
   rm -rf "$output" "$output.tar.gz"
   mv "$staging" "$output"
