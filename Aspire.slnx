@@ -51,6 +51,7 @@
     <Project Path="src/Aspire.Hosting.AppHost/Aspire.Hosting.AppHost.csproj" />
     <Project Path="src/Aspire.Hosting.Blazor/Aspire.Hosting.Blazor.csproj" />
     <Project Path="src/Aspire.Hosting.Browsers/Aspire.Hosting.Browsers.csproj" />
+    <Project Path="src/Aspire.Hosting.Dart/Aspire.Hosting.Dart.csproj" />
     <Project Path="src/Aspire.Hosting.DevTunnels/Aspire.Hosting.DevTunnels.csproj" />
     <Project Path="src/Aspire.Hosting.Docker/Aspire.Hosting.Docker.csproj" />
     <Project Path="src/Aspire.Hosting.Dotnet/Aspire.Hosting.Dotnet.csproj" />
@@ -545,6 +546,7 @@
     <Project Path="tests/Aspire.Hosting.CodeGeneration.Rust.Tests/Aspire.Hosting.CodeGeneration.Rust.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Containers.Tests/Aspire.Hosting.Containers.Tests.csproj" />
+    <Project Path="tests/Aspire.Hosting.Dart.Tests/Aspire.Hosting.Dart.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.DevTunnels.Tests/Aspire.Hosting.DevTunnels.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Docker.Tests/Aspire.Hosting.Docker.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Dotnet.Tests/Aspire.Hosting.Dotnet.Tests.csproj" />
