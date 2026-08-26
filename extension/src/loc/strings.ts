@@ -205,6 +205,10 @@ export const elixirDisplayName = (task: string) => vscode.l10n.t('Elixir: {0}', 
 export const elixirLabel = vscode.l10n.t('Elixir');
 export const elixirAppHostRunningWithoutDebugger = vscode.l10n.t('The Elixir AppHost script is not a Mix project, so it starts without a debugger attached.');
 export const elixirLSNotInstalledHint = (extensionId: string) => vscode.l10n.t('Set up {0} in the Extensions view to debug Elixir resources started by this app.', extensionId);
+export const dartDisplayName = (program: string) => vscode.l10n.t('Dart: {0}', program);
+export const dartLabel = vscode.l10n.t('Dart');
+export const dartAppHostRunningWithoutDebugger = vscode.l10n.t('The Dart AppHost script starts as a plain process without a debugger attached.');
+export const dartCodeNotInstalledHint = (extensionId: string) => vscode.l10n.t('Set up {0} in the Extensions view to debug Dart resources started by this app.', extensionId);
 export const bunDisplayName = (script: string) => `Bun: ${script}`;
 export const bunLabel = 'Bun';
 export const nodeDisplayName = (script: string) => `Node.js: ${script}`;

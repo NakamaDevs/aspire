@@ -89,6 +89,21 @@ export function isElixirLaunchConfiguration(obj: any): obj is ElixirLaunchConfig
     return obj && obj.type === 'elixir';
 }
 
+// Fields mirror DartLaunchConfiguration on the hosting side; see
+// src/Aspire.Hosting.Dart/DartLaunchConfiguration.cs (NAK-529). They follow the Dart-Code `dart`
+// debug adapter's launch fields: program, cwd, args, and toolArgs.
+export interface DartLaunchConfiguration extends ExecutableLaunchConfiguration {
+    type: "dart";
+    program: string;
+    cwd: string;
+    args: string[];
+    tool_args: string[];
+}
+
+export function isDartLaunchConfiguration(obj: any): obj is DartLaunchConfiguration {
+    return obj && obj.type === 'dart';
+}
+
 export interface JavaScriptRuntimeLaunchConfiguration extends ExecutableLaunchConfiguration {
     type: "node" | "bun";
     script_path?: string;

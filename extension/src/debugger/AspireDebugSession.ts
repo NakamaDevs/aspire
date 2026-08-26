@@ -6,8 +6,8 @@ import { AspireResourceExtendedDebugConfiguration, AspireResourceDebugSession, E
 import { extensionLogOutputChannel } from "../utils/logging";
 import AspireDcpServer, { generateDcpIdPrefix } from "../dcp/AspireDcpServer";
 import { redactCliArgsForLogging, spawnCliProcess, terminateCliProcess } from "../utils/process/cliProcess";
-import { disconnectingFromSession, launchingWithAppHost, launchingWithDirectory, processExceptionOccurred, processExitedWithCode, appHostSessionTerminated, debugSessionsFailedToStop, debugSessionStartTimedOut, debugSessionStopTimedOut, rustDebuggerExtensionNotInstalled, javaDebuggerExtensionNotInstalled, javaAppHostCommandNotRecognized, elixirAppHostRunningWithoutDebugger, elixirLSNotInstalledHint } from "../loc/strings";
-import { elixirLSExtensionId, isExtensionInstalled } from "../capabilities";
+import { disconnectingFromSession, launchingWithAppHost, launchingWithDirectory, processExceptionOccurred, processExitedWithCode, appHostSessionTerminated, debugSessionsFailedToStop, debugSessionStartTimedOut, debugSessionStopTimedOut, rustDebuggerExtensionNotInstalled, javaDebuggerExtensionNotInstalled, javaAppHostCommandNotRecognized, elixirAppHostRunningWithoutDebugger, elixirLSNotInstalledHint, dartAppHostRunningWithoutDebugger, dartCodeNotInstalledHint } from "../loc/strings";
+import { elixirLSExtensionId, dartCodeExtensionId, isExtensionInstalled } from "../capabilities";
 import { projectDebuggerExtension } from "./languages/dotnet";
 import { AnsiColors } from "../utils/AspireTerminalProvider";
 import { applyTextStyle } from "../utils/strings";
@@ -15,6 +15,7 @@ import { nodeDebuggerExtension } from "./languages/node";
 import { createDefaultRustDebuggerExtension } from "./languages/rust";
 import { javaDebuggerExtension, parseJavaAppHostCommand, resolveJavaClassPaths } from "./languages/java";
 import { spawnElixirAppHost } from "./languages/elixir";
+import { spawnDartAppHost } from "./languages/dart";
 import { cleanupRun } from "./runCleanupRegistry";
 import { runWithRunStartWrappers } from "./runStartRegistry";
 import AspireRpcServer from "../server/AspireRpcServer";
@@ -1234,6 +1235,7 @@ export class AspireDebugSession implements vscode.DebugAdapter, DashboardLaunche
   private static readonly _rustAppHostExtensions = ['.rs'];
   private static readonly _javaAppHostExtensions = ['.java'];
   private static readonly _elixirAppHostExtensions = ['.exs'];
+  private static readonly _dartAppHostExtensions = ['.dart'];
 
   private _appHostRestartRequested = false;
   private _preserveAppHostRestartSourceSessionId = false;
@@ -1246,6 +1248,43 @@ export class AspireDebugSession implements vscode.DebugAdapter, DashboardLaunche
       const isRustAppHost = AspireDebugSession._rustAppHostExtensions.includes(fileExtension);
       const isJavaAppHost = AspireDebugSession._javaAppHostExtensions.includes(fileExtension);
       const isElixirAppHost = AspireDebugSession._elixirAppHostExtensions.includes(fileExtension);
+      const isDartAppHost = AspireDebugSession._dartAppHostExtensions.includes(fileExtension);
+
+      if (isDartAppHost) {
+        // Dart-Code's `dart` debug adapter has no restriction that stops it launching
+        // `dart run apphost.dart` directly, unlike ElixirLS's mix_task adapter. This still runs
+        // the AppHost as a plain child process rather than under Dart-Code, deliberately keeping
+        // parity with the Elixir AppHost path: it keeps AppHost startup uniform across languages,
+        // and Dart *resources* the AppHost starts are still debugged individually through
+        // dartDebuggerExtension when Dart-Code is installed. See spawnDartAppHost and NAK-541.
+        this.sendMessage(dartAppHostRunningWithoutDebugger, true, 'stdout');
+
+        if (!isExtensionInstalled(dartCodeExtensionId)) {
+          this.sendMessage(dartCodeNotInstalledHint(dartCodeExtensionId), true, 'stdout');
+        }
+
+        const appHostDebugSession = spawnDartAppHost(
+          projectFile,
+          args,
+          environment,
+          path.dirname(projectFile),
+          this.debugSessionId,
+          (output, category) => this.sendMessage(output, false, category));
+
+        this._appHostDebugSession = appHostDebugSession;
+        this._trackAppHostDebugSession(this, projectFile, appHostDebugSession);
+
+        void appHostDebugSession.termination.then(() => {
+          if (this._appHostDebugSession && this._appHostDebugSession.id === appHostDebugSession.id) {
+            this._appHostStopped = true;
+            this._resourceDebugSessions = this._resourceDebugSessions.filter(resourceSession => resourceSession.id !== appHostDebugSession.id);
+            this.sendMessageWithEmoji("ℹ️", applyTextStyle(appHostSessionTerminated, AnsiColors.Yellow));
+            this.stopDebuggingInBackground('AppHost session termination');
+          }
+        });
+
+        return;
+      }
 
       if (isElixirAppHost) {
         // ElixirLS's only debug adapter, `mix_task`, starts a session by running
