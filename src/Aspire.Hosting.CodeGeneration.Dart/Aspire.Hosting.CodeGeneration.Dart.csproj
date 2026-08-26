@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aspire.Hosting.CodeGeneration.Dart</RootNamespace>
+    <!-- Required for Dart AppHost support -->
+    <IsPackable>true</IsPackable>
+    <!-- Code-generation infrastructure, not a discoverable polyglot integration, so opt out of the
+         default 'polyglot' NuGet tag that `aspire add` uses to surface integrations to non-C# AppHosts. -->
+    <IsAspirePolyglotCompatible>false</IsAspirePolyglotCompatible>
+    <!-- No baseline exists since this package was previously not published -->
+    <DisablePackageBaselineValidation>true</DisablePackageBaselineValidation>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="aspire" />
+    <InternalsVisibleTo Include="Aspire.Hosting.CodeGeneration.Dart.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\base.dart" LogicalName="Aspire.Hosting.CodeGeneration.Dart.Resources.base.dart" />
+    <EmbeddedResource Include="Resources\transport.dart" LogicalName="Aspire.Hosting.CodeGeneration.Dart.Resources.transport.dart" />
+    <EmbeddedResource Include="Resources\aspire_runtime.dart" LogicalName="Aspire.Hosting.CodeGeneration.Dart.Resources.aspire_runtime.dart" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="$(SharedDir)AppHostProfilePortGenerator.cs" Link="AppHostProfilePortGenerator.cs" />
+    <Compile Include="$(SharedDir)CodeGeneration\AtsOptionsFlattening.cs" Link="AtsOptionsFlattening.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aspire.TypeSystem\Aspire.TypeSystem.csproj" />
+  </ItemGroup>
+
+</Project>
