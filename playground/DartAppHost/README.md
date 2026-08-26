@@ -17,8 +17,8 @@ final cache = await builder.addRedis('cache');
 
 final api = await builder.addServerpodApp(
     'api', '../DartApps/serverpod_api/serverpod_api_server');
-await api.withServerpodDatabase(asConnectionString(appdb));
-await api.withServerpodRedis(asConnectionString(cache));
+await api.withServerpodDatabase(appdb);
+await api.withServerpodRedis(cache);
 await api.withExternalHttpEndpoints();
 
 final site = await builder.addJasprApp('site', '../DartApps/jaspr_site');
@@ -26,11 +26,12 @@ await site.withExternalHttpEndpoints();
 
 final worker = await builder.addDartApp('worker', '../DartApps/worker');
 await worker.withReference(api);
-await worker.waitFor(asResource(api));
+await worker.waitFor(api);
 ```
 
-`asConnectionString` and `asResource` are two helpers at the end of `apphost.dart`. See
-"Known limits".
+Every generated resource class implements the Dart class of each Aspire interface that its .NET
+type implements, so a resource passes straight into `withServerpodDatabase(...)`,
+`withReference(...)`, and `waitFor(...)`.
 
 ## Layout
 
@@ -112,33 +113,37 @@ Serverpod 3.4.12, and Jaspr 0.23.4. The CLI came from
 `artifacts/bin/Aspire.Cli/Debug/net10.0/aspire` on branch `feature/dart-integration`, with
 `ASPIRE_REPO_ROOT` set.
 
+Steps 1 to 5, 7, and 8 come from one run after the generator started to emit the interface
+classes. Step 6 comes from an earlier run on the same day. `watch.dart` did not change between
+the two runs.
+
 | Step | Result | Evidence |
 | --- | --- | --- |
-| 1. Generate the SDK | Pass | `Generated 32 Dart files in .../DartAppHost/.aspire/modules (32 changed)` |
-| 2. The model analyzes | Pass | `dart analyze apphost.dart` printed `No issues found!` |
+| 1. Generate the SDK | Pass | `Generated 37 Dart files in .../DartAppHost/.aspire/modules (37 changed)` |
+| 2. The model analyzes | Pass | `dart analyze --fatal-infos apphost.dart` printed `No issues found!`. The model passes each resource directly, with no conversion helper. |
 | 3. Resources start | Pass | See the state table below. |
 | 4. HTTP endpoints answer | Pass | See the curl output below. |
-| 5. Worker reads the API | Pass | `services__api__api__0=http://localhost:50703` on the worker resource. |
+| 5. Worker reads the API | Pass | `services__api__api__0=http://localhost:59508` on the worker resource. |
 | 6. Watch restart | Pass | See the watch section below. |
-| 7. Stop | Pass | `aspire stop` reported success. No `dart`, `dartvm`, `dartaotruntime`, or `jaspr` process of this playground remained. |
-| 8. Publish | Pass, with a defect | The pipeline succeeds and writes every artifact, but the AppHost process does not exit. See the publish section and "Known limits". |
+| 7. Stop | Pass | `aspire stop` reported success in 1.5 seconds. No `dart`, `dartvm`, `dartaotruntime`, or `jaspr` process of this playground remained. |
+| 8. Publish | Pass | The pipeline succeeded and `aspire publish` returned exit code 0 after 12.968 seconds. See the publish section. |
 
 ### Step 3: resource states
 
 `aspire describe --format json` returned:
 
 ```
-api-pcnnjwbj             Running   Healthy   http://localhost:50703 (api)
-                                             http://localhost:50706 (insights)
-                                             http://localhost:50708 (web)
-api-pub-get-jrzeaxgj     Finished  exit=0
+api-rczjmbff             Running   Healthy   http://localhost:59508 (api)
+                                             http://localhost:59511 (insights)
+                                             http://localhost:59507 (web)
+api-pub-get-tzxzbzqk     Finished  exit=0
 appdb                    Running   Healthy
-cache-zjpgbamh           Running   Healthy   tcp://localhost:50704, rediss://localhost:50705
-pg-kqxgrpgf              Running   Healthy   tcp://localhost:50702
-site-eyecrths            Running   Healthy   http://localhost:50707
-site-pub-get-qfbkgzpq    Finished  exit=0
-worker-dpzpjgbf          Running   Healthy
-worker-pub-get-qgdhkefg  Finished  exit=0
+cache-yyycgsvz           Running   Healthy   rediss://localhost:59509, tcp://localhost:59510
+pg-tcenpznv              Running   Healthy   tcp://localhost:59506
+site-wdyezggs            Running   Healthy   http://localhost:59505
+site-pub-get-cxbkgtxx    Finished  exit=0
+worker-xchkmdrm          Running   Healthy
+worker-pub-get-kqkxrnrz  Finished  exit=0
 ```
 
 `appdb` is a logical child of `pg`. The server starts with `--apply-migrations`, so a successful
@@ -146,17 +151,14 @@ start proves that the database exists. The `*-pub-get` steps come from the Dart 
 
 ### Step 4: HTTP endpoints
 
-Aspire allocated port 50703 for the `api` endpoint of `api`, and port 50707 for `site`.
+Aspire allocated port 59508 for the `api` endpoint of `api`, and port 59505 for `site`.
 
 ```
-$ curl -o /dev/null -w "%{http_code}" http://localhost:50703/
+$ curl -o /dev/null -w "%{http_code}" http://localhost:59508/
 200
 
-$ curl -o /dev/null -w "%{http_code}" http://localhost:50707/
+$ curl -o /dev/null -w "%{http_code}" http://localhost:59505/
 200
-
-$ curl -s http://localhost:50707/ | head -c 20
-<!DOCTYPE html>
 ```
 
 ### Step 6: watch restart
@@ -186,9 +188,12 @@ The `site` resource did not survive this restart. See "Known limits".
 ### Step 8: publish
 
 ```
-$ aspire publish -o ./out
+$ time aspire publish -o ./out
 ✅ 7/7 steps succeeded
 ✅ Pipeline succeeded
+aspire publish -o ./out  8.07s user 2.18s system 79% cpu 12.968 total
+$ echo $?
+0
 
 $ find out -type f
 out/.env
@@ -199,9 +204,9 @@ out/worker.Dockerfile
 out/worker.Dockerfile.dockerignore
 ```
 
-The command does not return. The pipeline reported success 10 seconds after the start, and it
-wrote every file in the list above. The AppHost process stayed alive after that. See
-"`aspire publish` does not return" below.
+The command returns. The generated `run` method closes the transport when the AppHost stops, so
+the Dart process exits and the CLI does not wait. An earlier run of the same model stayed alive
+for more than 2 minutes after `Pipeline succeeded`, until the process was killed by hand.
 
 `out/docker-compose.yaml` holds the services `compose-dashboard`, `pg`, `cache`, `api`, `site`,
 `worker`, and `aspire`. The `api` service runs `--mode production --apply-migrations` and reads
@@ -215,61 +220,6 @@ project ships its own Dockerfile and Aspire keeps an authored file.
 The `out` directory is a run artifact. Delete it after the check.
 
 ## Known limits
-
-### A generated resource class does not satisfy an interface parameter
-
-The generator gives every resource its own Dart class, and each class extends `AspireObject`
-directly. A parameter that takes an Aspire interface, such as the `database` parameter of
-`withServerpodDatabase(ResourceWithConnectionString database)` or the `dependency` parameter of
-`waitFor(Resource dependency)`, therefore rejects a `PostgresDatabaseResource` or a
-`ServerpodAppResource`. Dart has no structural subtyping, so the call does not compile.
-
-`apphost.dart` works around this with two helpers that rebuild the wrapper around the same handle
-and the same transport:
-
-```dart
-ResourceWithConnectionString asConnectionString(AspireObject resource) =>
-    ResourceWithConnectionString(resource.handle, resource.transport);
-
-Resource asResource(AspireObject resource) =>
-    Resource(resource.handle, resource.transport);
-```
-
-The wire value is the handle, so the host accepts the rebuilt wrapper. The generator should emit
-these conversions, or make each resource class implement the interface classes that its .NET type
-implements. Elixir does not show the problem, because Elixir is dynamically typed.
-
-### `aspire publish` does not return
-
-The publish pipeline succeeds and writes every artifact, but the Dart AppHost process does not
-exit. `aspire publish` waits for that process, so the command hangs. Stop it with `CTRL+C`, or
-stop the AppHost process, after the log prints `Pipeline succeeded`. The artifacts in `out` are
-complete at that point.
-
-One measured run:
-
-```
-16:10:39  aspire publish -o ./out starts
-16:10:49  ✅ 7/7 steps succeeded / ✅ Pipeline succeeded, all 6 files written
-16:13:22  dart apphost.dart --operation publish --step publish is still alive (2 m 33 s later);
-          killed by hand
-16:13:27  the CLI exits with code 0
-```
-
-An earlier attempt ran for the full 600-second command timeout in the same state.
-
-The cause is the transport lifetime, not the pipeline. `AspireTransport` in
-`src/Aspire.Hosting.CodeGeneration.Dart/Resources/transport.dart` opens a `Socket` and keeps a
-`listen` subscription on it. Nothing calls `transport.close()` after `app.run()` returns, and an
-active socket subscription keeps the Dart event loop alive, so `dart run apphost.dart` never
-exits. The scaffolded `apphost.dart` in
-`src/Aspire.Hosting.CodeGeneration.Dart/DartLanguageSupport.cs` ends with `await app.run();` and
-closes nothing.
-
-Run mode hides the problem, because the CLI stops the AppHost process itself. Elixir does not
-show it, because `elixir apphost.exs` halts the VM when the script ends, whatever the state of
-its `gen_tcp` socket. The C# AppHost in `../DartApps` is not affected:
-`dotnet run -- --publisher manifest` returns with exit code 0.
 
 ### A watch restart can break the Jaspr site
 

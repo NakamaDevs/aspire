@@ -28,8 +28,8 @@ Future<void> main(List<String> args) async {
 
   final api = await builder.addServerpodApp(
       'api', '../DartApps/serverpod_api/serverpod_api_server');
-  await api.withServerpodDatabase(asConnectionString(appdb));
-  await api.withServerpodRedis(asConnectionString(cache));
+  await api.withServerpodDatabase(appdb);
+  await api.withServerpodRedis(cache);
   await api.withExternalHttpEndpoints();
 
   final site = await builder.addJasprApp('site', '../DartApps/jaspr_site');
@@ -37,22 +37,8 @@ Future<void> main(List<String> args) async {
 
   final worker = await builder.addDartApp('worker', '../DartApps/worker');
   await worker.withReference(api);
-  await worker.waitFor(asResource(api));
+  await worker.waitFor(api);
 
   final app = await builder.build();
   await app.run();
 }
-
-/// Views a generated resource as a `ResourceWithConnectionString`.
-///
-/// The generated SDK gives every resource its own class, and each class extends
-/// `AspireObject` directly. A Dart class therefore never satisfies an interface
-/// parameter such as the `database` parameter of `withServerpodDatabase`. The two
-/// helpers below rebuild the wrapper around the same handle and the same
-/// transport, which is what the host expects on the wire.
-ResourceWithConnectionString asConnectionString(AspireObject resource) =>
-    ResourceWithConnectionString(resource.handle, resource.transport);
-
-/// Views a generated resource as a `Resource`, which `waitFor` takes.
-Resource asResource(AspireObject resource) =>
-    Resource(resource.handle, resource.transport);

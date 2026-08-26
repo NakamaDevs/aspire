@@ -60,7 +60,10 @@ public class DartRoundTripTests(ITestOutputHelper outputHelper) : IAsyncLifetime
         await run.WaitForReadyAsync(s_readyTimeout);
 
         Assert.Equal(AtsConstants.BuilderTypeId, run.Value("builder_type"));
-        Assert.Equal("DistributedApplicationBuilder", run.Value("builder_class"));
+
+        // IDistributedApplicationBuilder is a .NET interface, so DistributedApplicationBuilder is
+        // an abstract Dart class and the value is its private implementation class.
+        Assert.Equal("_DistributedApplicationBuilderImpl", run.Value("builder_class"));
 
         var builder = host.GetHandleObject<IDistributedApplicationBuilder>(run.Value("builder"));
         Assert.NotNull(builder.Resources);
@@ -98,6 +101,37 @@ public class DartRoundTripTests(ITestOutputHelper outputHelper) : IAsyncLifetime
         // The handle the guest holds is the resource builder for the same resource.
         var containerBuilder = host.GetHandleObject<IResourceBuilder<ContainerResource>>(run.Value("container"));
         Assert.Same(container, containerBuilder.Resource);
+
+        run.Release();
+        Assert.Equal(0, await run.WaitForExitAsync(s_exitTimeout));
+    }
+
+    [Fact]
+    public async Task RoundTrip_InterfaceParameter_AcceptsConcreteResource()
+    {
+        await using var host = await DartRoundTripHost.StartAsync(outputHelper);
+
+        // `waitFor` declares IResource. TestRedisResource implements the Dart class of that
+        // interface, so the concrete resource passes without a conversion at the call site.
+        await WriteAppHostAsync("""
+              final DistributedApplicationBuilder builder = await createBuilder(args);
+              final TestRedisResource redis = await builder.addTestRedis('cache');
+              final ContainerResource container =
+                  await builder.addContainer('api', 'nginx:1.27');
+
+              await container.waitFor(redis);
+
+              report('container', container.handle.id);
+              await ready();
+            """);
+
+        await using var run = host.StartScript(WorkspacePath, "apphost.dart");
+        await run.WaitForReadyAsync(s_readyTimeout);
+
+        var containerBuilder = host.GetHandleObject<IResourceBuilder<ContainerResource>>(run.Value("container"));
+        var wait = Assert.Single(containerBuilder.Resource.Annotations.OfType<WaitAnnotation>());
+        Assert.Equal("cache", wait.Resource.Name);
+        Assert.Equal(WaitType.WaitUntilHealthy, wait.WaitType);
 
         run.Release();
         Assert.Equal(0, await run.WaitForExitAsync(s_exitTimeout));
@@ -149,15 +183,18 @@ public class DartRoundTripTests(ITestOutputHelper outputHelper) : IAsyncLifetime
         await WriteAppHostAsync("""
               final DistributedApplicationBuilder builder = await createBuilder(args);
 
+              final ContainerResource container =
+                  await builder.addContainer('cache', 'redis:7.4');
+
               // A wrapper is a handle plus a transport, so a handle the host never issued builds the
               // same class and reaches the same capability.
-              final DistributedApplicationBuilder unknown = DistributedApplicationBuilder(
-                AspireHandle('999999', builder.handle.type),
+              final ContainerResource unknown = ContainerResource(
+                AspireHandle('999999', container.handle.type),
                 builder.transport,
               );
 
               try {
-                await unknown.addContainer('cache', 'redis:7.4');
+                await unknown.withEnvironment('KEY', 'value');
                 report('unexpected', 'the call returned a value');
               } on AspireError catch (error) {
                 report('error_class', error.runtimeType);
@@ -175,7 +212,7 @@ public class DartRoundTripTests(ITestOutputHelper outputHelper) : IAsyncLifetime
         Assert.False(run.HasValue("unexpected"), $"The failed capability returned a value.\n{run.Output}");
         Assert.Equal("AspireError", run.Value("error_class"));
         Assert.Equal("HANDLE_NOT_FOUND", run.Value("error_code"));
-        Assert.Equal("Aspire.Hosting/addContainer", run.Value("error_capability"));
+        Assert.Equal("Aspire.Hosting/withEnvironment", run.Value("error_capability"));
         Assert.Contains("999999", run.Value("error_message"), StringComparison.Ordinal);
 
         run.Release();

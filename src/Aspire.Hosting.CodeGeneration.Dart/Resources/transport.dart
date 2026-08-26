@@ -78,6 +78,7 @@ class AspireTransport {
   int _nextId = 1;
   int _callbackCounter = 0;
   bool _isClosed = false;
+  bool _isDisposed = false;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -191,17 +192,34 @@ class AspireTransport {
   Future<void> get onClose => _closed.future;
 
   /// Closes the connection and fails every pending request.
+  ///
+  /// The socket subscription keeps the Dart event loop alive, so a script that
+  /// leaves a transport open never exits. The generated `run` method calls this
+  /// method when the AppHost stops.
+  ///
+  /// The method is idempotent. A second call does nothing, and a call after the
+  /// AppHost closed the socket first does not throw.
   Future<void> close() async {
-    if (!_isClosed) {
-      _socket.destroy();
-    }
     _finish(
       AspireError(
         code: AspireErrorCodes.connectionClosed,
         message: 'The AppHost closed the connection.',
       ),
     );
+
+    if (_isDisposed) {
+      return;
+    }
+    _isDisposed = true;
+
+    try {
+      _socket.destroy();
+    } on Object {
+      // The AppHost may have closed the socket first. There is nothing to free.
+    }
+
     await _subscription.cancel();
+
     if (identical(_defaultInstance, this)) {
       _defaultInstance = null;
     }

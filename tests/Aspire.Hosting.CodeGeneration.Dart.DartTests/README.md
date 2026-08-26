@@ -31,8 +31,10 @@ dart analyze --fatal-infos
 | `test/aspire_runtime_test.dart` | reference expressions, typed callbacks, unions, collections |
 | `test/aspire_watch_test.dart` | the AppHost file watcher |
 | `test/env_child_test.dart` | the two cases that need an environment variable |
+| `test/exit_child_test.dart` | the guest process exits after `close` |
 | `test/support/fake_host.dart` | a fake AppHost on a temporary Unix socket |
 | `test/support/env_child.dart` | the guest process that `env_child_test.dart` starts |
+| `test/support/exit_child.dart` | the guest process that `exit_child_test.dart` starts |
 
 Dart cannot change the environment of the running process. The two cases that
 read `REMOTE_APP_HOST_SOCKET_PATH` and `ASPIRE_REMOTE_APPHOST_TOKEN` start

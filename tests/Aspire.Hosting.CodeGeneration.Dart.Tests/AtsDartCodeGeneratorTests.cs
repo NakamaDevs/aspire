@@ -396,6 +396,151 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
     }
 
     [Fact]
+    public void GeneratedCode_RunClosesTransport()
+    {
+        var generated = GenerateSource(CreateContextFromBothAssemblies());
+        var run = ExtractMethod(ExtractClass(generated, "DistributedApplication"), "run");
+
+        // The socket subscription keeps the Dart event loop alive, so `dart run apphost.dart` never
+        // exits after the AppHost stops. `run` therefore closes the transport, and it also closes it
+        // when the call fails.
+        Assert.Contains("try {", run, StringComparison.Ordinal);
+        Assert.Contains("await transport.invokeCapability('Aspire.Hosting/run', args);", run, StringComparison.Ordinal);
+        Assert.Contains("} finally {", run, StringComparison.Ordinal);
+        Assert.Contains("await transport.close();", run, StringComparison.Ordinal);
+
+        // No other capability closes the connection, because the script keeps calling the host.
+        var addContainer = ExtractMethod(generated, "addContainer");
+        Assert.DoesNotContain("transport.close()", addContainer, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratedCode_ConcreteClassImplementsInterfaceHandles()
+    {
+        var generated = GenerateSource(CreateContextFromBothAssemblies());
+
+        // Dart has no structural subtyping, so a concrete class only satisfies an interface
+        // parameter when it names the interface class. TestRedisResource reaches
+        // IResourceWithEnvironment through ContainerResource, so the whole chain appears.
+        Assert.Equal(
+            "class TestRedisResource extends AspireObject implements "
+                + "ComputeResource, ExpressionValue, Resource, ResourceWithArgs, "
+                + "ResourceWithConnectionString, ResourceWithEndpoints, ResourceWithEnvironment, "
+                + "ResourceWithWaitSupport {",
+            ClassDeclaration(generated, "TestRedisResource"));
+
+        // The real hosting assembly gives the same result for a container.
+        Assert.Equal(
+            "class ContainerResource extends AspireObject implements "
+                + "ComputeResource, Resource, ResourceWithArgs, ResourceWithEndpoints, "
+                + "ResourceWithEnvironment, ResourceWithWaitSupport {",
+            ClassDeclaration(generated, "ContainerResource"));
+
+        // Every method the interface declares also exists on the class, so `implements` compiles.
+        var container = ExtractClass(generated, "ContainerResource");
+        Assert.Contains("Future<ContainerResource> waitFor(Resource dependency", container, StringComparison.Ordinal);
+        Assert.Contains("Future<ContainerResource> withEnvironment(", container, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratedCode_InterfaceTypesAreAbstractClasses()
+    {
+        var generated = GenerateSource(CreateContextFromBothAssemblies());
+
+        // An interface handle type is abstract, so nothing instantiates a value that carries no
+        // concrete .NET type.
+        Assert.Equal(
+            "abstract class Resource extends AspireObject {",
+            ClassDeclaration(generated, "Resource"));
+        Assert.Equal(
+            "abstract class ResourceWithConnectionString extends AspireObject implements "
+                + "ExpressionValue, Resource {",
+            ClassDeclaration(generated, "ResourceWithConnectionString"));
+
+        // A decoder still has to build a value for a capability that returns the interface. The
+        // generator emits one private subclass for that, and the subclass adds no member.
+        Assert.Contains(
+            "class _ResourceWithConnectionStringImpl extends ResourceWithConnectionString {",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "const _ResourceWithConnectionStringImpl(super.handle, super.transport);",
+            generated,
+            StringComparison.Ordinal);
+
+        // AddConnectionString declares IResourceWithConnectionString, so its decoder names the
+        // implementation class while the signature keeps the interface.
+        var addConnectionString = ExtractMethod(generated, "addConnectionString");
+        Assert.StartsWith("> addConnectionString(", addConnectionString, StringComparison.Ordinal);
+        Assert.Contains("return _ResourceWithConnectionStringImpl(", addConnectionString, StringComparison.Ordinal);
+        Assert.Contains(
+            "Future<ResourceWithConnectionString> addConnectionString(",
+            generated,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [RequiresTools(["dart"])]
+    public async Task GeneratedCode_InterfaceParameterAcceptsConcreteClass()
+    {
+        using var workspace = TemporaryWorkspace.Create(outputHelper);
+
+        var modules = Path.Combine(workspace.Path, ".aspire", "modules");
+        Directory.CreateDirectory(modules);
+
+        // The real Aspire.Hosting assembly holds waitFor(IResource) and
+        // withReference(IResourceWithConnectionString | ...), so it proves the interface parameters
+        // of the shipped surface.
+        var files = _generator.GenerateDistributedApplication(CreateContextFromHostingAssembly());
+        foreach (var (name, content) in files)
+        {
+            await File.WriteAllTextAsync(Path.Combine(modules, name), content);
+        }
+
+        var scaffold = new DartLanguageSupport().Scaffold(new ScaffoldRequest
+        {
+            TargetPath = workspace.Path,
+            ProjectName = "InterfaceApp",
+            PortSeed = 3
+        });
+
+        await File.WriteAllTextAsync(Path.Combine(workspace.Path, "pubspec.yaml"), scaffold["pubspec.yaml"]);
+
+        // A concrete resource passes where the capability declares an interface, and a value that
+        // the host returned as an interface passes as well.
+        await File.WriteAllTextAsync(Path.Combine(workspace.Path, "apphost.dart"), """
+            import '.aspire/modules/aspire.dart';
+
+            Future<void> main(List<String> args) async {
+              final DistributedApplicationBuilder builder = await createBuilder(args);
+
+              final ResourceWithConnectionString db = await builder.addConnectionString('db');
+              final ContainerResource cache = await builder.addContainer('cache', 'redis:7.4');
+              final ContainerResource api = await builder.addContainer('api', 'img');
+
+              await api.withReference(db);
+              await api.waitFor(cache);
+              await api.waitFor(db);
+
+              final DistributedApplication app = await builder.build();
+              await app.run();
+            }
+
+            """);
+
+        var restore = await RunAsync("dart", workspace.Path, ["pub", "get"]);
+        outputHelper.WriteLine(restore.Output);
+        Assert.Equal(0, restore.ExitCode);
+
+        var analyze = await RunAsync(
+            "dart",
+            workspace.Path,
+            ["analyze", "--fatal-infos", Path.Combine(".aspire", "modules"), "apphost.dart"]);
+        outputHelper.WriteLine(analyze.Output);
+        Assert.Equal(0, analyze.ExitCode);
+    }
+
+    [Fact]
     [RequiresTools(["dart"])]
     public async Task GeneratedCode_AnalyzesCleanWithDart()
     {
@@ -870,8 +1015,10 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
             "Future<DistributedApplicationBuilder?> getOptionalBuilder(DistributedApplicationBuilder? fallback) async {",
             generated,
             StringComparison.Ordinal);
+        // The builder type is a .NET interface, so the decoder builds the private implementation
+        // class of the abstract Dart class.
         Assert.Contains(
-            "return (result == null ? null : DistributedApplicationBuilder("
+            "return (result == null ? null : _DistributedApplicationBuilderImpl("
                 + "AspireRuntime.requireHandle(result, 'Aspire.Tests/getOptionalBuilder'), transport));",
             generated,
             StringComparison.Ordinal);
@@ -1074,6 +1221,21 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
                 .Select(file => file.Value));
     }
 
+    /// <summary>
+    /// Returns the declaration line of one generated class, with the <c>abstract</c> keyword and
+    /// the <c>implements</c> clause.
+    /// </summary>
+    private static string ClassDeclaration(string source, string className)
+    {
+        var marker = $"class {className} extends ";
+        var index = source.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(index >= 0, $"Generated code does not define {className}.");
+
+        var start = source.LastIndexOf('\n', index) + 1;
+        var end = source.IndexOf('\n', index);
+        return end < 0 ? source[start..] : source[start..end];
+    }
+
     private static string ExtractClass(string source, string className)
     {
         var start = source.IndexOf($"class {className} ", StringComparison.Ordinal);
@@ -1149,6 +1311,12 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
     }
 
     private static Assembly LoadTestAssembly() => typeof(TestRedisResource).Assembly;
+
+    private static AtsContext CreateContextFromHostingAssembly()
+    {
+        var hostingAssembly = typeof(DistributedApplication).Assembly;
+        return AtsCapabilityScanner.ScanAssembly(hostingAssembly).ToAtsContext();
+    }
 
     private static List<AtsCapabilityInfo> ScanCapabilitiesFromHostingAssembly()
     {

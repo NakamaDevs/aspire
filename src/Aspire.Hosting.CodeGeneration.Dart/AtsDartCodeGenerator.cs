@@ -128,6 +128,16 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         declarations.AddRange(GenerateExportedValueClasses(model));
         declarations.AddRange(GenerateHandleClasses(model));
 
+        // `createBuilder` in the entry file materializes the application builder, and that ATS type
+        // is an interface. The call records the implementation class before the generator emits the
+        // implementation classes.
+        if (model.HandleClasses.ContainsKey(AtsConstants.BuilderTypeId))
+        {
+            model.MaterializedClassOf(AtsConstants.BuilderTypeId);
+        }
+
+        declarations.AddRange(GenerateInterfaceImplementationClasses(model));
+
         var generatedFiles = ChunkDeclarations(declarations);
 
         var files = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -313,7 +323,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         writer.WriteLine($"{RuntimeClass}.requireHandle(result, '{AtsConstants.CreateBuilderCapability}');");
         writer.Outdent();
         writer.WriteLine(hasBuilderClass
-            ? $"return {builderClass}(handle, connection);"
+            ? $"return {model.MaterializedClassOf(AtsConstants.BuilderTypeId)}(handle, connection);"
             : "return handle;");
         writer.Outdent();
         writer.WriteLine("}");
@@ -817,29 +827,77 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
 
             var writer = new DartWriter();
             var typeInfo = model.HandleTypeInfos.GetValueOrDefault(typeId);
+            var isInterface = model.InterfaceTypeIds.Contains(typeId);
 
             writer.WriteLine();
             WriteDoc(writer, BuildDoc(
                 typeInfo?.Documentation,
                 null,
-                $"A handle to the `{typeId}` object in the AppHost."));
-            writer.WriteLine($"class {className} extends AspireObject {{");
+                isInterface
+                    ? $"A handle to an object that satisfies the `{typeId}` contract in the AppHost."
+                    : $"A handle to the `{typeId}` object in the AppHost."));
+
+            // A .NET interface becomes an abstract Dart class, and every concrete class that the
+            // ATS hierarchy connects to it implements that class. Dart has no structural subtyping,
+            // so this declaration is what lets a concrete resource satisfy a parameter such as
+            // `waitFor(Resource dependency)`.
+            var keyword = isInterface ? "abstract class" : "class";
+            var implemented = model.InterfacesByType.GetValueOrDefault(typeId) ?? [];
+            var implementsClause = implemented.Count > 0
+                ? " implements " + string.Join(", ", implemented.Select(id => model.HandleClasses[id]))
+                : string.Empty;
+
+            writer.WriteLine($"{keyword} {className} extends AspireObject{implementsClause} {{");
             writer.Indent();
             WriteDoc(writer, $"Wraps the handle of a `{typeId}` object.");
             writer.WriteLine($"const {className}(super.handle, super.transport);");
 
             var capabilities = model.CapabilitiesByTarget.GetValueOrDefault(typeId) ?? [];
-            var methodNames = AssignUniqueNames(
-                capabilities.Select(capability => capability.CapabilityId).ToList(),
-                capabilityId => ToDartMethodName(
-                    capabilities.First(capability =>
-                        string.Equals(capability.CapabilityId, capabilityId, StringComparison.Ordinal)).MethodName));
+            var methodNames = model.MethodNames.GetValueOrDefault(typeId) ?? [];
 
             foreach (var capability in capabilities)
             {
                 GenerateCapability(model, writer, className, typeId, capability, methodNames[capability.CapabilityId]);
             }
 
+            writer.Outdent();
+            writer.WriteLine("}");
+
+            declarations.Add(DartDeclaration.From(writer));
+        }
+
+        return declarations;
+    }
+
+    /// <summary>
+    /// Emits the private class that materializes every interface handle a decoder builds.
+    /// </summary>
+    /// <remarks>
+    /// An interface handle type is an abstract class, so <c>AspireRuntime.requireHandle</c> cannot
+    /// build one directly. The generator emits one private subclass for each interface that a
+    /// decoder reaches. The subclass adds no member, so the value carries the capability methods of
+    /// the interface and passes as an argument wherever the interface is accepted.
+    /// </remarks>
+    private static List<DartDeclaration> GenerateInterfaceImplementationClasses(DartModel model)
+    {
+        var declarations = new List<DartDeclaration>();
+
+        foreach (var typeId in model.MaterializedInterfaceTypeIds.OrderBy(id => id, StringComparer.Ordinal))
+        {
+            var className = model.HandleClasses[typeId];
+            var implClass = model.InterfaceImplClasses[typeId];
+
+            var writer = new DartWriter();
+            writer.WriteLine();
+            WriteDoc(writer, $"""
+                The value that a decoder builds for a `{typeId}` handle.
+
+                [{className}] is abstract, because the .NET type is an interface. This class adds no
+                member, so the value keeps every capability of the interface.
+                """);
+            writer.WriteLine($"class {implClass} extends {className} {{");
+            writer.Indent();
+            writer.WriteLine($"const {implClass}(super.handle, super.transport);");
             writer.Outdent();
             writer.WriteLine("}");
 
@@ -1042,6 +1100,19 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         var isVoid = returnType == "void";
         var invocation = $"await transport.invokeCapability('{EscapeString(capability.CapabilityId)}', args)";
 
+        // `run` is the last call of an AppHost script. It covers the run, the publish and the
+        // inspect operation, because the host decides the operation and returns when it ends.
+        var closesTransport = string.Equals(
+            capability.CapabilityId,
+            AtsConstants.RunCapability,
+            StringComparison.Ordinal);
+
+        if (closesTransport)
+        {
+            writer.WriteLine("try {");
+            writer.Indent();
+        }
+
         if (isVoid)
         {
             writer.WriteLine($"{invocation};");
@@ -1051,7 +1122,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             writer.WriteLine($"final Object? result = {invocation};");
 
             var decoded = returnsReceiver
-                ? $"{className}({RuntimeClass}.requireHandle(result, '{EscapeString(capability.CapabilityId)}'), transport)"
+                ? $"{model.MaterializedClassOf(classTypeId)}({RuntimeClass}.requireHandle(result, '{EscapeString(capability.CapabilityId)}'), transport)"
                 : DecodeExpression(
                     model,
                     capability.ReturnType,
@@ -1061,6 +1132,20 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                     capabilityId: capability.CapabilityId);
 
             writer.WriteLine($"return {decoded};");
+        }
+
+        if (closesTransport)
+        {
+            writer.Outdent();
+            writer.WriteLine("} finally {");
+            writer.Indent();
+            writer.WriteLine("// The socket subscription keeps the Dart event loop alive, so the");
+            writer.WriteLine("// script would never exit after the application stops. The close also");
+            writer.WriteLine("// runs when the call fails. AspireTransport.close does nothing when");
+            writer.WriteLine("// the host already closed the connection.");
+            writer.WriteLine("await transport.close();");
+            writer.Outdent();
+            writer.WriteLine("}");
         }
 
         writer.Outdent();
@@ -1591,7 +1676,8 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             case AtsTypeCategory.Handle when forDataObject:
                 return $"{source} is AspireHandle ? {source} as AspireHandle : null";
 
-            case AtsTypeCategory.Handle when model.HandleClasses.TryGetValue(typeRef.TypeId, out var handleClass):
+            case AtsTypeCategory.Handle when model.HandleClasses.ContainsKey(typeRef.TypeId):
+                var handleClass = model.MaterializedClassOf(typeRef.TypeId);
                 var wrapped = $"{handleClass}({RuntimeClass}.requireHandle({source}, '{EscapeString(capabilityId)}'), {transportExpression})";
                 // requireHandle throws on anything else, so a type the host may omit needs the
                 // null check first.
@@ -2023,6 +2109,50 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         /// </summary>
         public required Dictionary<string, List<string>> UnionExpansions { get; init; }
 
+        /// <summary>
+        /// The ATS type ids whose Dart class is abstract, because the .NET type is an interface.
+        /// </summary>
+        public required HashSet<string> InterfaceTypeIds { get; init; }
+
+        /// <summary>
+        /// The interface type ids that every handle type satisfies, from the ATS interface and base
+        /// type chain. The Dart class names them in its <c>implements</c> clause.
+        /// </summary>
+        public required Dictionary<string, List<string>> InterfacesByType { get; init; }
+
+        /// <summary>
+        /// The private Dart class that materializes an interface handle, keyed by the interface
+        /// type id.
+        /// </summary>
+        public required Dictionary<string, string> InterfaceImplClasses { get; init; }
+
+        /// <summary>
+        /// The Dart method name of every capability, keyed by the type id of the class that holds
+        /// the method and then by the capability id.
+        /// </summary>
+        public required Dictionary<string, Dictionary<string, string>> MethodNames { get; init; }
+
+        /// <summary>
+        /// The interface type ids that a decoder builds a value for. The generator emits one
+        /// private implementation class for each of them.
+        /// </summary>
+        public HashSet<string> MaterializedInterfaceTypeIds { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Returns the Dart class that a decoder instantiates for a handle type, and records the
+        /// use when that class is the private implementation of an interface.
+        /// </summary>
+        public string MaterializedClassOf(string typeId)
+        {
+            if (InterfaceImplClasses.TryGetValue(typeId, out var implClass))
+            {
+                MaterializedInterfaceTypeIds.Add(typeId);
+                return implClass;
+            }
+
+            return HandleClasses.GetValueOrDefault(typeId, "AspireObject");
+        }
+
         public IReadOnlyList<string> ExpandUnionMember(string typeId) =>
             UnionExpansions.TryGetValue(typeId, out var classes)
                 ? classes
@@ -2042,12 +2172,26 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             var dtoTypeIds = new HashSet<string>(context.DtoTypes.Select(dto => dto.TypeId), StringComparer.Ordinal);
             var handleTypeIds = CollectHandleTypeIds(context, dtoTypeIds);
 
+            // Every type reference of the context, keyed by type id. A reference carries the
+            // interface flag and the interfaces the type implements, so the generator reads the
+            // whole hierarchy from the shared ATS model and never reflects.
+            var typeRefs = CollectHandleTypeRefs(context);
+
+            var interfaceTypeIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var typeId in handleTypeIds)
+            {
+                if (IsInterfaceType(context, typeRefs, typeId))
+                {
+                    interfaceTypeIds.Add(typeId);
+                }
+            }
+
             // Dart has one global scope, so handle classes, data objects and enums share one name
             // pool.
             var candidates = new List<ClassNameCandidate>();
             foreach (var typeId in handleTypeIds.OrderBy(id => id, StringComparer.Ordinal))
             {
-                candidates.Add(ClassNameCandidate.ForType(typeId, IsInterfaceType(context, typeId)));
+                candidates.Add(ClassNameCandidate.ForType(typeId, interfaceTypeIds.Contains(typeId)));
             }
 
             foreach (var dto in context.DtoTypes.OrderBy(dto => dto.TypeId, StringComparer.Ordinal))
@@ -2097,6 +2241,26 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
 
             var valueClasses = AssignValueClassNames(context, assigned.Values);
 
+            // A runtime file owns the class, so the generator never makes it abstract.
+            interfaceTypeIds.ExceptWith(runtimeProvided);
+
+            var interfacesByType = BuildInterfacesByType(
+                handleClasses,
+                handleTypeInfos,
+                typeRefs,
+                interfaceTypeIds,
+                runtimeProvided);
+
+            var capabilitiesByTarget = GroupCapabilitiesByTarget(context.Capabilities, handleTypeIds);
+            AddInheritedCapabilities(context, capabilitiesByTarget, handleClasses, interfacesByType, interfaceTypeIds);
+
+            var interfaceImplClasses = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var typeId in interfaceTypeIds)
+            {
+                // The class is library private, so the name never collides with a generated class.
+                interfaceImplClasses[typeId] = "_" + handleClasses[typeId] + "Impl";
+            }
+
             var model = new DartModel
             {
                 Context = context,
@@ -2105,11 +2269,15 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                 EnumClasses = enumClasses,
                 ValueClasses = valueClasses,
                 HandleTypeInfos = handleTypeInfos,
-                CapabilitiesByTarget = GroupCapabilitiesByTarget(context.Capabilities, handleTypeIds),
+                CapabilitiesByTarget = capabilitiesByTarget,
                 DtoProperties = new Dictionary<string, List<DartProperty>>(StringComparer.Ordinal),
                 RuntimeProvidedTypeIds = runtimeProvided,
                 CallbackShapes = new Dictionary<string, DartCallbackShape>(StringComparer.Ordinal),
-                UnionExpansions = BuildUnionExpansions(context, handleClasses)
+                UnionExpansions = BuildUnionExpansions(context, handleClasses),
+                InterfaceTypeIds = interfaceTypeIds,
+                InterfacesByType = interfacesByType,
+                InterfaceImplClasses = interfaceImplClasses,
+                MethodNames = BuildMethodNames(capabilitiesByTarget, interfacesByType, handleClasses)
             };
 
             // A typedef name shares the one Dart scope, so it is reserved after every class name.
@@ -2353,7 +2521,10 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             return result;
         }
 
-        private static bool IsInterfaceType(AtsContext context, string typeId)
+        private static bool IsInterfaceType(
+            AtsContext context,
+            Dictionary<string, AtsTypeRef> typeRefs,
+            string typeId)
         {
             foreach (var typeInfo in context.HandleTypes)
             {
@@ -2363,16 +2534,370 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                 }
             }
 
-            foreach (var capability in context.Capabilities)
+            return typeRefs.TryGetValue(typeId, out var typeRef) && typeRef.IsInterface;
+        }
+
+        /// <summary>
+        /// Returns one handle type reference for every handle type id in the context.
+        /// </summary>
+        /// <remarks>
+        /// A capability parameter, a return type and the interface list of a handle type all hold
+        /// an <see cref="AtsTypeRef"/>. The scanner fills the interface flag and the implemented
+        /// interfaces of the reference, so this index gives the generator the whole type hierarchy
+        /// without reflection. When two references name the same type, the one that carries
+        /// interfaces wins.
+        /// </remarks>
+        private static Dictionary<string, AtsTypeRef> CollectHandleTypeRefs(AtsContext context)
+        {
+            var typeRefs = new Dictionary<string, AtsTypeRef>(StringComparer.Ordinal);
+
+            foreach (var typeInfo in context.HandleTypes)
             {
-                if (capability.TargetType is { } target
-                    && string.Equals(target.TypeId, typeId, StringComparison.Ordinal))
+                foreach (var implemented in typeInfo.ImplementedInterfaces)
                 {
-                    return target.IsInterface;
+                    Add(implemented);
+                }
+
+                foreach (var baseType in typeInfo.BaseTypeHierarchy)
+                {
+                    Add(baseType);
                 }
             }
 
-            return false;
+            foreach (var capability in context.Capabilities)
+            {
+                Add(capability.TargetType);
+                Add(capability.ReturnType);
+
+                foreach (var expanded in capability.ExpandedTargetTypes)
+                {
+                    Add(expanded);
+                }
+
+                foreach (var parameter in capability.Parameters)
+                {
+                    Add(parameter.Type);
+                    Add(parameter.CallbackReturnType);
+
+                    if (parameter.CallbackParameters is { } callbackParameters)
+                    {
+                        foreach (var callbackParameter in callbackParameters)
+                        {
+                            Add(callbackParameter.Type);
+                        }
+                    }
+                }
+            }
+
+            return typeRefs;
+
+            void Add(AtsTypeRef? typeRef)
+            {
+                if (typeRef is null)
+                {
+                    return;
+                }
+
+                Add(typeRef.ElementType);
+                Add(typeRef.KeyType);
+                Add(typeRef.ValueType);
+                Add(typeRef.BaseType);
+
+                if (typeRef.UnionTypes is { } unionTypes)
+                {
+                    foreach (var unionType in unionTypes)
+                    {
+                        Add(unionType);
+                    }
+                }
+
+                foreach (var implemented in typeRef.ImplementedInterfaces)
+                {
+                    Add(implemented);
+                }
+
+                if (typeRef.Category != AtsTypeCategory.Handle)
+                {
+                    return;
+                }
+
+                if (!typeRefs.TryGetValue(typeRef.TypeId, out var existing)
+                    || (existing.ImplementedInterfaces.Count == 0 && typeRef.ImplementedInterfaces.Count > 0))
+                {
+                    typeRefs[typeRef.TypeId] = typeRef;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the interface type ids that every handle type satisfies.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A concrete type takes the interfaces the scanner collected for it. That list is already
+        /// flat, so it holds the interfaces of every base class as well. The generator still walks
+        /// the base type hierarchy and the interface chain, because a type reference that reached
+        /// the model through a parameter can carry a shorter list.
+        /// </para>
+        /// <para>
+        /// An interface takes the interfaces it extends, so
+        /// <c>IResourceWithConnectionString</c> also satisfies <c>IResource</c>.
+        /// </para>
+        /// </remarks>
+        private static Dictionary<string, List<string>> BuildInterfacesByType(
+            Dictionary<string, string> handleClasses,
+            Dictionary<string, AtsTypeInfo> handleTypeInfos,
+            Dictionary<string, AtsTypeRef> typeRefs,
+            HashSet<string> interfaceTypeIds,
+            HashSet<string> runtimeProvided)
+        {
+            var result = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+            foreach (var typeId in handleClasses.Keys)
+            {
+                var collected = new HashSet<string>(StringComparer.Ordinal);
+                var pending = new Queue<string>();
+
+                foreach (var seed in DirectInterfaces(typeId))
+                {
+                    pending.Enqueue(seed);
+                }
+
+                if (handleTypeInfos.TryGetValue(typeId, out var typeInfo))
+                {
+                    foreach (var baseType in typeInfo.BaseTypeHierarchy)
+                    {
+                        foreach (var seed in DirectInterfaces(baseType.TypeId))
+                        {
+                            pending.Enqueue(seed);
+                        }
+                    }
+                }
+
+                while (pending.Count > 0)
+                {
+                    var interfaceId = pending.Dequeue();
+                    if (string.Equals(interfaceId, typeId, StringComparison.Ordinal)
+                        || !interfaceTypeIds.Contains(interfaceId)
+                        || runtimeProvided.Contains(interfaceId)
+                        || !handleClasses.ContainsKey(interfaceId)
+                        || !collected.Add(interfaceId))
+                    {
+                        continue;
+                    }
+
+                    foreach (var nested in DirectInterfaces(interfaceId))
+                    {
+                        pending.Enqueue(nested);
+                    }
+                }
+
+                result[typeId] = collected
+                    .OrderBy(id => handleClasses[id], StringComparer.Ordinal)
+                    .ToList();
+            }
+
+            return result;
+
+            IEnumerable<string> DirectInterfaces(string typeId)
+            {
+                if (handleTypeInfos.TryGetValue(typeId, out var typeInfo))
+                {
+                    foreach (var implemented in typeInfo.ImplementedInterfaces)
+                    {
+                        yield return implemented.TypeId;
+                    }
+                }
+
+                if (typeRefs.TryGetValue(typeId, out var typeRef))
+                {
+                    foreach (var implemented in typeRef.ImplementedInterfaces)
+                    {
+                        yield return implemented.TypeId;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds the capabilities of every implemented interface to the class that implements it.
+        /// </summary>
+        /// <remarks>
+        /// The scanner expands an interface target to the concrete types only, so an interface type
+        /// carries no capability of its own. Dart needs both sides: the abstract class declares the
+        /// method, and the class that implements it declares the same method. A capability whose
+        /// Dart method name a target specific capability already took is left out, because that
+        /// capability shadows it.
+        /// </remarks>
+        private static void AddInheritedCapabilities(
+            AtsContext context,
+            Dictionary<string, List<AtsCapabilityInfo>> capabilitiesByTarget,
+            Dictionary<string, string> handleClasses,
+            Dictionary<string, List<string>> interfacesByType,
+            HashSet<string> interfaceTypeIds)
+        {
+            var direct = new Dictionary<string, List<AtsCapabilityInfo>>(StringComparer.Ordinal);
+
+            foreach (var capability in context.Capabilities)
+            {
+                if (capability.TargetTypeId is not { Length: > 0 } targetTypeId
+                    || !interfaceTypeIds.Contains(targetTypeId)
+                    || !handleClasses.ContainsKey(targetTypeId))
+                {
+                    continue;
+                }
+
+                if (!direct.TryGetValue(targetTypeId, out var list))
+                {
+                    list = [];
+                    direct[targetTypeId] = list;
+                }
+
+                list.Add(capability);
+            }
+
+            foreach (var typeId in handleClasses.Keys)
+            {
+                var sources = new List<string>();
+                if (interfaceTypeIds.Contains(typeId))
+                {
+                    sources.Add(typeId);
+                }
+
+                sources.AddRange(interfacesByType.GetValueOrDefault(typeId) ?? []);
+
+                if (sources.Count == 0)
+                {
+                    continue;
+                }
+
+                var target = capabilitiesByTarget.GetValueOrDefault(typeId) ?? [];
+                var capabilityIds = new HashSet<string>(
+                    target.Select(capability => capability.CapabilityId),
+                    StringComparer.Ordinal);
+                var methodNames = new HashSet<string>(
+                    target.Select(capability => ToDartMethodName(capability.MethodName)),
+                    StringComparer.Ordinal);
+
+                var added = false;
+                foreach (var source in sources)
+                {
+                    foreach (var capability in direct.GetValueOrDefault(source) ?? [])
+                    {
+                        if (!capabilityIds.Add(capability.CapabilityId))
+                        {
+                            continue;
+                        }
+
+                        if (!methodNames.Add(ToDartMethodName(capability.MethodName)))
+                        {
+                            continue;
+                        }
+
+                        target.Add(capability);
+                        added = true;
+                    }
+                }
+
+                if (added)
+                {
+                    target.Sort((left, right) => string.CompareOrdinal(left.CapabilityId, right.CapabilityId));
+                }
+
+                if (target.Count > 0)
+                {
+                    capabilitiesByTarget[typeId] = target;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Assigns one Dart method name to every capability of every class.
+        /// </summary>
+        /// <remarks>
+        /// A class that implements an interface has to name the method exactly as the interface
+        /// names it, so the name of an inherited capability is fixed before the generator names the
+        /// rest. Two capabilities of one class that map to the same name still separate with a
+        /// number suffix.
+        /// </remarks>
+        private static Dictionary<string, Dictionary<string, string>> BuildMethodNames(
+            Dictionary<string, List<AtsCapabilityInfo>> capabilitiesByTarget,
+            Dictionary<string, List<string>> interfacesByType,
+            Dictionary<string, string> handleClasses)
+        {
+            var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+            var order = new List<string>();
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+
+            void Visit(string typeId)
+            {
+                if (!visited.Add(typeId))
+                {
+                    return;
+                }
+
+                foreach (var interfaceId in interfacesByType.GetValueOrDefault(typeId) ?? [])
+                {
+                    Visit(interfaceId);
+                }
+
+                order.Add(typeId);
+            }
+
+            foreach (var typeId in handleClasses.Keys.OrderBy(id => id, StringComparer.Ordinal))
+            {
+                Visit(typeId);
+            }
+
+            foreach (var typeId in order)
+            {
+                var capabilities = capabilitiesByTarget.GetValueOrDefault(typeId) ?? [];
+                var names = new Dictionary<string, string>(StringComparer.Ordinal);
+                var used = new HashSet<string>(StringComparer.Ordinal);
+
+                foreach (var interfaceId in interfacesByType.GetValueOrDefault(typeId) ?? [])
+                {
+                    if (!result.TryGetValue(interfaceId, out var inherited))
+                    {
+                        continue;
+                    }
+
+                    foreach (var capability in capabilities)
+                    {
+                        if (names.ContainsKey(capability.CapabilityId)
+                            || !inherited.TryGetValue(capability.CapabilityId, out var inheritedName)
+                            || !used.Add(inheritedName))
+                        {
+                            continue;
+                        }
+
+                        names[capability.CapabilityId] = inheritedName;
+                    }
+                }
+
+                foreach (var capability in capabilities)
+                {
+                    if (names.ContainsKey(capability.CapabilityId))
+                    {
+                        continue;
+                    }
+
+                    var candidate = ToDartMethodName(capability.MethodName);
+                    var name = candidate;
+                    var counter = 1;
+                    while (!used.Add(name))
+                    {
+                        counter++;
+                        name = string.Create(CultureInfo.InvariantCulture, $"{candidate}{counter}");
+                    }
+
+                    names[capability.CapabilityId] = name;
+                }
+
+                result[typeId] = names;
+            }
+
+            return result;
         }
 
         private static HashSet<string> CollectHandleTypeIds(AtsContext context, HashSet<string> dtoTypeIds)
