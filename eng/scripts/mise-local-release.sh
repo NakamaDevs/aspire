@@ -19,6 +19,7 @@
 #   --output <dir>   Layout directory. Default: ~/.aspire/local-releases/aspire-<version>.
 #   --link-only      Skip the build. Rewrite the sidecar and link an existing layout.
 #   --no-link        Build the layout but do not run `mise link`.
+#   --keep-symbols   Skip symbol stripping (no dsymutil). Use when dsymutil fails.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -26,6 +27,7 @@ suffix=""
 output=""
 link_only=0
 do_link=1
+keep_symbols=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -33,6 +35,7 @@ while [[ $# -gt 0 ]]; do
     --output) output="$2"; shift 2 ;;
     --link-only) link_only=1; shift ;;
     --no-link) do_link=0; shift ;;
+    --keep-symbols) keep_symbols=1; shift ;;
     -h|--help) sed -n 2,22p "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
@@ -50,9 +53,25 @@ version="$version_prefix-$suffix"
 export DOTNET_ROOT="$repo_root/.dotnet"
 export PATH="$DOTNET_ROOT:$PATH"
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  # Native AOT runs `dsymutil` and `strip` from PATH. A Homebrew LLVM dsymutil ahead of
+  # Apple's rejects the DWARF that ILCompiler emits ("input verification failed").
+  export PATH="/usr/bin:$PATH"
+fi
+if [[ $keep_symbols -eq 1 ]]; then
+  # MSBuild reads environment variables as properties; the CLI project does not set this one.
+  export StripSymbols=false
+fi
+
 if [[ $link_only -eq 0 ]]; then
+  # Build into a staging directory. The previous layout stays in place until the
+  # build succeeds, so a failed build never removes a working release.
+  staging="$output.build"
+  rm -rf "$staging" "$staging.tar.gz"
+  (cd "$repo_root" && ./localhive.sh -c Release -o "$staging" -v "$suffix" --archive --native-aot)
   rm -rf "$output" "$output.tar.gz"
-  (cd "$repo_root" && ./localhive.sh -c Release -o "$output" -v "$suffix" --archive --native-aot)
+  mv "$staging" "$output"
+  [[ -f "$staging.tar.gz" ]] && mv "$staging.tar.gz" "$output.tar.gz"
 fi
 
 bin_dir="$output/bin"
