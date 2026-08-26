@@ -3,6 +3,7 @@ import {
     azureFunctionsExtensionId,
     codeLldbExtensionId,
     csharpExtensionId,
+    elixirLSExtensionId,
     getRustExtensionId,
     javaDebugExtensionId,
     javaLanguageExtensionId,
@@ -69,6 +70,11 @@ const debuggerInstallHints = new Map<string, DebuggerInstallHint>([
         debuggerName: 'Java',
         debuggerType: 'java',
         extensionIds: [javaLanguageExtensionId, javaDebugExtensionId],
+    }],
+    ['elixir', {
+        debuggerName: 'Elixir',
+        debuggerType: 'elixir',
+        extensionIds: [elixirLSExtensionId],
     }],
     ['maui', {
         debuggerName: '.NET MAUI',

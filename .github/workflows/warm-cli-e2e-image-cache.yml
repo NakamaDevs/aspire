@@ -19,6 +19,7 @@ on:
       - 'tests/Shared/Docker/Dockerfile.e2e'
       - 'tests/Shared/Docker/Dockerfile.e2e-polyglot-base'
       - 'tests/Shared/Docker/Dockerfile.e2e-polyglot-java'
+      - 'tests/Shared/Docker/Dockerfile.e2e-polyglot-elixir'
       - 'tests/Shared/Docker/NuGet.DotnetTool.config'
       - 'tests/Shared/Docker/configure-ubuntu-apt-mirror.sh'
 

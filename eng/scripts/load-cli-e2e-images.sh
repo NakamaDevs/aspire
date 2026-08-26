@@ -7,6 +7,7 @@ github_env="${GITHUB_ENV:-}"
 require_dotnet="false"
 require_polyglot="false"
 require_java="false"
+require_elixir="false"
 
 usage() {
   cat <<'EOF'
@@ -21,6 +22,7 @@ Options:
   --require-dotnet <mode>     true, false, or auto. Defaults to false.
   --require-polyglot <mode>   true, false, or auto. Defaults to false.
   --require-java <mode>       true, false, or auto. Defaults to false.
+  --require-elixir <mode>     true, false, or auto. Defaults to false.
 
 Mode behavior:
   true   The tarball must exist. Load it, export IMAGE and REQUIRE=true.
@@ -105,6 +107,14 @@ while [[ $# -gt 0 ]]; do
       require_java="$(normalize_mode "--require-java" "${1#*=}")"
       shift
       ;;
+    --require-elixir)
+      require_elixir="$(normalize_mode "$1" "$(read_value_arg "$1" "${2:-}")")"
+      shift 2
+      ;;
+    --require-elixir=*)
+      require_elixir="$(normalize_mode "--require-elixir" "${1#*=}")"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -184,3 +194,9 @@ load_image "Java polyglot" "$require_java" \
   "aspire-cli-e2e-polyglot-java:prebuilt" \
   "ASPIRE_E2E_POLYGLOT_JAVA_IMAGE" \
   "ASPIRE_E2E_REQUIRE_POLYGLOT_JAVA_IMAGE"
+
+load_image "Elixir polyglot" "$require_elixir" \
+  "aspire-cli-e2e-polyglot-elixir.tar.gz" \
+  "aspire-cli-e2e-polyglot-elixir:prebuilt" \
+  "ASPIRE_E2E_POLYGLOT_ELIXIR_IMAGE" \
+  "ASPIRE_E2E_REQUIRE_POLYGLOT_ELIXIR_IMAGE"

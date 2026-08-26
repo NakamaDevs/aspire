@@ -75,11 +75,13 @@ public class NewCommandTemplateConfigPersistenceTests(ITestOutputHelper outputHe
         PrDogfoodNewTemplateCase.SelectableEmpty(KnownLanguageId.Go, PrDogfoodNewTemplateContract.AspireConfig, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.SelectableEmpty(KnownLanguageId.Java, PrDogfoodNewTemplateContract.AspireConfig, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.SelectableEmpty(KnownLanguageId.Rust, PrDogfoodNewTemplateContract.AspireConfig, ["--localhost-tld", "false"]),
+        PrDogfoodNewTemplateCase.SelectableEmpty(KnownLanguageId.Elixir, PrDogfoodNewTemplateContract.AspireConfig, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.TypeScriptEmptyAppHost, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.PythonEmptyAppHost, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.JavaEmptyAppHost, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.GoEmptyAppHost, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.RustEmptyAppHost, ["--localhost-tld", "false"]),
+        PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.ElixirEmptyAppHost, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.PythonStarter, ["--localhost-tld", "false", "--use-redis-cache", "false"]),
         PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.GoStarter, ["--localhost-tld", "false"]),
         PrDogfoodNewTemplateCase.CliConfig(KnownTemplateId.JavaStarter, ["--localhost-tld", "false"]),
@@ -511,6 +513,7 @@ public class NewCommandTemplateConfigPersistenceTests(ITestOutputHelper outputHe
                 KnownFeatures.ExperimentalPolyglotGo,
                 KnownFeatures.ExperimentalPolyglotJava,
                 KnownFeatures.ExperimentalPolyglotRust,
+                KnownFeatures.ExperimentalPolyglotElixir,
                 KnownFeatures.ShowAllTemplates,
             ];
         });

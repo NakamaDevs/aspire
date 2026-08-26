@@ -6,14 +6,15 @@ import { AspireResourceExtendedDebugConfiguration, AspireResourceDebugSession, E
 import { extensionLogOutputChannel } from "../utils/logging";
 import AspireDcpServer, { generateDcpIdPrefix } from "../dcp/AspireDcpServer";
 import { redactCliArgsForLogging, spawnCliProcess, terminateCliProcess } from "../utils/process/cliProcess";
-import { disconnectingFromSession, launchingWithAppHost, launchingWithDirectory, processExceptionOccurred, processExitedWithCode, appHostSessionTerminated, debugSessionsFailedToStop, debugSessionStartTimedOut, debugSessionStopTimedOut, rustDebuggerExtensionNotInstalled, javaDebuggerExtensionNotInstalled, javaAppHostCommandNotRecognized } from "../loc/strings";
-import { isExtensionInstalled } from "../capabilities";
+import { disconnectingFromSession, launchingWithAppHost, launchingWithDirectory, processExceptionOccurred, processExitedWithCode, appHostSessionTerminated, debugSessionsFailedToStop, debugSessionStartTimedOut, debugSessionStopTimedOut, rustDebuggerExtensionNotInstalled, javaDebuggerExtensionNotInstalled, javaAppHostCommandNotRecognized, elixirAppHostRunningWithoutDebugger, elixirLSNotInstalledHint } from "../loc/strings";
+import { elixirLSExtensionId, isExtensionInstalled } from "../capabilities";
 import { projectDebuggerExtension } from "./languages/dotnet";
 import { AnsiColors } from "../utils/AspireTerminalProvider";
 import { applyTextStyle } from "../utils/strings";
 import { nodeDebuggerExtension } from "./languages/node";
 import { createDefaultRustDebuggerExtension } from "./languages/rust";
 import { javaDebuggerExtension, parseJavaAppHostCommand, resolveJavaClassPaths } from "./languages/java";
+import { spawnElixirAppHost } from "./languages/elixir";
 import { cleanupRun } from "./runCleanupRegistry";
 import { runWithRunStartWrappers } from "./runStartRegistry";
 import AspireRpcServer from "../server/AspireRpcServer";
@@ -1232,6 +1233,7 @@ export class AspireDebugSession implements vscode.DebugAdapter, DashboardLaunche
   private static readonly _csharpAppHostExtensions = ['.cs', '.csproj'];
   private static readonly _rustAppHostExtensions = ['.rs'];
   private static readonly _javaAppHostExtensions = ['.java'];
+  private static readonly _elixirAppHostExtensions = ['.exs'];
 
   private _appHostRestartRequested = false;
   private _preserveAppHostRestartSourceSessionId = false;
@@ -1243,6 +1245,44 @@ export class AspireDebugSession implements vscode.DebugAdapter, DashboardLaunche
       const isCSharpAppHost = AspireDebugSession._csharpAppHostExtensions.includes(fileExtension);
       const isRustAppHost = AspireDebugSession._rustAppHostExtensions.includes(fileExtension);
       const isJavaAppHost = AspireDebugSession._javaAppHostExtensions.includes(fileExtension);
+      const isElixirAppHost = AspireDebugSession._elixirAppHostExtensions.includes(fileExtension);
+
+      if (isElixirAppHost) {
+        // ElixirLS's only debug adapter, `mix_task`, starts a session by running
+        // `mix <task> <taskArgs>` inside a Mix project directory (one with mix.exs). The Aspire
+        // Elixir AppHost is a standalone script run with `elixir apphost.exs`, not a Mix project,
+        // so `mix_task` cannot launch it — installing ElixirLS would not change that. Run the
+        // AppHost as a plain child process instead and skip debugger attachment entirely. Elixir
+        // *resources* the AppHost starts are unaffected: they run through `mix` and still debug
+        // through elixirDebuggerExtension when ElixirLS is installed. See NAK-518.
+        this.sendMessage(elixirAppHostRunningWithoutDebugger, true, 'stdout');
+
+        if (!isExtensionInstalled(elixirLSExtensionId)) {
+          this.sendMessage(elixirLSNotInstalledHint(elixirLSExtensionId), true, 'stdout');
+        }
+
+        const appHostDebugSession = spawnElixirAppHost(
+          projectFile,
+          args,
+          environment,
+          path.dirname(projectFile),
+          this.debugSessionId,
+          (output, category) => this.sendMessage(output, false, category));
+
+        this._appHostDebugSession = appHostDebugSession;
+        this._trackAppHostDebugSession(this, projectFile, appHostDebugSession);
+
+        void appHostDebugSession.termination.then(() => {
+          if (this._appHostDebugSession && this._appHostDebugSession.id === appHostDebugSession.id) {
+            this._appHostStopped = true;
+            this._resourceDebugSessions = this._resourceDebugSessions.filter(resourceSession => resourceSession.id !== appHostDebugSession.id);
+            this.sendMessageWithEmoji("ℹ️", applyTextStyle(appHostSessionTerminated, AnsiColors.Yellow));
+            this.stopDebuggingInBackground('AppHost session termination');
+          }
+        });
+
+        return;
+      }
 
       // The CLI only routes an AppHost here when the language declares ExtensionLaunchCapability, so
       // this is parsed before choosing a debugger: an unrecognised command means we cannot build a

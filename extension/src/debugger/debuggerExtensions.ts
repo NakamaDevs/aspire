@@ -4,7 +4,7 @@ import { debugProject, runProject } from "../loc/strings";
 import { getEnvironmentForChildProcess, mergeEnvs } from "../utils/environment";
 import { extensionLogOutputChannel } from "../utils/logging";
 import { projectDebuggerExtension } from "./languages/dotnet";
-import { isAzureFunctionsExtensionInstalled, isBunInstalled, isCsharpInstalled, isGoInstalled, isJavaInstalled, isMauiInstalled, isPythonInstalled, isRustInstalled } from '../capabilities';
+import { isAzureFunctionsExtensionInstalled, isBunInstalled, isCsharpInstalled, isElixirInstalled, isGoInstalled, isJavaInstalled, isMauiInstalled, isPythonInstalled, isRustInstalled } from '../capabilities';
 import { pythonDebuggerExtension } from "./languages/python";
 import { nodeDebuggerExtension } from "./languages/node";
 import { browserDebuggerExtension } from "./languages/browser";
@@ -14,6 +14,7 @@ import { createDefaultRustDebuggerExtension } from "./languages/rust";
 import { bunDebuggerExtension } from "./languages/bun";
 import { javaDebuggerExtension } from "./languages/java";
 import { mauiDebuggerExtension } from "./languages/maui";
+import { elixirDebuggerExtension } from "./languages/elixir";
 import { isDirectory } from "../utils/io";
 import { waitForRunStartIdle } from "./runStartRegistry";
 
@@ -117,6 +118,10 @@ export function getResourceDebuggerExtensions(platform: NodeJS.Platform = proces
 
     if (isJavaInstalled()) {
         extensions.push(javaDebuggerExtension);
+    }
+
+    if (isElixirInstalled()) {
+        extensions.push(elixirDebuggerExtension);
     }
 
     extensions.push(nodeDebuggerExtension);

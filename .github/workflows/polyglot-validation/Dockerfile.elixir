@@ -1,0 +1,50 @@
+# Polyglot SDK Validation - Elixir
+# This Dockerfile sets up an environment for validating the Elixir AppHost SDK
+#
+# Usage:
+#   docker build -f Dockerfile.elixir -t polyglot-elixir .
+#   docker run --rm \
+#     -v "$(pwd):/workspace" \
+#     -v /var/run/docker.sock:/var/run/docker.sock \
+#     polyglot-elixir
+#
+# Note: Expects self-extracting binary and NuGet artifacts to be pre-downloaded to /workspace/artifacts/
+#
+# The Ubuntu 24.04 archive carries Elixir 1.14 on OTP 25, which is older than the Aspire Elixir SDK
+# supports. The official hexpm image ships a newer Elixir/OTP pair on the same Ubuntu release, so this
+# uses it as the base directly. OTP 27 is intentional: the OTP 28 hexpm image crashes with "nouser" when
+# it runs as a non-root user inside Docker (see tests/Shared/Docker/Dockerfile.e2e-polyglot-elixir).
+FROM hexpm/elixir:1.19.5-erlang-27.3.4.16-ubuntu-noble-20260810
+
+# Install system dependencies (wget, docker CLI, jq for JSON manipulation)
+RUN apt-get update && apt-get install -y \
+    wget \
+    docker.io \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# The Erlang VM reads its name encoding from the locale. Without a UTF-8 locale it starts in latin1
+# and prints a warning on every `elixir` and `mix` invocation, which also breaks non-ASCII output.
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Pre-configure Aspire CLI path
+ENV PATH="/root/.aspire/bin:${PATH}"
+ENV ASPIRE_CLI_TELEMETRY_OPTOUT=1
+
+WORKDIR /workspace
+
+COPY setup-local-cli.sh /scripts/setup-local-cli.sh
+COPY test-elixir.sh /scripts/test-elixir.sh
+RUN chmod +x /scripts/setup-local-cli.sh /scripts/test-elixir.sh
+
+# Entrypoint: Set up Aspire CLI and run validation
+# Bundle extraction happens lazily on first command that needs the layout
+ENTRYPOINT ["/bin/bash", "-c", "\
+    set -e && \
+    /scripts/setup-local-cli.sh && \
+    aspire --nologo config set features:experimentalPolyglot:elixir true --global && \
+    echo '' && \
+    echo '=== Running validation ===' && \
+    /scripts/test-elixir.sh \
+"]

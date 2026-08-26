@@ -1,0 +1,16 @@
+{
+  "appHost": {
+    "path": "apphost.exs",
+    "language": "elixir"
+  },
+  "features": {
+    "experimentalPolyglot:elixir": true,
+    "defaultWatchEnabled": true
+  },
+  "packages": {
+    "Aspire.Hosting.Docker": "",
+    "Aspire.Hosting.Elixir": "",
+    "Aspire.Hosting.PostgreSQL": "",
+    "Aspire.Hosting.Redis": ""
+  }
+}

@@ -68,4 +68,14 @@ internal static class KnownLanguageId
     /// The display name for Rust AppHost projects.
     /// </summary>
     public const string RustDisplayName = "Rust";
+
+    /// <summary>
+    /// The language ID for Elixir AppHost projects.
+    /// </summary>
+    public const string Elixir = "elixir";
+
+    /// <summary>
+    /// The display name for Elixir AppHost projects.
+    /// </summary>
+    public const string ElixirDisplayName = "Elixir";
 }

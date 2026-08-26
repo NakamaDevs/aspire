@@ -1,0 +1,35 @@
+# Polyglot Dockerfile for Elixir AppHost E2E tests.
+# Extends the shared polyglot base with the Erlang/OTP and Elixir runtime that Elixir AppHosts need.
+#
+# The CLI runs apphost.exs with `elixir`, and an AddElixirApp resource runs with `mix`, so both must
+# be on the PATH.
+#
+# The Ubuntu 24.04 archive carries Elixir 1.14 on OTP 25, which is older than the Aspire Elixir SDK
+# supports. The official hexpm image is built on the same Ubuntu release as the polyglot base, so
+# this file copies the runtime out of it instead of adding a third-party apt repository.
+
+FROM hexpm/elixir:1.19.5-erlang-27.3.4.16-ubuntu-noble-20260810 AS elixir
+
+FROM aspire-e2e-polyglot-base
+
+ARG UBUNTU_APT_MIRROR=
+
+COPY tests/Shared/Docker/configure-ubuntu-apt-mirror.sh /usr/local/bin/
+RUN sh /usr/local/bin/configure-ubuntu-apt-mirror.sh "$UBUNTU_APT_MIRROR"
+
+# Shared libraries that the Erlang runtime links against.
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends libncurses6 libssl3t64 zlib1g && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=elixir /usr/local/lib/erlang /usr/local/lib/erlang
+COPY --from=elixir /usr/local/lib/elixir /usr/local/lib/elixir
+COPY --from=elixir /usr/local/bin /usr/local/bin
+
+# The Erlang VM reads its name encoding from the locale. Without a UTF-8 locale it starts in latin1
+# and prints a warning on every `elixir` and `mix` invocation, which also breaks non-ASCII output.
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Fail the image build instead of the test run when either tool is missing.
+RUN elixir --version && mix --version

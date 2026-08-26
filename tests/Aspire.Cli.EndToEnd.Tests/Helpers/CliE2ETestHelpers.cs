@@ -25,6 +25,8 @@ internal static class CliE2ETestHelpers
     internal const string RequirePolyglotImageEnvironmentVariableName = "ASPIRE_E2E_REQUIRE_POLYGLOT_IMAGE";
     internal const string PolyglotJavaImageEnvironmentVariableName = "ASPIRE_E2E_POLYGLOT_JAVA_IMAGE";
     internal const string RequirePolyglotJavaImageEnvironmentVariableName = "ASPIRE_E2E_REQUIRE_POLYGLOT_JAVA_IMAGE";
+    internal const string PolyglotElixirImageEnvironmentVariableName = "ASPIRE_E2E_POLYGLOT_ELIXIR_IMAGE";
+    internal const string RequirePolyglotElixirImageEnvironmentVariableName = "ASPIRE_E2E_REQUIRE_POLYGLOT_ELIXIR_IMAGE";
     internal const string CliVersionOutputDirEnvironmentVariableName = "ASPIRE_E2E_CLI_VERSION_OUTPUT_DIR";
     internal const string ContainerCliVersionOutputDir = "/tmp/aspire-cli-versions";
     private static readonly Regex s_commitShaPattern = new("^[0-9a-fA-F]{40}$", RegexOptions.Compiled);
@@ -163,6 +165,11 @@ internal static class CliE2ETestHelpers
         /// Docker + Node.js + Java (no .NET SDK). For Java polyglot AppHost tests.
         /// </summary>
         PolyglotJava,
+
+        /// <summary>
+        /// Docker + Node.js + Erlang/OTP + Elixir (no .NET SDK). For Elixir polyglot AppHost tests.
+        /// </summary>
+        PolyglotElixir,
     }
 
     private const string PolyglotBaseImageName = "aspire-e2e-polyglot-base";
@@ -202,7 +209,7 @@ internal static class CliE2ETestHelpers
         var dockerfilePath = GetDockerfilePath(repoRoot, variant);
         var prebuiltImageName = GetPrebuiltImageName(variant);
 
-        if (variant is DockerfileVariant.PolyglotJava && prebuiltImageName is null)
+        if (variant is DockerfileVariant.PolyglotJava or DockerfileVariant.PolyglotElixir && prebuiltImageName is null)
         {
             EnsurePolyglotBaseImage(repoRoot, output);
         }
@@ -304,6 +311,11 @@ internal static class CliE2ETestHelpers
             throw new InvalidOperationException($"{PolyglotJavaImageEnvironmentVariableName} must be set when the prebuilt CLI E2E Java image is required.");
         }
 
+        if (variant is DockerfileVariant.PolyglotElixir && IsPolyglotElixirImageRequired())
+        {
+            throw new InvalidOperationException($"{PolyglotElixirImageEnvironmentVariableName} must be set when the prebuilt CLI E2E Elixir image is required.");
+        }
+
         options.DockerfilePath = GetDockerfilePath(repoRoot, variant);
         options.BuildContext = repoRoot;
     }
@@ -315,6 +327,7 @@ internal static class CliE2ETestHelpers
             DockerfileVariant.DotNet => DotNetImageEnvironmentVariableName,
             DockerfileVariant.Polyglot => PolyglotImageEnvironmentVariableName,
             DockerfileVariant.PolyglotJava => PolyglotJavaImageEnvironmentVariableName,
+            DockerfileVariant.PolyglotElixir => PolyglotElixirImageEnvironmentVariableName,
             _ => throw new ArgumentOutOfRangeException(nameof(variant)),
         };
 
@@ -329,6 +342,7 @@ internal static class CliE2ETestHelpers
             DockerfileVariant.DotNet => "Dockerfile.e2e",
             DockerfileVariant.Polyglot => "Dockerfile.e2e-polyglot-base",
             DockerfileVariant.PolyglotJava => "Dockerfile.e2e-polyglot-java",
+            DockerfileVariant.PolyglotElixir => "Dockerfile.e2e-polyglot-elixir",
             _ => throw new ArgumentOutOfRangeException(nameof(variant)),
         };
 
@@ -348,6 +362,11 @@ internal static class CliE2ETestHelpers
     private static bool IsPolyglotJavaImageRequired()
     {
         return IsImageRequired(RequirePolyglotJavaImageEnvironmentVariableName);
+    }
+
+    private static bool IsPolyglotElixirImageRequired()
+    {
+        return IsImageRequired(RequirePolyglotElixirImageEnvironmentVariableName);
     }
 
     private static bool IsImageRequired(string environmentVariableName)

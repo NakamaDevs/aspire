@@ -33,6 +33,7 @@ internal static class KnownFeatures
     public static string ExperimentalPolyglotJava => "experimentalPolyglot:java";
     public static string ExperimentalPolyglotGo => "experimentalPolyglot:go";
     public static string ExperimentalPolyglotPython => "experimentalPolyglot:python";
+    public static string ExperimentalPolyglotElixir => "experimentalPolyglot:elixir";
     public static string NuGetSignatureVerificationEnabled => "nugetSignatureVerificationEnabled";
     public static string AspireSkillsRemoteFetchEnabled => "aspireSkillsRemoteFetchEnabled";
     public static string TerminalCommandsEnabled => "terminalCommandsEnabled";
@@ -83,6 +84,11 @@ internal static class KnownFeatures
         [ExperimentalPolyglotPython] = new(
             ExperimentalPolyglotPython,
             "Enable or disable experimental Python language support for polyglot Aspire applications",
+            DefaultValue: false),
+
+        [ExperimentalPolyglotElixir] = new(
+            ExperimentalPolyglotElixir,
+            "Enable or disable experimental Elixir language support for polyglot Aspire applications",
             DefaultValue: false),
 
         [NuGetSignatureVerificationEnabled] = new(

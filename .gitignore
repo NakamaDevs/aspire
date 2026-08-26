@@ -195,6 +195,16 @@ tests/PolyglotAppHosts/**/TypeScript/dist/
 tests/PolyglotAppHosts/**/Go/apphost
 tests/PolyglotAppHosts/**/Go/apphost.exe
 
+# Elixir AppHost
+# The rule above ignores every playground .gitignore, so the Mix output needs a rule here.
+playground/**/_build/
+playground/**/deps/
+playground/**/.elixir_ls/
+playground/**/erl_crash.dump
+playground/**/apphost.log
+tests/PolyglotAppHosts/**/Elixir/**/_build/
+tests/PolyglotAppHosts/**/Elixir/**/deps/
+
 # Verify
 *.received.*
 

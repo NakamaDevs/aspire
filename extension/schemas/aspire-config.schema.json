@@ -66,6 +66,22 @@
           "description": "Enable or disable watch mode by default when running Aspire applications for automatic restarts on file changes",
           "default": false
         },
+        "experimentalPolyglot:elixir": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          ],
+          "description": "Enable or disable experimental Elixir language support for polyglot Aspire applications",
+          "default": false
+        },
         "experimentalPolyglot:go": {
           "anyOf": [
             {

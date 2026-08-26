@@ -54,6 +54,7 @@
     <Project Path="src/Aspire.Hosting.DevTunnels/Aspire.Hosting.DevTunnels.csproj" />
     <Project Path="src/Aspire.Hosting.Docker/Aspire.Hosting.Docker.csproj" />
     <Project Path="src/Aspire.Hosting.Dotnet/Aspire.Hosting.Dotnet.csproj" />
+    <Project Path="src/Aspire.Hosting.Elixir/Aspire.Hosting.Elixir.csproj" />
     <Project Path="src/Aspire.Hosting.EntityFrameworkCore/Aspire.Hosting.EntityFrameworkCore.csproj" />
     <Project Path="src/Aspire.Hosting.Garnet/Aspire.Hosting.Garnet.csproj" />
     <Project Path="src/Aspire.Hosting.GitHub.Models/Aspire.Hosting.GitHub.Models.csproj" />
@@ -361,6 +362,9 @@
   <Folder Name="/playground/python/">
     <Project Path="playground/python/Python.AppHost/Python.AppHost.csproj" />
   </Folder>
+  <Folder Name="/playground/ElixirApps/">
+    <Project Path="playground/ElixirApps/ElixirApps.AppHost/ElixirApps.AppHost.csproj" />
+  </Folder>
   <Folder Name="/playground/qdrant/">
     <Project Path="playground/Qdrant/Qdrant.ApiService/Qdrant.ApiService.csproj" />
     <Project Path="playground/Qdrant/Qdrant.AppHost/Qdrant.AppHost.csproj" />
@@ -451,6 +455,7 @@
     <File Path="src/Schema/aspire-8.0.json" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Aspire.Hosting.CodeGeneration.Elixir/Aspire.Hosting.CodeGeneration.Elixir.csproj" />
     <Project Path="src/Aspire.Hosting.CodeGeneration.Go/Aspire.Hosting.CodeGeneration.Go.csproj" />
     <Project Path="src/Aspire.Hosting.CodeGeneration.Java/Aspire.Hosting.CodeGeneration.Java.csproj" />
     <Project Path="src/Aspire.Hosting.CodeGeneration.Python/Aspire.Hosting.CodeGeneration.Python.csproj" />
@@ -533,6 +538,7 @@
     <Project Path="tests/Aspire.Hosting.Azure.Tests/Aspire.Hosting.Azure.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Blazor.Tests/Aspire.Hosting.Blazor.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Browsers.Tests/Aspire.Hosting.Browsers.Tests.csproj" />
+    <Project Path="tests/Aspire.Hosting.CodeGeneration.Elixir.Tests/Aspire.Hosting.CodeGeneration.Elixir.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.CodeGeneration.Go.Tests/Aspire.Hosting.CodeGeneration.Go.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.CodeGeneration.Java.Tests/Aspire.Hosting.CodeGeneration.Java.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.CodeGeneration.Python.Tests/Aspire.Hosting.CodeGeneration.Python.Tests.csproj" />
@@ -543,6 +549,7 @@
     <Project Path="tests/Aspire.Hosting.Docker.Tests/Aspire.Hosting.Docker.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Dotnet.Tests/Aspire.Hosting.Dotnet.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.DotnetTool.Tests/Aspire.Hosting.DotnetTool.Tests.csproj" />
+    <Project Path="tests/Aspire.Hosting.Elixir.Tests/Aspire.Hosting.Elixir.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.EntityFrameworkCore.Tests/Aspire.Hosting.EntityFrameworkCore.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Foundry.Tests/Aspire.Hosting.Foundry.Tests.csproj" />
     <Project Path="tests/Aspire.Hosting.Garnet.Tests/Aspire.Hosting.Garnet.Tests.csproj" />

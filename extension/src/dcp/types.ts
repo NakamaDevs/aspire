@@ -72,6 +72,23 @@ export function isRustLaunchConfiguration(obj: any): obj is RustLaunchConfigurat
     return obj && obj.type === 'rust';
 }
 
+// Fields mirror ElixirLaunchConfiguration on the hosting side; see
+// src/Aspire.Hosting.Elixir/ElixirLaunchConfiguration.cs. They follow the ElixirLS `mix_task`
+// debug adapter, which starts `mix <task> <taskArgs>` itself inside `projectDir`.
+export interface ElixirLaunchConfiguration extends ExecutableLaunchConfiguration {
+    type: "elixir";
+    project_dir: string;
+    task: string;
+    task_args: string[];
+    // Absent when the AppHost did not resolve MIX_ENV; the field is then omitted from the JSON.
+    mix_env?: string;
+    working_directory: string;
+}
+
+export function isElixirLaunchConfiguration(obj: any): obj is ElixirLaunchConfiguration {
+    return obj && obj.type === 'elixir';
+}
+
 export interface JavaScriptRuntimeLaunchConfiguration extends ExecutableLaunchConfiguration {
     type: "node" | "bun";
     script_path?: string;

@@ -201,6 +201,10 @@ export const rustBuildStderrTruncated = (limit: number) => vscode.l10n.t('[cargo
 export const rustLaunchConfigurationMissingExecutable = (workingDirectory: string) => vscode.l10n.t('The Aspire app host did not report which executable the Rust app in {0} produces, so there is nothing to debug.', workingDirectory);
 export const rustWindowsGnuDebuggerUnsupported = (target: string) => vscode.l10n.t('The cppvsdbg debugger cannot debug Rust target {0} because GNU Windows targets use DWARF symbols. Install CodeLLDB or build an MSVC Rust target such as x86_64-pc-windows-msvc.', target);
 export const rustDebuggerExtensionNotInstalled = (extensionId: string) => vscode.l10n.t('Rust AppHosts require native debugger support. Set up {0} in the Extensions view, then start the AppHost again.', extensionId);
+export const elixirDisplayName = (task: string) => vscode.l10n.t('Elixir: {0}', task);
+export const elixirLabel = vscode.l10n.t('Elixir');
+export const elixirAppHostRunningWithoutDebugger = vscode.l10n.t('The Elixir AppHost script is not a Mix project, so it starts without a debugger attached.');
+export const elixirLSNotInstalledHint = (extensionId: string) => vscode.l10n.t('Set up {0} in the Extensions view to debug Elixir resources started by this app.', extensionId);
 export const bunDisplayName = (script: string) => `Bun: ${script}`;
 export const bunLabel = 'Bun';
 export const nodeDisplayName = (script: string) => `Node.js: ${script}`;

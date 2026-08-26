@@ -1,0 +1,22 @@
+﻿FROM hexpm/elixir:1.18.4-erlang-27.3.4-alpine-3.21.3 AS build
+RUN apk add --no-cache build-base git ca-certificates
+WORKDIR /app
+RUN mix local.hex --force && mix local.rebar --force
+ENV MIX_ENV=prod
+COPY mix.exs ./
+COPY mix.lock ./
+COPY config config
+RUN mix deps.get --only 'prod' && mix deps.compile
+COPY . .
+RUN mix compile
+RUN mix release 'api_app'
+
+FROM alpine:3.21.3
+RUN apk --no-cache add ca-certificates libstdc++ ncurses-libs openssl
+RUN addgroup -S app && adduser -S -G app app
+WORKDIR /app
+COPY --from=build --chown=app:app /app/_build/prod/rel/api_app ./
+ENV MIX_ENV=prod
+USER app
+ENTRYPOINT ["/app/bin/api_app"]
+CMD ["start"]
