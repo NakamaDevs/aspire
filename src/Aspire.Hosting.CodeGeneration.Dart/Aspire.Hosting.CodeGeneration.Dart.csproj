@@ -24,6 +24,7 @@
     <EmbeddedResource Include="Resources\base.dart" LogicalName="Aspire.Hosting.CodeGeneration.Dart.Resources.base.dart" />
     <EmbeddedResource Include="Resources\transport.dart" LogicalName="Aspire.Hosting.CodeGeneration.Dart.Resources.transport.dart" />
     <EmbeddedResource Include="Resources\aspire_runtime.dart" LogicalName="Aspire.Hosting.CodeGeneration.Dart.Resources.aspire_runtime.dart" />
+    <EmbeddedResource Include="Resources\watch.dart" LogicalName="Aspire.Hosting.CodeGeneration.Dart.Resources.watch.dart" />
   </ItemGroup>
 
   <ItemGroup>

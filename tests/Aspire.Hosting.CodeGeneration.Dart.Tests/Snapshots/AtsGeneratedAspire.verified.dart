@@ -3,8 +3,23 @@
 
 part of 'aspire.dart';
 
+/// A callback that the AppHost invokes. Every argument arrives as its generated Dart type.
+typedef CancellationTokenCallback = FutureOr<void> Function(CancellationToken? arg);
+
+/// A callback that the AppHost invokes. Every argument arrives as its generated Dart type.
+typedef TestCallback = FutureOr<void> Function(TestCallbackContext arg);
+
+/// A callback that the AppHost invokes. Every argument arrives as its generated Dart type.
+typedef TestCallbackTestEnvironmentCallback = FutureOr<void> Function(TestCallbackContext arg1, TestEnvironmentContext arg2);
+
+/// A callback that the AppHost invokes. Every argument arrives as its generated Dart type.
+typedef TestEnvironmentCallback = FutureOr<void> Function(TestEnvironmentContext arg);
+
+/// A callback that the AppHost invokes. Every argument arrives as its generated Dart type.
+typedef TestResourceCallback = FutureOr<bool?> Function(TestResourceContext arg);
+
 /// Test persistence mode enum.
-enum TestPersistenceMode {
+enum TestPersistenceMode implements AspireWireValue {
   /// The `None` value.
   none('None'),
   /// The `Volume` value.
@@ -18,7 +33,27 @@ enum TestPersistenceMode {
   final String wireName;
 
   /// Returns the wire form of the value.
+  @override
   String toWire() => wireName;
+
+  /// Returns the wire form of [value].
+  ///
+  /// [value] is a `TestPersistenceMode`, or a string that names one. Throws
+  /// [ArgumentError] when nothing matches. The message lists every value.
+  static String toWireOf(Object? value) {
+    if (value is TestPersistenceMode) {
+      return value.wireName;
+    }
+    final TestPersistenceMode? match = fromWire(value);
+    if (match != null) {
+      return match.wireName;
+    }
+    throw ArgumentError.value(
+      value,
+      'value',
+      'TestPersistenceMode does not accept it. It accepts: none, volume, bind',
+    );
+  }
 
   /// Returns the value that [wire] names, or null when no value matches.
   static TestPersistenceMode? fromWire(Object? wire) {
@@ -32,7 +67,14 @@ enum TestPersistenceMode {
 }
 
 /// Test enum for type generation verification.
-enum TestResourceStatus {
+///
+/// ## Values
+///
+/// * [pending] — The resource is pending.
+/// * [running] — The resource is running.
+/// * [stopped] — The resource is stopped.
+/// * [failed] — The resource failed.
+enum TestResourceStatus implements AspireWireValue {
   /// The resource is pending.
   pending('Pending'),
   /// The resource is running.
@@ -48,7 +90,27 @@ enum TestResourceStatus {
   final String wireName;
 
   /// Returns the wire form of the value.
+  @override
   String toWire() => wireName;
+
+  /// Returns the wire form of [value].
+  ///
+  /// [value] is a `TestResourceStatus`, or a string that names one. Throws
+  /// [ArgumentError] when nothing matches. The message lists every value.
+  static String toWireOf(Object? value) {
+    if (value is TestResourceStatus) {
+      return value.wireName;
+    }
+    final TestResourceStatus? match = fromWire(value);
+    if (match != null) {
+      return match.wireName;
+    }
+    throw ArgumentError.value(
+      value,
+      'value',
+      'TestResourceStatus does not accept it. It accepts: pending, running, stopped, failed',
+    );
+  }
 
   /// Returns the value that [wire] names, or null when no value matches.
   static TestResourceStatus? fromWire(Object? wire) {
@@ -62,7 +124,14 @@ enum TestResourceStatus {
 }
 
 /// Test DTO to verify [AspireDto] generates TypeScript interfaces.
-class TestConfigDto {
+///
+/// ## Properties
+///
+/// * [name] — The name of the test config.
+/// * [port] — The port used by the test config.
+/// * [enabled] — A value indicating whether the test config is enabled.
+/// * [optionalField] — An optional test config field.
+class TestConfigDto implements AspireWireValue {
   /// Builds a `TestConfigDto`.
   const TestConfigDto({
     this.name,
@@ -115,10 +184,19 @@ class TestConfigDto {
     }
     return json;
   }
+
+  /// Returns the wire form of the data object. See [toJson].
+  @override
+  Object? toWire() => toJson();
 }
 
 /// Test DTO with deeply nested generic types.
-class TestDeeplyNestedDto {
+///
+/// ## Properties
+///
+/// * [nestedData] — Deeply nested generic: Dictionary containing List of DTOs.
+/// * [metadataArray] — Array of dictionaries.
+class TestDeeplyNestedDto implements AspireWireValue {
   /// Builds a `TestDeeplyNestedDto`.
   const TestDeeplyNestedDto({
     this.nestedData,
@@ -155,10 +233,14 @@ class TestDeeplyNestedDto {
     }
     return json;
   }
+
+  /// Returns the wire form of the data object. See [toJson].
+  @override
+  Object? toWire() => toJson();
 }
 
 /// Test DTO with complex nested types.
-class TestNestedDto {
+class TestNestedDto implements AspireWireValue {
   /// Builds a `TestNestedDto`.
   const TestNestedDto({
     this.id,
@@ -211,6 +293,10 @@ class TestNestedDto {
     }
     return json;
   }
+
+  /// Returns the wire form of the data object. See [toJson].
+  @override
+  Object? toWire() => toJson();
 }
 
 /// The exported `TestConfigs` values.
@@ -242,7 +328,13 @@ class DistributedApplicationBuilder extends AspireObject {
 
   /// Adds a test Redis resource from ATS documentation.
   ///
+  /// ## Parameters
+  ///
   /// * [name] — The ATS resource name.
+  ///
+  /// ## Returns
+  ///
+  /// The ATS test Redis resource builder.
   Future<TestRedisResource> addTestRedis(String name, {num? port}) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     args['name'] = name;
@@ -255,7 +347,13 @@ class DistributedApplicationBuilder extends AspireObject {
 
   /// Adds a test vault resource
   ///
+  /// ## Parameters
+  ///
   /// * [name] — The resource name.
+  ///
+  /// ## Returns
+  ///
+  /// The interface vault resource builder.
   Future<ITestVaultResource> addTestVault(String name) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     args['name'] = name;
@@ -268,12 +366,6 @@ class DistributedApplicationBuilder extends AspireObject {
 class ITestVaultResource extends AspireObject {
   /// Wraps the handle of a `Aspire.Hosting.CodeGeneration.Dart.Tests/Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes.ITestVaultResource` object.
   const ITestVaultResource(super.handle, super.transport);
-}
-
-/// A handle to the `Aspire.Hosting/Aspire.Hosting.ApplicationModel.ReferenceExpression` object in the AppHost.
-class ReferenceExpression extends AspireObject {
-  /// Wraps the handle of a `Aspire.Hosting/Aspire.Hosting.ApplicationModel.ReferenceExpression` object.
-  const ReferenceExpression(super.handle, super.transport);
 }
 
 /// A handle to the `Aspire.Hosting/Aspire.Hosting.ApplicationModel.IResource` object in the AppHost.
@@ -315,6 +407,8 @@ class TestCallbackContext extends AspireObject {
 
   /// CancellationToken is supported by ATS.
   ///
+  /// ## Parameters
+  ///
   /// * [value] — CancellationToken is supported by ATS.
   Future<TestCallbackContext> setCancellationToken(CancellationToken value) async {
     final Map<String, Object?> args = <String, Object?>{'context': handle};
@@ -353,17 +447,17 @@ class TestCollectionContext extends AspireObject {
   const TestCollectionContext(super.handle, super.transport);
 
   /// List property - should generate AspireList getter like Dictionary properties.
-  Future<AspireList> items() async {
+  Future<AspireList<String?>> items() async {
     final Map<String, Object?> args = <String, Object?>{'context': handle};
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestCollectionContext.items', args);
-    return AspireList(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestCollectionContext.items'), transport);
+    return AspireList<String?>(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestCollectionContext.items'), transport, (Object? item) => AspireRuntime.asString(item));
   }
 
   /// Dictionary property - already works with AspireDict getter.
-  Future<AspireDict> metadata() async {
+  Future<AspireDict<String?>> metadata() async {
     final Map<String, Object?> args = <String, Object?>{'context': handle};
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestCollectionContext.metadata', args);
-    return AspireDict(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestCollectionContext.metadata'), transport);
+    return AspireDict<String?>(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestCollectionContext.metadata'), transport, (Object? item) => AspireRuntime.asString(item));
   }
 }
 
@@ -381,17 +475,25 @@ class TestDatabaseResource extends AspireObject {
   }
 
   /// Configures environment with callback (test version)
-  Future<TestDatabaseResource> testWithEnvironmentCallback(Function callback) async {
+  Future<TestDatabaseResource> testWithEnvironmentCallback(TestEnvironmentCallback callback) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['callback'] = callback;
+    args['callback'] = (Object? a0) async {
+      final TestEnvironmentContext p0 = TestEnvironmentContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback'), transport);
+      await callback(p0);
+      return null;
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback', args);
     return TestDatabaseResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback'), transport);
   }
 
   /// Performs a cancellable operation
-  Future<TestDatabaseResource> withCancellableOperation(Function operation) async {
+  Future<TestDatabaseResource> withCancellableOperation(CancellationTokenCallback operation) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['operation'] = operation;
+    args['operation'] = (Object? a0) async {
+      final CancellationToken? p0 = AspireRuntime.asCancellationToken(a0);
+      await operation(p0);
+      return null;
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withCancellableOperation', args);
     return TestDatabaseResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withCancellableOperation'), transport);
   }
@@ -559,10 +661,15 @@ class TestDatabaseResource extends AspireObject {
   }
 
   /// Configures with optional callback
-  Future<TestDatabaseResource> withOptionalCallback({Function? callback}) async {
+  Future<TestDatabaseResource> withOptionalCallback({TestCallback? callback}) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     if (callback != null) {
-      args['callback'] = callback;
+      final TestCallback callbackCallback = callback;
+      args['callback'] = (Object? a0) async {
+        final TestCallbackContext p0 = TestCallbackContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback'), transport);
+        await callbackCallback(p0);
+        return null;
+      };
     }
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback', args);
     return TestDatabaseResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback'), transport);
@@ -584,7 +691,7 @@ class TestDatabaseResource extends AspireObject {
   /// Sets the resource status
   Future<TestDatabaseResource> withStatus(TestResourceStatus status) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['status'] = status.toWire();
+    args['status'] = TestResourceStatus.toWireOf(status);
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withStatus', args);
     return TestDatabaseResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withStatus'), transport);
   }
@@ -592,15 +699,18 @@ class TestDatabaseResource extends AspireObject {
   /// Adds a dependency from a string or another resource
   Future<TestDatabaseResource> withUnionDependency(Object? dependency) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['dependency'] = dependency;
+    args['dependency'] = AspireRuntime.requireUnion(dependency, (Object? value) => value is ResourceWithConnectionString || value is String || value is TestRedisResource, const <String>['ResourceWithConnectionString', 'String', 'TestRedisResource'], 'Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency', 'dependency');
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency', args);
     return TestDatabaseResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency'), transport);
   }
 
   /// Adds validation callback
-  Future<TestDatabaseResource> withValidator(Function validator) async {
+  Future<TestDatabaseResource> withValidator(TestResourceCallback validator) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['validator'] = validator;
+    args['validator'] = (Object? a0) async {
+      final TestResourceContext p0 = TestResourceContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator'), transport);
+      return await validator(p0);
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator', args);
     return TestDatabaseResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator'), transport);
   }
@@ -663,14 +773,14 @@ class TestMutableCollectionContext extends AspireObject {
   const TestMutableCollectionContext(super.handle, super.transport);
 
   /// Gets the Counts property
-  Future<AspireDict> counts() async {
+  Future<AspireDict<num?>> counts() async {
     final Map<String, Object?> args = <String, Object?>{'context': handle};
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestMutableCollectionContext.counts', args);
-    return AspireDict(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestMutableCollectionContext.counts'), transport);
+    return AspireDict<num?>(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestMutableCollectionContext.counts'), transport, (Object? item) => AspireRuntime.asNum(item));
   }
 
   /// Sets the Counts property
-  Future<TestMutableCollectionContext> setCounts(AspireDict value) async {
+  Future<TestMutableCollectionContext> setCounts(AspireDict<num?> value) async {
     final Map<String, Object?> args = <String, Object?>{'context': handle};
     args['value'] = value.handle;
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestMutableCollectionContext.setCounts', args);
@@ -678,7 +788,7 @@ class TestMutableCollectionContext extends AspireObject {
   }
 
   /// Sets the Tags property
-  Future<TestMutableCollectionContext> setTags(AspireList value) async {
+  Future<TestMutableCollectionContext> setTags(AspireList<String?> value) async {
     final Map<String, Object?> args = <String, Object?>{'context': handle};
     args['value'] = value.handle;
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestMutableCollectionContext.setTags', args);
@@ -686,10 +796,10 @@ class TestMutableCollectionContext extends AspireObject {
   }
 
   /// Gets the Tags property
-  Future<AspireList> tags() async {
+  Future<AspireList<String?>> tags() async {
     final Map<String, Object?> args = <String, Object?>{'context': handle};
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestMutableCollectionContext.tags', args);
-    return AspireList(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestMutableCollectionContext.tags'), transport);
+    return AspireList<String?>(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestMutableCollectionContext.tags'), transport, (Object? item) => AspireRuntime.asString(item));
   }
 }
 
@@ -699,6 +809,8 @@ class TestMutablePromiseCollisionResource extends AspireObject {
   const TestMutablePromiseCollisionResource(super.handle, super.transport);
 
   /// Gets or sets the test value.
+  ///
+  /// ## Parameters
   ///
   /// * [value] — Gets or sets the test value.
   Future<TestMutablePromiseCollisionResource> setValue(String value) async {
@@ -740,6 +852,9 @@ class TestRedisResource extends AspireObject {
   const TestRedisResource(super.handle, super.transport);
 
   /// Adds a child database to a test Redis resource
+  ///
+  /// This method tests the factory method codegen pattern where a method on builder type A
+  /// returns builder type B (e.g., SqlServerServerResource.AddDatabase returning SqlServerDatabaseResource).
   Future<TestDatabaseResource> addTestChildDatabase(String name, {String? databaseName}) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     args['name'] = name;
@@ -758,10 +873,10 @@ class TestRedisResource extends AspireObject {
   }
 
   /// Gets the metadata for the resource
-  Future<AspireDict> getMetadata() async {
+  Future<AspireDict<String?>> getMetadata() async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/getMetadata', args);
-    return AspireDict(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/getMetadata'), transport);
+    return AspireDict<String?>(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/getMetadata'), transport, (Object? item) => AspireRuntime.asString(item));
   }
 
   /// Gets the status of the resource asynchronously
@@ -775,10 +890,10 @@ class TestRedisResource extends AspireObject {
   }
 
   /// Gets the tags for the resource
-  Future<AspireList> getTags() async {
+  Future<AspireList<String?>> getTags() async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/getTags', args);
-    return AspireList(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/getTags'), transport);
+    return AspireList<String?>(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/getTags'), transport, (Object? item) => AspireRuntime.asString(item));
   }
 
   /// Waits for another resource (test version)
@@ -790,9 +905,13 @@ class TestRedisResource extends AspireObject {
   }
 
   /// Configures environment with callback (test version)
-  Future<TestRedisResource> testWithEnvironmentCallback(Function callback) async {
+  Future<TestRedisResource> testWithEnvironmentCallback(TestEnvironmentCallback callback) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['callback'] = callback;
+    args['callback'] = (Object? a0) async {
+      final TestEnvironmentContext p0 = TestEnvironmentContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback'), transport);
+      await callback(p0);
+      return null;
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback'), transport);
   }
@@ -809,16 +928,26 @@ class TestRedisResource extends AspireObject {
   }
 
   /// Performs a cancellable operation
-  Future<TestRedisResource> withCancellableOperation(Function operation) async {
+  Future<TestRedisResource> withCancellableOperation(CancellationTokenCallback operation) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['operation'] = operation;
+    args['operation'] = (Object? a0) async {
+      final CancellationToken? p0 = AspireRuntime.asCancellationToken(a0);
+      await operation(p0);
+      return null;
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withCancellableOperation', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withCancellableOperation'), transport);
   }
 
   /// Configures a Redis resource with the concrete vault resource as a parameter.
   ///
+  /// ## Parameters
+  ///
   /// * [resource] — The parameter-only concrete vault resource.
+  ///
+  /// ## Returns
+  ///
+  /// The Redis resource builder.
   Future<TestRedisResource> withConcreteVaultResource(TestVaultResource resource) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     args['resource'] = resource.handle;
@@ -837,7 +966,7 @@ class TestRedisResource extends AspireObject {
   /// Sets the connection string using a reference expression
   Future<TestRedisResource> withConnectionString(ReferenceExpression connectionString) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['connectionString'] = connectionString.handle;
+    args['connectionString'] = connectionString;
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withConnectionString', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withConnectionString'), transport);
   }
@@ -1000,17 +1129,28 @@ class TestRedisResource extends AspireObject {
   }
 
   /// Tests multi-param callback destructuring
-  Future<TestRedisResource> withMultiParamHandleCallback(Function callback) async {
+  Future<TestRedisResource> withMultiParamHandleCallback(TestCallbackTestEnvironmentCallback callback) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['callback'] = callback;
+    args['callback'] = (Object? a0, Object? a1) async {
+      final TestCallbackContext p0 = TestCallbackContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withMultiParamHandleCallback'), transport);
+      final TestEnvironmentContext p1 = TestEnvironmentContext(AspireRuntime.requireHandle(a1, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withMultiParamHandleCallback'), transport);
+      await callback(p0, p1);
+      return null;
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withMultiParamHandleCallback', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withMultiParamHandleCallback'), transport);
   }
 
   /// Configures a Redis resource with mutable-property and parameter-only resources whose generated names collide.
   ///
+  /// ## Parameters
+  ///
   /// * [resource] — The mutable-property-only resource whose unused Promise wrapper would collide.
   /// * [resourcePromise] — The parameter-only resource whose generated name matches that Promise wrapper.
+  ///
+  /// ## Returns
+  ///
+  /// The Redis resource builder.
   Future<TestRedisResource> withMutablePromiseCollisionResources(TestMutablePromiseCollisionResource resource, TestMutablePromiseCollisionResourcePromise resourcePromise) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     args['resource'] = resource.handle;
@@ -1028,10 +1168,15 @@ class TestRedisResource extends AspireObject {
   }
 
   /// Configures with optional callback
-  Future<TestRedisResource> withOptionalCallback({Function? callback}) async {
+  Future<TestRedisResource> withOptionalCallback({TestCallback? callback}) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     if (callback != null) {
-      args['callback'] = callback;
+      final TestCallback callbackCallback = callback;
+      args['callback'] = (Object? a0) async {
+        final TestCallbackContext p0 = TestCallbackContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback'), transport);
+        await callbackCallback(p0);
+        return null;
+      };
     }
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback'), transport);
@@ -1054,7 +1199,7 @@ class TestRedisResource extends AspireObject {
   Future<TestRedisResource> withPersistence({TestPersistenceMode? mode}) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     if (mode != null) {
-      args['mode'] = mode.toWire();
+      args['mode'] = TestPersistenceMode.toWireOf(mode);
     }
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withPersistence', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withPersistence'), transport);
@@ -1062,8 +1207,14 @@ class TestRedisResource extends AspireObject {
 
   /// Configures a Redis resource with parameter-only resources whose generated names collide.
   ///
+  /// ## Parameters
+  ///
   /// * [resource] — The resource whose unused Promise wrapper would collide.
   /// * [resourcePromise] — The resource whose generated name matches that Promise wrapper.
+  ///
+  /// ## Returns
+  ///
+  /// The Redis resource builder.
   Future<TestRedisResource> withPromiseCollisionResources(TestPromiseCollisionResource resource, TestPromiseCollisionResourcePromise resourcePromise) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     args['resource'] = resource.handle;
@@ -1083,7 +1234,7 @@ class TestRedisResource extends AspireObject {
   /// Sets the resource status
   Future<TestRedisResource> withStatus(TestResourceStatus status) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['status'] = status.toWire();
+    args['status'] = TestResourceStatus.toWireOf(status);
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withStatus', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withStatus'), transport);
   }
@@ -1091,15 +1242,18 @@ class TestRedisResource extends AspireObject {
   /// Adds a dependency from a string or another resource
   Future<TestRedisResource> withUnionDependency(Object? dependency) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['dependency'] = dependency;
+    args['dependency'] = AspireRuntime.requireUnion(dependency, (Object? value) => value is ResourceWithConnectionString || value is String || value is TestRedisResource, const <String>['ResourceWithConnectionString', 'String', 'TestRedisResource'], 'Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency', 'dependency');
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency'), transport);
   }
 
   /// Adds validation callback
-  Future<TestRedisResource> withValidator(Function validator) async {
+  Future<TestRedisResource> withValidator(TestResourceCallback validator) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['validator'] = validator;
+    args['validator'] = (Object? a0) async {
+      final TestResourceContext p0 = TestResourceContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator'), transport);
+      return await validator(p0);
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator', args);
     return TestRedisResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator'), transport);
   }
@@ -1176,17 +1330,25 @@ class TestVaultResource extends AspireObject {
   }
 
   /// Configures environment with callback (test version)
-  Future<TestVaultResource> testWithEnvironmentCallback(Function callback) async {
+  Future<TestVaultResource> testWithEnvironmentCallback(TestEnvironmentCallback callback) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['callback'] = callback;
+    args['callback'] = (Object? a0) async {
+      final TestEnvironmentContext p0 = TestEnvironmentContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback'), transport);
+      await callback(p0);
+      return null;
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback', args);
     return TestVaultResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback'), transport);
   }
 
   /// Performs a cancellable operation
-  Future<TestVaultResource> withCancellableOperation(Function operation) async {
+  Future<TestVaultResource> withCancellableOperation(CancellationTokenCallback operation) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['operation'] = operation;
+    args['operation'] = (Object? a0) async {
+      final CancellationToken? p0 = AspireRuntime.asCancellationToken(a0);
+      await operation(p0);
+      return null;
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withCancellableOperation', args);
     return TestVaultResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withCancellableOperation'), transport);
   }
@@ -1344,10 +1506,15 @@ class TestVaultResource extends AspireObject {
   }
 
   /// Configures with optional callback
-  Future<TestVaultResource> withOptionalCallback({Function? callback}) async {
+  Future<TestVaultResource> withOptionalCallback({TestCallback? callback}) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
     if (callback != null) {
-      args['callback'] = callback;
+      final TestCallback callbackCallback = callback;
+      args['callback'] = (Object? a0) async {
+        final TestCallbackContext p0 = TestCallbackContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback'), transport);
+        await callbackCallback(p0);
+        return null;
+      };
     }
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback', args);
     return TestVaultResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withOptionalCallback'), transport);
@@ -1369,7 +1536,7 @@ class TestVaultResource extends AspireObject {
   /// Sets the resource status
   Future<TestVaultResource> withStatus(TestResourceStatus status) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['status'] = status.toWire();
+    args['status'] = TestResourceStatus.toWireOf(status);
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withStatus', args);
     return TestVaultResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withStatus'), transport);
   }
@@ -1377,15 +1544,18 @@ class TestVaultResource extends AspireObject {
   /// Adds a dependency from a string or another resource
   Future<TestVaultResource> withUnionDependency(Object? dependency) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['dependency'] = dependency;
+    args['dependency'] = AspireRuntime.requireUnion(dependency, (Object? value) => value is ResourceWithConnectionString || value is String || value is TestRedisResource, const <String>['ResourceWithConnectionString', 'String', 'TestRedisResource'], 'Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency', 'dependency');
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency', args);
     return TestVaultResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency'), transport);
   }
 
   /// Adds validation callback
-  Future<TestVaultResource> withValidator(Function validator) async {
+  Future<TestVaultResource> withValidator(TestResourceCallback validator) async {
     final Map<String, Object?> args = <String, Object?>{'builder': handle};
-    args['validator'] = validator;
+    args['validator'] = (Object? a0) async {
+      final TestResourceContext p0 = TestResourceContext(AspireRuntime.requireHandle(a0, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator'), transport);
+      return await validator(p0);
+    };
     final Object? result = await transport.invokeCapability('Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator', args);
     return TestVaultResource(AspireRuntime.requireHandle(result, 'Aspire.Hosting.CodeGeneration.Dart.Tests/withValidator'), transport);
   }

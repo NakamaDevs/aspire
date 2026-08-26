@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Globalization;
@@ -52,6 +52,14 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
     private const string DictClass = "AspireDict";
 
     /// <summary>
+    /// The Dart class of a reference expression. <c>aspire_runtime.dart</c> defines it, so the
+    /// generator never emits a class for the ATS type. The hand written class holds the format, the
+    /// value providers and <c>getValueAsync</c>, because a guest builds an expression with
+    /// <c>ref</c> and the host also returns one as a handle.
+    /// </summary>
+    private const string ReferenceExpressionClass = "ReferenceExpression";
+
+    /// <summary>
     /// Reserved words and built-in identifiers of Dart. A generated identifier that matches one of
     /// them gets a trailing underscore.
     /// </summary>
@@ -94,7 +102,8 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
     {
         // base.dart, transport.dart and aspire_runtime.dart.
         "AspireDict", "AspireError", "AspireErrorCodes", "AspireHandle", "AspireList",
-        "AspireMarshal", "AspireObject", "AspireRuntime", "AspireTransport", "CancellationToken",
+        "AspireMarshal", "AspireObject", "AspireRuntime", "AspireTransport", "AspireWireValue",
+        "CancellationToken", ReferenceExpressionClass,
         // dart:core names that a generated declaration would shadow inside the library.
         "Comparable", "DateTime", "Duration", "Enum", "Error", "Exception", "Function", "Future",
         "Iterable", "List", "Map", "Null", "Object", "Pattern", "Record", "RegExp", "Set",
@@ -112,6 +121,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         var model = DartModel.Build(context);
 
         var declarations = new List<DartDeclaration>();
+        declarations.AddRange(GenerateCallbackTypedefs(model));
         declarations.AddRange(GenerateEnumClasses(model));
         declarations.AddRange(GenerateDtoClasses(model));
         declarations.AddRange(GenerateExportedValueClasses(model));
@@ -123,7 +133,10 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         {
             ["base.dart"] = GetEmbeddedResource("base.dart"),
             ["transport.dart"] = GetEmbeddedResource("transport.dart"),
-            ["aspire_runtime.dart"] = GetEmbeddedResource("aspire_runtime.dart")
+            ["aspire_runtime.dart"] = GetEmbeddedResource("aspire_runtime.dart"),
+            // The watcher is a standalone script. aspire.dart never imports it: the CLI runs it as
+            // the parent process of the AppHost when watch mode is on.
+            ["watch.dart"] = GetEmbeddedResource("watch.dart")
         };
 
         foreach (var generatedFile in generatedFiles)
@@ -215,6 +228,14 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         writer.WriteLine("// `apphost.dart` imports this file. It owns the generated parts and re-exports the");
         writer.WriteLine("// runtime files, so one import brings the whole SDK into scope.");
         writer.WriteLine();
+        if (model.CallbackShapes.Count > 0)
+        {
+            // A generated typedef names FutureOr, so a callback can be synchronous or
+            // asynchronous. The import is left out when the model holds no callback, because the
+            // analyzer reports an unused import.
+            writer.WriteLine("import 'dart:async';");
+        }
+
         writer.WriteLine("import 'dart:io';");
         writer.WriteLine();
         writer.WriteLine("import 'base.dart';");
@@ -325,9 +346,21 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             var writer = new DartWriter();
             var memberNames = AssignUniqueNames(members, ToDartMemberName);
 
+            var allowed = string.Join(", ", members.Select(member => memberNames[member]));
+
             writer.WriteLine();
-            WriteDoc(writer, BuildDoc(enumType.Documentation, null, $"The `{enumType.Name}` enumeration."));
-            writer.WriteLine($"enum {className} {{");
+            WriteDoc(writer, BuildDoc(
+                enumType.Documentation,
+                null,
+                $"The `{enumType.Name}` enumeration.",
+                sections: [new DocSection("## Values", members
+                    .Select(member => (
+                        Name: $"[{memberNames[member]}]",
+                        Description: enumType.ValueInfos
+                            .FirstOrDefault(value => string.Equals(value.Name, member, StringComparison.Ordinal))?
+                            .Documentation?.Summary))
+                    .ToList())]));
+            writer.WriteLine($"enum {className} implements AspireWireValue {{");
             writer.Indent();
 
             for (var i = 0; i < members.Count; i++)
@@ -351,7 +384,37 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             writer.WriteLine("final String wireName;");
             writer.WriteLine();
             WriteDoc(writer, "Returns the wire form of the value.");
+            writer.WriteLine("@override");
             writer.WriteLine("String toWire() => wireName;");
+            writer.WriteLine();
+            WriteDoc(writer, $"""
+                Returns the wire form of [value].
+
+                [value] is a `{className}`, or a string that names one. Throws
+                [ArgumentError] when nothing matches. The message lists every value.
+                """);
+            writer.WriteLine($"static String toWireOf(Object? value) {{");
+            writer.Indent();
+            writer.WriteLine($"if (value is {className}) {{");
+            writer.Indent();
+            writer.WriteLine("return value.wireName;");
+            writer.Outdent();
+            writer.WriteLine("}");
+            writer.WriteLine($"final {className}? match = fromWire(value);");
+            writer.WriteLine("if (match != null) {");
+            writer.Indent();
+            writer.WriteLine("return match.wireName;");
+            writer.Outdent();
+            writer.WriteLine("}");
+            writer.WriteLine("throw ArgumentError.value(");
+            writer.Indent();
+            writer.WriteLine("value,");
+            writer.WriteLine("'value',");
+            writer.WriteLine($"'{className} does not accept it. It accepts: {EscapeString(allowed)}',");
+            writer.Outdent();
+            writer.WriteLine(");");
+            writer.Outdent();
+            writer.WriteLine("}");
             writer.WriteLine();
             WriteDoc(writer, "Returns the value that [wire] names, or null when no value matches.");
             writer.WriteLine($"static {className}? fromWire(Object? wire) {{");
@@ -394,8 +457,16 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             var writer = new DartWriter();
 
             writer.WriteLine();
-            WriteDoc(writer, BuildDoc(dto.Documentation, dto.Description, $"The `{dto.Name}` data object."));
-            writer.WriteLine($"class {className} {{");
+            WriteDoc(writer, BuildDoc(
+                dto.Documentation,
+                dto.Description,
+                $"The `{dto.Name}` data object.",
+                sections: [new DocSection("## Properties", properties
+                    .Select(property => (
+                        Name: $"[{property.DartName}]",
+                        Description: property.Documentation?.Summary ?? property.Description))
+                    .ToList())]));
+            writer.WriteLine($"class {className} implements AspireWireValue {{");
             writer.Indent();
 
             WriteDoc(writer, $"Builds a `{className}`.");
@@ -421,20 +492,14 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             writer.Indent();
             foreach (var property in properties)
             {
-                if (property.IsCallback || property.Type?.Category == AtsTypeCategory.Callback)
-                {
-                    // The host sends a callback identifier, and the guest cannot invoke it, so the
-                    // property stays null after a decode.
-                    continue;
-                }
-
                 var decoded = DecodeExpression(
                     model,
                     property.Type,
                     $"json['{EscapeString(property.WireName)}']",
                     property.IsCallback,
                     forDataObject: true,
-                    capabilityId: className + "." + property.DartName);
+                    capabilityId: className + "." + property.DartName,
+                    callbackType: property.CallbackType);
                 writer.WriteLine($"{property.DartName}: {decoded},");
             }
             writer.Outdent();
@@ -471,20 +536,46 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             {
                 writer.WriteLine($"if ({property.DartName} != null) {{");
                 writer.Indent();
-                var encoded = EncodeExpression(
-                    model,
-                    property.Type,
-                    property.DartName,
-                    property.IsCallback,
-                    forDataObject: true,
-                    nullableSource: true);
-                writer.WriteLine($"json['{EscapeString(property.WireName)}'] = {encoded};");
+
+                if (property.Shape is { } shape)
+                {
+                    // A public final field is never promoted, so the wrapper closes over a local
+                    // that the null check already proved to be non-null. A data object carries no
+                    // transport, so a handle argument goes through the default transport.
+                    var local = property.DartName + "Callback";
+                    writer.WriteLine($"final {shape.Name} {local} = {property.DartName}!;");
+                    WriteCallbackWrapper(
+                        model,
+                        writer,
+                        shape,
+                        $"json['{EscapeString(property.WireName)}']",
+                        local,
+                        className + "." + property.DartName,
+                        "AspireTransport.defaultInstance");
+                }
+                else
+                {
+                    var encoded = EncodeExpression(
+                        model,
+                        property.Type,
+                        property.DartName,
+                        property.IsCallback,
+                        forDataObject: true,
+                        nullableSource: true);
+                    writer.WriteLine($"json['{EscapeString(property.WireName)}'] = {encoded};");
+                }
+
                 writer.Outdent();
                 writer.WriteLine("}");
             }
             writer.WriteLine("return json;");
             writer.Outdent();
             writer.WriteLine("}");
+
+            writer.WriteLine();
+            WriteDoc(writer, "Returns the wire form of the data object. See [toJson].");
+            writer.WriteLine("@override");
+            writer.WriteLine("Object? toWire() => toJson();");
 
             writer.Outdent();
             writer.WriteLine("}");
@@ -594,6 +685,32 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                     && enumValue.TryGetValue<string>(out _)
                     && model.EnumClasses.TryGetValue(typeRef.TypeId, out var enumClass):
                     return ($"{enumClass}?", $"{enumClass}.fromWire({literal})");
+
+                case AtsTypeCategory.Array or AtsTypeCategory.List when value.Value is JsonArray:
+                    var elementType = MapElementType(model, typeRef.ElementType, forDataObject: true);
+                    var element = DecodeExpression(
+                        model,
+                        typeRef.ElementType,
+                        "item",
+                        isCallback: false,
+                        forDataObject: true,
+                        capabilityId: "exported value");
+                    return (
+                        $"List<{elementType}>",
+                        $"{RuntimeClass}.asList<{elementType}>({literal}, (Object? item) => {element})");
+
+                case AtsTypeCategory.Dict when value.Value is JsonObject:
+                    var valueType = MapElementType(model, typeRef.ValueType, forDataObject: true);
+                    var entry = DecodeExpression(
+                        model,
+                        typeRef.ValueType,
+                        "item",
+                        isCallback: false,
+                        forDataObject: true,
+                        capabilityId: "exported value");
+                    return (
+                        $"Map<String, {valueType}>",
+                        $"{RuntimeClass}.asMap<{valueType}>({literal}, (Object? item) => {entry})");
             }
         }
 
@@ -645,6 +762,12 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
 
         foreach (var (typeId, className) in model.HandleClasses.OrderBy(pair => pair.Value, StringComparer.Ordinal))
         {
+            if (model.RuntimeProvidedTypeIds.Contains(typeId))
+            {
+                // aspire_runtime.dart already defines the class. See ReferenceExpressionClass.
+                continue;
+            }
+
             var writer = new DartWriter();
             var typeInfo = model.HandleTypeInfos.GetValueOrDefault(typeId);
 
@@ -760,7 +883,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         signature.Append(string.Join(
             ", ",
             required.Select(parameter =>
-                $"{MapParameterType(model, parameter.Type, parameter.IsCallback, isOptional: false)} {localNames["p:" + parameter.Name]}")));
+                $"{MapParameterType(model, parameter, isOptional: parameter.IsNullable)} {localNames["p:" + parameter.Name]}")));
 
         var hasNamed = namedOptional.Count > 0 || flattenedProperties.Count > 0;
         if (hasNamed)
@@ -772,7 +895,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
 
             var named = new List<string>();
             named.AddRange(namedOptional.Select(parameter =>
-                $"{MapParameterType(model, parameter.Type, parameter.IsCallback, isOptional: true)} {localNames["p:" + parameter.Name]}"));
+                $"{MapParameterType(model, parameter, isOptional: true)} {localNames["p:" + parameter.Name]}"));
             named.AddRange(flattenedProperties.Select(property =>
                 $"{property.DartType} {localNames["o:" + property.WireName]}"));
 
@@ -788,17 +911,51 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         foreach (var parameter in required)
         {
             var local = localNames["p:" + parameter.Name];
-            var encoded = EncodeExpression(model, parameter.Type, local, parameter.IsCallback, forDataObject: false);
-            writer.WriteLine($"args['{EscapeString(parameter.Name)}'] = {encoded};");
+            var target = $"args['{EscapeString(parameter.Name)}']";
+
+            if (model.ShapeOf(parameter) is { } shape && !parameter.IsNullable)
+            {
+                WriteCallbackWrapper(model, writer, shape, target, local, capability.CapabilityId, "transport");
+                continue;
+            }
+
+            var encoded = EncodeExpression(
+                model,
+                parameter.Type,
+                local,
+                parameter.IsCallback,
+                forDataObject: false,
+                unionGuard: BuildUnionGuard(model, parameter, local, capability.CapabilityId));
+            writer.WriteLine($"{target} = {encoded};");
         }
 
         foreach (var parameter in namedOptional)
         {
             var local = localNames["p:" + parameter.Name];
-            var encoded = EncodeExpression(model, parameter.Type, local, parameter.IsCallback, forDataObject: false);
+            var target = $"args['{EscapeString(parameter.Name)}']";
             writer.WriteLine($"if ({local} != null) {{");
             writer.Indent();
-            writer.WriteLine($"args['{EscapeString(parameter.Name)}'] = {encoded};");
+
+            if (model.ShapeOf(parameter) is { } shape)
+            {
+                // A closure never promotes a captured variable, so the wrapper closes over a local
+                // that the null check already proved to be non-null.
+                var callbackLocal = local + "Callback";
+                writer.WriteLine($"final {shape.Name} {callbackLocal} = {local};");
+                WriteCallbackWrapper(model, writer, shape, target, callbackLocal, capability.CapabilityId, "transport");
+            }
+            else
+            {
+                var encoded = EncodeExpression(
+                    model,
+                    parameter.Type,
+                    local,
+                    parameter.IsCallback,
+                    forDataObject: false,
+                    unionGuard: BuildUnionGuard(model, parameter, local, capability.CapabilityId));
+                writer.WriteLine($"{target} = {encoded};");
+            }
+
             writer.Outdent();
             writer.WriteLine("}");
         }
@@ -809,10 +966,22 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             foreach (var property in flattenedProperties)
             {
                 var local = localNames["o:" + property.WireName];
-                var encoded = EncodeExpression(model, property.Type, local, property.IsCallback, forDataObject: true);
+                var target = $"options['{EscapeString(property.WireName)}']";
                 writer.WriteLine($"if ({local} != null) {{");
                 writer.Indent();
-                writer.WriteLine($"options['{EscapeString(property.WireName)}'] = {encoded};");
+
+                if (property.Shape is { } shape)
+                {
+                    var callbackLocal = local + "Callback";
+                    writer.WriteLine($"final {shape.Name} {callbackLocal} = {local};");
+                    WriteCallbackWrapper(model, writer, shape, target, callbackLocal, capability.CapabilityId, "transport");
+                }
+                else
+                {
+                    var encoded = EncodeExpression(model, property.Type, local, property.IsCallback, forDataObject: true);
+                    writer.WriteLine($"{target} = {encoded};");
+                }
+
                 writer.Outdent();
                 writer.WriteLine("}");
             }
@@ -866,6 +1035,219 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         && (string.Equals(returnTypeId, capability.TargetTypeId, StringComparison.Ordinal)
             || string.Equals(returnTypeId, classTypeId, StringComparison.Ordinal));
 
+    // ── Callbacks ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Emits one <c>typedef</c> for every callback shape the model holds.
+    /// </summary>
+    /// <remarks>
+    /// Two callbacks that take the same argument types and return the same type share one typedef,
+    /// so the generated surface names a small set of function types instead of a bare
+    /// <c>Function</c>.
+    /// </remarks>
+    private static List<DartDeclaration> GenerateCallbackTypedefs(DartModel model)
+    {
+        var declarations = new List<DartDeclaration>();
+
+        foreach (var shape in model.CallbackShapes.Values.OrderBy(shape => shape.Name, StringComparer.Ordinal))
+        {
+            var writer = new DartWriter();
+            var parameters = new List<string>();
+
+            for (var i = 0; i < shape.Parameters.Count; i++)
+            {
+                parameters.Add($"{CallbackParameterType(model, shape.Parameters[i])} {shape.ParameterNames[i]}");
+            }
+
+            var entries = new List<(string Name, string? Description)>();
+            for (var i = 0; i < shape.Parameters.Count; i++)
+            {
+                entries.Add((
+                    $"[{shape.ParameterNames[i]}]",
+                    shape.Parameters[i].Documentation?.Summary));
+            }
+
+            writer.WriteLine();
+            WriteDoc(writer, BuildDoc(
+                documentation: null,
+                fallback: null,
+                defaultSummary: shape.Parameters.Count == 0
+                    ? "A callback that the AppHost invokes with no argument."
+                    : "A callback that the AppHost invokes. Every argument arrives as its "
+                        + "generated Dart type.",
+                sections: [new DocSection("## Parameters", entries)],
+                returns: shape.WriteBackDtoClass is { } writeBack
+                    ? $"The changed `{writeBack}`, or null to keep the argument as it is."
+                    : null));
+            writer.WriteLine(
+                $"typedef {shape.Name} = FutureOr<{shape.DartReturnType}> Function({string.Join(", ", parameters)});");
+
+            declarations.Add(DartDeclaration.From(writer));
+        }
+
+        return declarations;
+    }
+
+    /// <summary>
+    /// Returns the Dart type of one callback argument.
+    /// </summary>
+    private static string CallbackParameterType(DartModel model, AtsCallbackParameterInfo parameter) =>
+        MapElementType(model, parameter.Type, forDataObject: false);
+
+    /// <summary>
+    /// Writes the closure that the transport registers for a callback argument.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The host sends the arguments as <c>p0</c>, <c>p1</c>, … The closure decodes each one with
+    /// the decoder of its ATS type, so a context handle becomes its wrapper class and a data object
+    /// becomes its class. A field that the decoder cannot convert becomes null instead of failing
+    /// the call.
+    /// </para>
+    /// <para>
+    /// A generated data object never changes in place, so a callback that receives one returns the
+    /// changed object. The closure then answers with the positional write-back map. A callback that
+    /// returns null keeps the argument the host sent, which is the same rule the transport applies
+    /// when a closure returns null.
+    /// </para>
+    /// </remarks>
+    private static void WriteCallbackWrapper(
+        DartModel model,
+        DartWriter writer,
+        DartCallbackShape shape,
+        string assignTarget,
+        string callbackExpression,
+        string capabilityId,
+        string transportExpression)
+    {
+        var arguments = Enumerable
+            .Range(0, shape.Parameters.Count)
+            .Select(index => string.Create(CultureInfo.InvariantCulture, $"a{index}"))
+            .ToList();
+
+        writer.WriteLine($"{assignTarget} = ({string.Join(", ", arguments.Select(name => $"Object? {name}"))}) async {{");
+        writer.Indent();
+
+        var locals = new List<string>();
+        for (var i = 0; i < shape.Parameters.Count; i++)
+        {
+            var parameter = shape.Parameters[i];
+            var local = string.Create(CultureInfo.InvariantCulture, $"p{i}");
+            locals.Add(local);
+
+            var decoded = DecodeExpression(
+                model,
+                parameter.Type,
+                arguments[i],
+                isCallback: false,
+                forDataObject: false,
+                capabilityId,
+                transportExpression: transportExpression);
+
+            writer.WriteLine($"final {CallbackParameterType(model, parameter)} {local} = {decoded};");
+        }
+
+        var call = $"{callbackExpression}({string.Join(", ", locals)})";
+
+        if (shape.ReturnsValue)
+        {
+            writer.WriteLine($"return await {call};");
+        }
+        else if (shape.WriteBackIndexes.Count == 0)
+        {
+            writer.WriteLine($"await {call};");
+            // The transport echoes the arguments the host sent when a closure returns null.
+            writer.WriteLine("return null;");
+        }
+        else
+        {
+            writer.WriteLine($"final {shape.DartReturnType} changed = await {call};");
+            writer.WriteLine("return <String, Object?>{");
+            writer.Indent();
+            foreach (var index in shape.WriteBackIndexes)
+            {
+                var dtoClass = model.DtoClasses[shape.Parameters[index].Type.TypeId];
+                var replacement = shape.WriteBackIndexes.Count == 1
+                    ? $"changed ?? {locals[index]}"
+                    : $"changed is {dtoClass} ? changed : {locals[index]}";
+                writer.WriteLine($"'p{index.ToString(CultureInfo.InvariantCulture)}': ({replacement})?.toJson(),");
+            }
+            writer.Outdent();
+            writer.WriteLine("};");
+        }
+
+        writer.Outdent();
+        writer.WriteLine("};");
+    }
+
+    /// <summary>
+    /// Returns the guard expression of an <c>[AspireUnion]</c> argument, or null.
+    /// </summary>
+    /// <remarks>
+    /// A union parameter is typed as <c>Object?</c>, so the guard is the only place that can reject
+    /// a wrong argument before the host does. A union that accepts any type gets no guard.
+    /// </remarks>
+    private static string? BuildUnionGuard(
+        DartModel model,
+        AtsParameterInfo parameter,
+        string local,
+        string capabilityId)
+    {
+        if (parameter.Type is not { Category: AtsTypeCategory.Union } unionType
+            || unionType.UnionTypes is not { Count: > 0 } members)
+        {
+            return null;
+        }
+
+        var accepted = new SortedSet<string>(StringComparer.Ordinal);
+
+        foreach (var member in members)
+        {
+            switch (member.Category)
+            {
+                case AtsTypeCategory.Handle:
+                    foreach (var className in model.ExpandUnionMember(member.TypeId))
+                    {
+                        accepted.Add(className);
+                    }
+                    break;
+
+                case AtsTypeCategory.Dto when model.DtoClasses.TryGetValue(member.TypeId, out var dtoClass):
+                    accepted.Add(dtoClass);
+                    break;
+
+                case AtsTypeCategory.Enum when model.EnumClasses.TryGetValue(member.TypeId, out var enumClass):
+                    accepted.Add(enumClass);
+                    accepted.Add("String");
+                    break;
+
+                case AtsTypeCategory.Primitive:
+                    var primitive = MapPrimitiveType(member.TypeId);
+                    if (string.Equals(primitive, "Object?", StringComparison.Ordinal))
+                    {
+                        // The union accepts any value, so a guard would never reject one.
+                        return null;
+                    }
+                    accepted.Add(primitive);
+                    break;
+
+                default:
+                    return null;
+            }
+        }
+
+        if (accepted.Count == 0)
+        {
+            return null;
+        }
+
+        var test = string.Join(" || ", accepted.Select(name => $"value is {name}"));
+
+        return $"{RuntimeClass}.requireUnion({local}, (Object? value) => {test}, "
+            + $"const <String>[{string.Join(", ", accepted.Select(name => $"'{EscapeString(name)}'"))}], "
+            + $"'{EscapeString(capabilityId)}', '{EscapeString(parameter.Name)}')";
+    }
+
     // ── Types ────────────────────────────────────────────────────────────────
 
     private static string MapReturnType(DartModel model, AtsTypeRef? typeRef)
@@ -882,9 +1264,16 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
     /// Returns false for a value that the generated decoder never leaves null.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A handle decodes through <c>AspireRuntime.requireHandle</c>, which throws when the host
-    /// returned something else, so a wrapper class is never null. Every other value can be null,
-    /// because the host is free to omit it.
+    /// returned something else, so a wrapper class is never null. A handle whose
+    /// <see cref="AtsTypeRef.IsNullable"/> is true is the exception: the host may omit it, so the
+    /// generator emits a null tolerant decode and a nullable type.
+    /// </para>
+    /// <para>
+    /// Every other value can be null, because the decoder returns null for a shape it cannot
+    /// convert. A collection is the exception, because the decoder falls back to an empty one.
+    /// </para>
     /// </remarks>
     private static bool IsNullableValue(AtsTypeRef? typeRef, bool forDataObject)
     {
@@ -896,7 +1285,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         return typeRef.Category switch
         {
             // AspireRuntime.requireHandle throws instead of returning null.
-            AtsTypeCategory.Handle => IsCancellationTokenTypeId(typeRef.TypeId),
+            AtsTypeCategory.Handle => IsCancellationTokenTypeId(typeRef.TypeId) || typeRef.IsNullable == true,
             // AspireRuntime.asList and AspireRuntime.asMap fall back to an empty collection, and a
             // mutable collection decodes into an AspireList or an AspireDict.
             AtsTypeCategory.Array or AtsTypeCategory.List or AtsTypeCategory.Dict => false,
@@ -904,14 +1293,19 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         };
     }
 
-    private static string MapParameterType(DartModel model, AtsTypeRef? typeRef, bool isCallback, bool isOptional)
+    private static string MapParameterType(DartModel model, AtsParameterInfo parameter, bool isOptional)
     {
-        if (isCallback)
+        if (model.ShapeOf(parameter) is { } shape)
+        {
+            return isOptional ? shape.Name + "?" : shape.Name;
+        }
+
+        if (parameter.IsCallback)
         {
             return isOptional ? "Function?" : "Function";
         }
 
-        return MapType(model, typeRef, forDataObject: false, isOptional: isOptional);
+        return MapType(model, parameter.Type, forDataObject: false, isOptional: isOptional);
     }
 
     /// <summary>
@@ -980,13 +1374,13 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             case AtsTypeCategory.List:
                 baseType = typeRef.IsReadOnly || forDataObject
                     ? $"List<{MapElementType(model, typeRef.ElementType, forDataObject)}>"
-                    : ListClass;
+                    : $"{ListClass}<{MapElementType(model, typeRef.ElementType, forDataObject)}>";
                 break;
 
             case AtsTypeCategory.Dict:
                 baseType = typeRef.IsReadOnly || forDataObject
                     ? $"Map<String, {MapElementType(model, typeRef.ValueType, forDataObject)}>"
-                    : DictClass;
+                    : $"{DictClass}<{MapElementType(model, typeRef.ValueType, forDataObject)}>";
                 break;
 
             default:
@@ -1031,8 +1425,16 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         string source,
         bool isCallback,
         bool forDataObject,
-        bool nullableSource = false)
+        bool nullableSource = false,
+        string? unionGuard = null)
     {
+        // A union parameter is typed as Object?, so the guard is the only place that can reject a
+        // wrong argument before the host does.
+        if (unionGuard is not null)
+        {
+            return unionGuard;
+        }
+
         // AspireTransport.request walks the arguments and registers every function it finds, so a
         // callback travels as the function itself.
         if (isCallback || typeRef is null || typeRef.Category == AtsTypeCategory.Callback)
@@ -1050,11 +1452,19 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
 
         switch (typeRef.Category)
         {
-            case AtsTypeCategory.Enum when model.EnumClasses.ContainsKey(typeRef.TypeId):
-                return $"{source}{access}toWire()";
+            case AtsTypeCategory.Enum when model.EnumClasses.TryGetValue(typeRef.TypeId, out var enumClass):
+                // The static form validates, so a value that reached the call as Object? cannot
+                // travel as an unknown wire name.
+                return $"{enumClass}.toWireOf({source})";
 
             case AtsTypeCategory.Dto when model.DtoClasses.ContainsKey(typeRef.TypeId):
                 return $"{source}{access}toJson()";
+
+            // aspire_runtime.dart owns the reference expression, because a guest builds one with
+            // ref() and the host also returns one as a handle. Only the host form carries a handle,
+            // so the value travels through AspireMarshal.encode instead.
+            case AtsTypeCategory.Handle when model.RuntimeProvidedTypeIds.Contains(typeRef.TypeId):
+                return source;
 
             case AtsTypeCategory.Handle when !forDataObject
                 && !IsCancellationTokenTypeId(typeRef.TypeId)
@@ -1093,9 +1503,18 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         string source,
         bool isCallback,
         bool forDataObject,
-        string capabilityId)
+        string capabilityId,
+        string? callbackType = null,
+        string transportExpression = "transport")
     {
-        if (isCallback || typeRef is null || typeRef.Category == AtsTypeCategory.Callback)
+        if (isCallback || typeRef?.Category == AtsTypeCategory.Callback)
+        {
+            // The host sends a callback identifier, which the guest cannot invoke, so a property
+            // that arrives from the host stays null. A guest function survives a round trip.
+            return $"{RuntimeClass}.asCallback<{callbackType ?? "Function"}>({source})";
+        }
+
+        if (typeRef is null)
         {
             return source;
         }
@@ -1126,24 +1545,41 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                 return $"{source} is AspireHandle ? {source} as AspireHandle : null";
 
             case AtsTypeCategory.Handle when model.HandleClasses.TryGetValue(typeRef.TypeId, out var handleClass):
-                return $"{handleClass}({RuntimeClass}.requireHandle({source}, '{EscapeString(capabilityId)}'), transport)";
+                var wrapped = $"{handleClass}({RuntimeClass}.requireHandle({source}, '{EscapeString(capabilityId)}'), {transportExpression})";
+                // requireHandle throws on anything else, so a type the host may omit needs the
+                // null check first.
+                return typeRef.IsNullable == true ? $"({source} == null ? null : {wrapped})" : wrapped;
 
             case AtsTypeCategory.Array:
             case AtsTypeCategory.List when typeRef.IsReadOnly || forDataObject:
                 var elementType = MapElementType(model, typeRef.ElementType, forDataObject);
-                var element = DecodeExpression(model, typeRef.ElementType, "item", isCallback: false, forDataObject, capabilityId);
+                var element = DecodeExpression(
+                    model, typeRef.ElementType, "item", isCallback: false, forDataObject, capabilityId,
+                    transportExpression: transportExpression);
                 return $"{RuntimeClass}.asList<{elementType}>({source}, (Object? item) => {element})";
 
             case AtsTypeCategory.List:
-                return $"{ListClass}({RuntimeClass}.requireHandle({source}, '{EscapeString(capabilityId)}'), transport)";
+                var listElementType = MapElementType(model, typeRef.ElementType, forDataObject);
+                var listElement = DecodeExpression(
+                    model, typeRef.ElementType, "item", isCallback: false, forDataObject, capabilityId,
+                    transportExpression: transportExpression);
+                return $"{ListClass}<{listElementType}>({RuntimeClass}.requireHandle({source}, '{EscapeString(capabilityId)}'), {transportExpression}, "
+                    + $"(Object? item) => {listElement})";
 
             case AtsTypeCategory.Dict when typeRef.IsReadOnly || forDataObject:
                 var valueType = MapElementType(model, typeRef.ValueType, forDataObject);
-                var value = DecodeExpression(model, typeRef.ValueType, "item", isCallback: false, forDataObject, capabilityId);
+                var value = DecodeExpression(
+                    model, typeRef.ValueType, "item", isCallback: false, forDataObject, capabilityId,
+                    transportExpression: transportExpression);
                 return $"{RuntimeClass}.asMap<{valueType}>({source}, (Object? item) => {value})";
 
             case AtsTypeCategory.Dict:
-                return $"{DictClass}({RuntimeClass}.requireHandle({source}, '{EscapeString(capabilityId)}'), transport)";
+                var dictValueType = MapElementType(model, typeRef.ValueType, forDataObject);
+                var dictValue = DecodeExpression(
+                    model, typeRef.ValueType, "item", isCallback: false, forDataObject, capabilityId,
+                    transportExpression: transportExpression);
+                return $"{DictClass}<{dictValueType}>({RuntimeClass}.requireHandle({source}, '{EscapeString(capabilityId)}'), {transportExpression}, "
+                    + $"(Object? item) => {dictValue})";
 
             default:
                 return source;
@@ -1160,57 +1596,114 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         IReadOnlyList<DartProperty> flattenedProperties,
         IReadOnlyDictionary<string, string> localNames)
     {
-        var lines = new List<string>
-        {
-            BuildDoc(
-                capability.Documentation,
-                capability.Description,
-                $"Invokes the `{capability.CapabilityId}` capability.")
-        };
+        var entries = new List<(string Name, string? Description)>();
 
-        var parameterLines = new List<string>();
         foreach (var parameter in required.Concat(optional))
         {
-            var description = DocumentationFor(capability.Documentation, parameter.Name)
-                ?? parameter.Documentation?.Summary;
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                parameterLines.Add($"* [{localNames["p:" + parameter.Name]}] — {ConvertAtsReferences(Flatten(description))}");
-            }
+            entries.Add((
+                $"[{localNames["p:" + parameter.Name]}]",
+                DocumentationFor(capability.Documentation, parameter.Name) ?? parameter.Documentation?.Summary));
         }
 
         foreach (var property in flattenedProperties)
         {
-            var description = property.Documentation?.Summary ?? property.Description;
-            if (!string.IsNullOrWhiteSpace(description))
+            entries.Add((
+                $"[{localNames["o:" + property.WireName]}]",
+                property.Documentation?.Summary ?? property.Description));
+        }
+
+        var isVoid = capability.ReturnType is null
+            || string.Equals(capability.ReturnType.TypeId, AtsConstants.Void, StringComparison.Ordinal);
+
+        WriteDoc(writer, BuildDoc(
+            capability.Documentation,
+            capability.Description,
+            $"Invokes the `{capability.CapabilityId}` capability.",
+            sections: [new DocSection("## Parameters", entries)],
+            returns: isVoid ? null : capability.Documentation?.Returns));
+    }
+
+    /// <summary>
+    /// A named list that a generated dartdoc block holds, such as the parameters of a method or the
+    /// properties of a data object.
+    /// </summary>
+    private sealed record DocSection(string Heading, IReadOnlyList<(string Name, string? Description)> Entries);
+
+    /// <summary>
+    /// Builds the text of a dartdoc comment.
+    /// </summary>
+    /// <remarks>
+    /// The summary comes from <see cref="AtsDocumentationInfo.Summary"/>. An empty
+    /// <c>&lt;ats-summary&gt;</c> element suppresses the summary: the scanner then returns a
+    /// documentation object whose <c>Summary</c> is <see langword="null"/>. The generator keeps that
+    /// decision and does not fall back to the <c>[AspireExport(Description = ...)]</c> text. The
+    /// fallback applies only when the whole documentation object is missing.
+    /// </remarks>
+    private static string BuildDoc(
+        AtsDocumentationInfo? documentation,
+        string? fallback,
+        string? defaultSummary,
+        IReadOnlyList<DocSection>? sections = null,
+        string? returns = null)
+    {
+        var summary = documentation is null
+            ? Coalesce(fallback, defaultSummary)
+            : Coalesce(documentation.Summary, defaultSummary);
+
+        var lines = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(summary))
+        {
+            lines.Add(ConvertAtsReferences(summary.Trim()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(documentation?.Remarks))
+        {
+            AddBlank(lines);
+            lines.Add(ConvertAtsReferences(documentation.Remarks.Trim()));
+        }
+
+        foreach (var section in sections ?? [])
+        {
+            var entries = section.Entries
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Description))
+                .ToList();
+
+            if (entries.Count == 0)
             {
-                parameterLines.Add($"* [{localNames["o:" + property.WireName]}] — {ConvertAtsReferences(Flatten(description))}");
+                continue;
+            }
+
+            AddBlank(lines);
+            lines.Add(section.Heading);
+            AddBlank(lines);
+
+            foreach (var (name, description) in entries)
+            {
+                lines.Add($"* {name} — {ConvertAtsReferences(Flatten(description!))}");
             }
         }
 
-        if (parameterLines.Count > 0)
+        if (!string.IsNullOrWhiteSpace(returns))
         {
-            lines.Add("");
-            lines.AddRange(parameterLines);
+            AddBlank(lines);
+            lines.Add("## Returns");
+            AddBlank(lines);
+            lines.Add(ConvertAtsReferences(returns.Trim()));
         }
 
-        WriteDoc(writer, string.Join("\n", lines));
-    }
+        return string.Join("\n", lines);
 
-    private static string BuildDoc(AtsDocumentationInfo? documentation, string? fallback, string defaultSummary)
-    {
-        // A documentation object whose Summary is null means the author suppressed it with an empty
-        // <ats-summary/>, so the attribute description must not come back as a fallback.
-        if (documentation is not null)
+        static string? Coalesce(string? first, string? second) =>
+            string.IsNullOrWhiteSpace(first) ? second : first;
+
+        static void AddBlank(List<string> lines)
         {
-            return string.IsNullOrWhiteSpace(documentation.Summary)
-                ? string.Empty
-                : ConvertAtsReferences(documentation.Summary.Trim());
+            if (lines.Count > 0)
+            {
+                lines.Add("");
+            }
         }
-
-        return string.IsNullOrWhiteSpace(fallback)
-            ? defaultSummary
-            : ConvertAtsReferences(fallback.Trim());
     }
 
     private static void WriteDoc(DartWriter writer, string text)
@@ -1233,7 +1726,9 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
     /// <remarks>
     /// The scanner writes <c>&lt;ats-see cref="!:type:Foo"/&gt;</c> as <c>{@ats-ref type:Foo}</c>,
     /// and adds <c>|label</c> when the element holds text. Dartdoc reads <c>{@...}</c> as a
-    /// directive, so the marker never survives into the generated code.
+    /// directive, so the marker never survives into the generated code. A marker without a label
+    /// becomes a backtick link. Dartdoc has no labelled link form, so a marker with a label keeps
+    /// the label and names the target after it.
     /// </remarks>
     internal static string ConvertAtsReferences(string text)
     {
@@ -1279,7 +1774,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                 var target = labelIndex < 0 ? remainder : remainder[..labelIndex];
                 var label = labelIndex < 0 ? null : remainder[(labelIndex + 1)..];
 
-                builder.Append(string.IsNullOrWhiteSpace(label) ? $"`{target}`" : label);
+                builder.Append(string.IsNullOrWhiteSpace(label) ? $"`{target}`" : $"{label} (`{target}`)");
             }
 
             index = end + 1;
@@ -1452,6 +1947,38 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         /// </summary>
         public required Dictionary<string, List<DartProperty>> DtoProperties { get; init; }
 
+        /// <summary>
+        /// The ATS type ids whose Dart class is hand written in <c>aspire_runtime.dart</c>. The
+        /// generator maps them but emits no class.
+        /// </summary>
+        public required HashSet<string> RuntimeProvidedTypeIds { get; init; }
+
+        /// <summary>
+        /// Every callback shape the model holds, keyed by its Dart signature. Two callbacks that
+        /// take the same argument types and return the same type share one typedef.
+        /// </summary>
+        public required Dictionary<string, DartCallbackShape> CallbackShapes { get; init; }
+
+        /// <summary>
+        /// The Dart classes that can be assigned to a handle type. It holds the class of the type
+        /// and the class of every handle type that implements or extends it.
+        /// </summary>
+        public required Dictionary<string, List<string>> UnionExpansions { get; init; }
+
+        public IReadOnlyList<string> ExpandUnionMember(string typeId) =>
+            UnionExpansions.TryGetValue(typeId, out var classes)
+                ? classes
+                : HandleClasses.TryGetValue(typeId, out var className) ? [className] : [];
+
+        /// <summary>
+        /// Returns the callback shape of a capability parameter, or null when the parameter is not
+        /// a callback or the scanner captured no signature for it.
+        /// </summary>
+        public DartCallbackShape? ShapeOf(AtsParameterInfo parameter) =>
+            parameter.IsCallback && parameter.CallbackParameters is { } parameters
+                ? CallbackShapes.GetValueOrDefault(ShapeKey(this, parameters, parameter.CallbackReturnType))
+                : null;
+
         public static DartModel Build(AtsContext context)
         {
             var dtoTypeIds = new HashSet<string>(context.DtoTypes.Select(dto => dto.TypeId), StringComparer.Ordinal);
@@ -1501,31 +2028,18 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                 handleTypeInfos.TryAdd(typeInfo.AtsTypeId, typeInfo);
             }
 
-            var dtoProperties = new Dictionary<string, List<DartProperty>>(StringComparer.Ordinal);
-            foreach (var dto in context.DtoTypes)
+            var runtimeProvided = new HashSet<string>(StringComparer.Ordinal);
+            if (handleClasses.ContainsKey(AtsConstants.ReferenceExpressionTypeId))
             {
-                var properties = dto.Properties.ToList();
-                var names = AssignUniqueNames(
-                    properties.Select(property => property.Name).ToList(),
-                    ToDartMemberName);
-
-                dtoProperties[dto.TypeId] = properties
-                    .Select(property => new DartProperty(
-                        names[property.Name],
-                        property.Name,
-                        property.Type,
-                        property.IsCallback,
-                        property.Description,
-                        property.Documentation,
-                        property.IsCallback
-                            ? "Function?"
-                            : MakeNullable(MapTypeForModel(property.Type, handleClasses, dtoClasses, enumClasses))))
-                    .ToList();
+                // aspire_runtime.dart holds the reference expression, because a guest builds one
+                // with ref() and the host also returns one as a handle.
+                handleClasses[AtsConstants.ReferenceExpressionTypeId] = ReferenceExpressionClass;
+                runtimeProvided.Add(AtsConstants.ReferenceExpressionTypeId);
             }
 
             var valueClasses = AssignValueClassNames(context, assigned.Values);
 
-            return new DartModel
+            var model = new DartModel
             {
                 Context = context,
                 HandleClasses = handleClasses,
@@ -1534,39 +2048,221 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                 ValueClasses = valueClasses,
                 HandleTypeInfos = handleTypeInfos,
                 CapabilitiesByTarget = GroupCapabilitiesByTarget(context.Capabilities, handleTypeIds),
-                DtoProperties = dtoProperties
+                DtoProperties = new Dictionary<string, List<DartProperty>>(StringComparer.Ordinal),
+                RuntimeProvidedTypeIds = runtimeProvided,
+                CallbackShapes = new Dictionary<string, DartCallbackShape>(StringComparer.Ordinal),
+                UnionExpansions = BuildUnionExpansions(context, handleClasses)
             };
+
+            // A typedef name shares the one Dart scope, so it is reserved after every class name.
+            var used = new HashSet<string>(assigned.Values, StringComparer.Ordinal);
+            used.UnionWith(valueClasses.Values);
+            used.UnionWith(s_reservedClassNames);
+            PopulateCallbackShapes(model, used);
+            PopulateDtoProperties(model);
+
+            return model;
         }
 
         /// <summary>
-        /// Maps a data object property type before the model exists. The property type never needs
-        /// the transport, so the class name maps are enough.
+        /// Assigns one typedef to every distinct callback signature in the model.
         /// </summary>
-        private static string MapTypeForModel(
-            AtsTypeRef? typeRef,
-            Dictionary<string, string> handleClasses,
-            Dictionary<string, string> dtoClasses,
-            Dictionary<string, string> enumClasses)
+        private static void PopulateCallbackShapes(DartModel model, HashSet<string> used)
         {
-            var model = new DartModel
-            {
-                Context = new AtsContext
-                {
-                    Capabilities = [],
-                    HandleTypes = [],
-                    DtoTypes = [],
-                    EnumTypes = []
-                },
-                HandleClasses = handleClasses,
-                DtoClasses = dtoClasses,
-                EnumClasses = enumClasses,
-                ValueClasses = [],
-                HandleTypeInfos = [],
-                CapabilitiesByTarget = [],
-                DtoProperties = []
-            };
+            var candidates = new List<(string Key, IReadOnlyList<AtsCallbackParameterInfo> Parameters, AtsTypeRef? ReturnType)>();
 
-            return MapType(model, typeRef, forDataObject: true, isOptional: true);
+            void Add(IReadOnlyList<AtsCallbackParameterInfo>? parameters, AtsTypeRef? returnType)
+            {
+                if (parameters is null)
+                {
+                    return;
+                }
+
+                candidates.Add((ShapeKey(model, parameters, returnType), parameters, returnType));
+            }
+
+            foreach (var capability in model.Context.Capabilities)
+            {
+                foreach (var parameter in capability.Parameters)
+                {
+                    if (parameter.IsCallback)
+                    {
+                        Add(parameter.CallbackParameters, parameter.CallbackReturnType);
+                    }
+                }
+            }
+
+            foreach (var dto in model.Context.DtoTypes)
+            {
+                foreach (var property in dto.Properties)
+                {
+                    if (property.IsCallback)
+                    {
+                        Add(property.CallbackParameters, property.CallbackReturnType);
+                    }
+                }
+            }
+
+            foreach (var candidate in candidates
+                .GroupBy(entry => entry.Key, StringComparer.Ordinal)
+                .OrderBy(group => group.Key, StringComparer.Ordinal)
+                .Select(group => group.First()))
+            {
+                var parameters = candidate.Parameters;
+                var writeBackIndexes = new List<int>();
+
+                for (var index = 0; index < parameters.Count; index++)
+                {
+                    if (parameters[index].Type.Category == AtsTypeCategory.Dto
+                        && model.DtoClasses.ContainsKey(parameters[index].Type.TypeId))
+                    {
+                        writeBackIndexes.Add(index);
+                    }
+                }
+
+                var returnsValue = candidate.ReturnType is not null
+                    && !string.Equals(candidate.ReturnType.TypeId, AtsConstants.Void, StringComparison.Ordinal);
+
+                string dartReturnType;
+                string? writeBackDtoClass = null;
+
+                if (returnsValue)
+                {
+                    dartReturnType = MapType(model, candidate.ReturnType, forDataObject: false, isOptional: true);
+                }
+                else if (writeBackIndexes.Count == 1)
+                {
+                    writeBackDtoClass = model.DtoClasses[parameters[writeBackIndexes[0]].Type.TypeId];
+                    dartReturnType = writeBackDtoClass + "?";
+                }
+                else if (writeBackIndexes.Count > 1)
+                {
+                    dartReturnType = "Object?";
+                }
+                else
+                {
+                    dartReturnType = "void";
+                }
+
+                var candidateName = ShapeNameCandidate(model, parameters);
+                var name = candidateName;
+                var counter = 1;
+                while (!used.Add(name))
+                {
+                    counter++;
+                    name = string.Create(CultureInfo.InvariantCulture, $"{candidateName}{counter}");
+                }
+
+                var parameterNames = AssignUniqueNames(
+                    parameters.Select(parameter => parameter.Name).ToList(),
+                    ToDartLocalName);
+
+                model.CallbackShapes[candidate.Key] = new DartCallbackShape(
+                    name,
+                    parameters,
+                    parameters.Select(parameter => parameterNames[parameter.Name]).ToList(),
+                    returnsValue,
+                    dartReturnType,
+                    writeBackIndexes,
+                    writeBackDtoClass);
+            }
+        }
+
+        private static void PopulateDtoProperties(DartModel model)
+        {
+            foreach (var dto in model.Context.DtoTypes)
+            {
+                var properties = dto.Properties.ToList();
+                var names = AssignUniqueNames(
+                    properties.Select(property => property.Name).ToList(),
+                    ToDartMemberName);
+
+                model.DtoProperties[dto.TypeId] = properties
+                    .Select(property =>
+                    {
+                        var shape = property.IsCallback && property.CallbackParameters is { } callbackParameters
+                            ? model.CallbackShapes.GetValueOrDefault(
+                                ShapeKey(model, callbackParameters, property.CallbackReturnType))
+                            : null;
+
+                        var callbackType = shape?.Name ?? "Function";
+                        var dartType = property.IsCallback
+                            ? callbackType + "?"
+                            : MakeNullable(MapType(model, property.Type, forDataObject: true, isOptional: true));
+
+                        return new DartProperty(
+                            names[property.Name],
+                            property.Name,
+                            property.Type,
+                            property.IsCallback,
+                            property.Description,
+                            property.Documentation,
+                            dartType,
+                            shape,
+                            callbackType);
+                    })
+                    .ToList();
+            }
+        }
+
+        /// <summary>
+        /// Maps every handle type id to the classes a caller can pass for it.
+        /// </summary>
+        /// <remarks>
+        /// A Dart class never extends another generated class, so an interface member of a union has
+        /// to name every concrete wrapper that implements it. Two members of one union often expand
+        /// to the same class, so the caller of this map deduplicates the result.
+        /// </remarks>
+        private static Dictionary<string, List<string>> BuildUnionExpansions(
+            AtsContext context,
+            Dictionary<string, string> handleClasses)
+        {
+            var expansions = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+
+            void Add(string typeId, string className)
+            {
+                if (!expansions.TryGetValue(typeId, out var classes))
+                {
+                    classes = new SortedSet<string>(StringComparer.Ordinal);
+                    expansions[typeId] = classes;
+                }
+
+                classes.Add(className);
+            }
+
+            foreach (var (typeId, className) in handleClasses)
+            {
+                Add(typeId, className);
+            }
+
+            foreach (var typeInfo in context.HandleTypes)
+            {
+                if (typeInfo.IsInterface || !handleClasses.TryGetValue(typeInfo.AtsTypeId, out var concreteClass))
+                {
+                    continue;
+                }
+
+                foreach (var implemented in typeInfo.ImplementedInterfaces)
+                {
+                    if (handleClasses.ContainsKey(implemented.TypeId))
+                    {
+                        Add(implemented.TypeId, concreteClass);
+                    }
+                }
+
+                foreach (var baseType in typeInfo.BaseTypeHierarchy)
+                {
+                    if (handleClasses.ContainsKey(baseType.TypeId))
+                    {
+                        Add(baseType.TypeId, concreteClass);
+                    }
+                }
+            }
+
+            return expansions.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.ToList(),
+                StringComparer.Ordinal);
         }
 
         private static Dictionary<string, string> AssignValueClassNames(AtsContext context, IEnumerable<string> usedNames)
@@ -1918,7 +2614,99 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         bool IsCallback,
         string? Description,
         AtsDocumentationInfo? Documentation,
-        string DartType);
+        string DartType,
+        DartCallbackShape? Shape,
+        string CallbackType);
+
+    /// <summary>
+    /// One distinct callback signature. Every callback that takes the same argument types and
+    /// returns the same type shares this typedef.
+    /// </summary>
+    /// <param name="Name">The Dart typedef name.</param>
+    /// <param name="Parameters">The ATS arguments the host sends, in order.</param>
+    /// <param name="ParameterNames">The Dart name of every argument, in the same order.</param>
+    /// <param name="ReturnsValue">True when the host reads the value the callback returns.</param>
+    /// <param name="DartReturnType">The type inside <c>FutureOr&lt;…&gt;</c>.</param>
+    /// <param name="WriteBackIndexes">
+    /// The positions of the data object arguments. A generated data object never changes in place,
+    /// so the callback returns the changed object and the wrapper writes it back.
+    /// </param>
+    /// <param name="WriteBackDtoClass">
+    /// The one data object class the callback returns, or null when there is not exactly one.
+    /// </param>
+    private sealed record DartCallbackShape(
+        string Name,
+        IReadOnlyList<AtsCallbackParameterInfo> Parameters,
+        IReadOnlyList<string> ParameterNames,
+        bool ReturnsValue,
+        string DartReturnType,
+        IReadOnlyList<int> WriteBackIndexes,
+        string? WriteBackDtoClass);
+
+    /// <summary>
+    /// Returns the key that groups two callbacks onto one typedef.
+    /// </summary>
+    private static string ShapeKey(
+        DartModel model,
+        IReadOnlyList<AtsCallbackParameterInfo> parameters,
+        AtsTypeRef? returnType)
+    {
+        var returnsValue = returnType is not null
+            && !string.Equals(returnType.TypeId, AtsConstants.Void, StringComparison.Ordinal);
+
+        var arguments = string.Join(
+            ",",
+            parameters.Select(parameter => CallbackParameterType(model, parameter)));
+
+        var result = returnsValue
+            ? MapType(model, returnType, forDataObject: false, isOptional: true)
+            : "void";
+
+        return arguments + "->" + result;
+    }
+
+    /// <summary>
+    /// Returns the preferred typedef name of a callback signature.
+    /// </summary>
+    /// <remarks>
+    /// The name is built from the argument types, because that is what tells two callbacks apart.
+    /// A trailing <c>Context</c> is dropped, so <c>EnvironmentCallbackContext</c> gives
+    /// <c>EnvironmentCallback</c>.
+    /// </remarks>
+    private static string ShapeNameCandidate(DartModel model, IReadOnlyList<AtsCallbackParameterInfo> parameters)
+    {
+        if (parameters.Count == 0)
+        {
+            return "AspireCallback";
+        }
+
+        var builder = new StringBuilder();
+        foreach (var parameter in parameters)
+        {
+            builder.Append(ShapeRoleName(model, parameter.Type));
+        }
+
+        var name = builder.ToString();
+        return name.EndsWith("Callback", StringComparison.Ordinal) ? name : name + "Callback";
+    }
+
+    private static string ShapeRoleName(DartModel model, AtsTypeRef typeRef)
+    {
+        var dartType = MapType(model, typeRef, forDataObject: false, isOptional: false);
+
+        var generic = dartType.IndexOf('<', StringComparison.Ordinal);
+        if (generic > 0)
+        {
+            dartType = dartType[..generic];
+        }
+
+        dartType = ToPascalCase(dartType.TrimEnd('?'));
+
+        const string ContextSuffix = "Context";
+        return dartType.Length > ContextSuffix.Length && dartType.EndsWith(ContextSuffix, StringComparison.Ordinal)
+            ? dartType[..^ContextSuffix.Length]
+            : dartType;
+    }
 
     private sealed record GeneratedFile(string FileName, string Source);
 

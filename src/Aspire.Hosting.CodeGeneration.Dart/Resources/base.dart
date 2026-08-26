@@ -9,6 +9,16 @@
 
 import 'transport.dart';
 
+/// An object that knows its own ATS wire form.
+///
+/// [AspireMarshal.encode] calls [toWire], so a generated data object, a
+/// generated enum, a handle wrapper and a reference expression all travel
+/// without a separate conversion at the call site.
+abstract interface class AspireWireValue {
+  /// Returns the wire form of the value.
+  Object? toWire();
+}
+
 /// A reference to an object that lives in the .NET AppHost.
 ///
 /// A handle travels on the wire as `{"$handle": id, "$type": type}`.
@@ -209,7 +219,9 @@ abstract final class AspireMarshal {
   /// Converts a Dart object into a JSON-ready object.
   ///
   /// A handle becomes `{"$handle": id, "$type": type}`, a cancellation token
-  /// becomes its identifier, and a [DateTime] becomes an ISO 8601 string.
+  /// becomes its identifier, and a [DateTime] becomes an ISO 8601 string. An
+  /// [AspireWireValue], such as a generated data object, a generated enum or a
+  /// handle wrapper, becomes the value that its `toWire` returns.
   ///
   /// A function has no wire form. Register it with
   /// [AspireTransport.registerCallback] first, or pass it as a capability
@@ -217,6 +229,9 @@ abstract final class AspireMarshal {
   static Object? encode(Object? value) {
     if (value is AspireHandle) {
       return value.toJson();
+    }
+    if (value is AspireWireValue) {
+      return encode(value.toWire());
     }
     if (value is CancellationToken) {
       return value.id;

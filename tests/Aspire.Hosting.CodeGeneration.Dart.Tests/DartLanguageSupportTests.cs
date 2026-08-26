@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.Json.Nodes;
@@ -189,10 +189,21 @@ public class DartLanguageSupportTests(ITestOutputHelper outputHelper)
         Assert.Equal("dart", runtimeSpec.Execute.Command);
         Assert.Equal(["run", "{appHostFile}"], runtimeSpec.Execute.Args);
 
-        // Watch mode arrives with D2.6.
-        Assert.Null(runtimeSpec.WatchExecute);
         Assert.Null(runtimeSpec.PreExecute);
         Assert.Null(runtimeSpec.Initialize);
+    }
+
+    [Fact]
+    public void GetRuntimeSpec_WatchExecute_UsesWatchScript()
+    {
+        var runtimeSpec = _languageSupport.GetRuntimeSpec();
+
+        // The generator emits .aspire/modules/watch.dart beside the SDK. The CLI runs the command
+        // from the AppHost directory, so the relative path resolves and {appHostFile} becomes the
+        // AppHost file the CLI found.
+        var watchExecute = Assert.IsType<CommandSpec>(runtimeSpec.WatchExecute);
+        Assert.Equal("dart", watchExecute.Command);
+        Assert.Equal(["run", ".aspire/modules/watch.dart", "{appHostFile}"], watchExecute.Args);
     }
 
     [Fact]

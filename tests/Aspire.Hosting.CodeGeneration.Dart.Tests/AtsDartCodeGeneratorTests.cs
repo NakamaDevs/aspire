@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
@@ -480,6 +480,540 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
         Assert.DoesNotContain("Error:", run.Output, StringComparison.Ordinal);
     }
 
+    // ── D2.4: data objects, enums, unions, collections, cancellation ─────────
+
+    [Fact]
+    public void Generate_AspireDtoType_GeneratesClass()
+    {
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        var dto = ExtractClass(generated, "TestConfigDto");
+
+        // A data object knows its own wire form, so AspireMarshal.encode can send it without a
+        // conversion at the call site.
+        Assert.Contains("class TestConfigDto implements AspireWireValue {", generated, StringComparison.Ordinal);
+        Assert.Contains("const TestConfigDto({", dto, StringComparison.Ordinal);
+        Assert.Contains("final String? name;", dto, StringComparison.Ordinal);
+        Assert.Contains("final num? port;", dto, StringComparison.Ordinal);
+        Assert.Contains("final bool? enabled;", dto, StringComparison.Ordinal);
+
+        // The wire form keeps the .NET property names and leaves out the null properties.
+        Assert.Contains("name: AspireRuntime.asString(json['Name']),", dto, StringComparison.Ordinal);
+        Assert.Contains("json['Name'] = name;", dto, StringComparison.Ordinal);
+        Assert.Contains("Object? toWire() => toJson();", dto, StringComparison.Ordinal);
+
+        // The property documentation reaches the class dartdoc above the declaration.
+        Assert.Contains("/// ## Properties", generated, StringComparison.Ordinal);
+        Assert.Contains("/// * [name] — The name of the test config.", generated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_NestedDtoType_GeneratesCorrectTypes()
+    {
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        var dto = ExtractClass(generated, "TestNestedDto");
+
+        // A nested data object decodes into its own class.
+        Assert.Contains("final TestConfigDto? config;", dto, StringComparison.Ordinal);
+        Assert.Contains("config: TestConfigDto.fromWire(json['Config']),", dto, StringComparison.Ordinal);
+
+        // A data object carries its collections by value, so no collection handle appears here.
+        Assert.Contains("final List<String?>? tags;", dto, StringComparison.Ordinal);
+        Assert.Contains("final Map<String, num?>? counts;", dto, StringComparison.Ordinal);
+        Assert.DoesNotContain("AspireList<", dto, StringComparison.Ordinal);
+        Assert.DoesNotContain("AspireDict<", dto, StringComparison.Ordinal);
+
+        var deeplyNested = ExtractClass(generated, "TestDeeplyNestedDto");
+        Assert.Contains("final Map<String, List<TestConfigDto?>?>? nestedData;", deeplyNested, StringComparison.Ordinal);
+        Assert.Contains("final List<Map<String, String?>?>? metadataArray;", deeplyNested, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_EnumType_GeneratesEnum()
+    {
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        var enumType = ExtractEnum(generated, "TestResourceStatus");
+
+        Assert.Contains("enum TestResourceStatus implements AspireWireValue {", generated, StringComparison.Ordinal);
+        Assert.Contains("pending('Pending'),", enumType, StringComparison.Ordinal);
+        Assert.Contains("failed('Failed');", enumType, StringComparison.Ordinal);
+
+        // The wire form is the .NET member name in both directions.
+        Assert.Contains("final String wireName;", enumType, StringComparison.Ordinal);
+        Assert.Contains("String toWire() => wireName;", enumType, StringComparison.Ordinal);
+        Assert.Contains("static TestResourceStatus? fromWire(Object? wire) {", enumType, StringComparison.Ordinal);
+
+        // The class dartdoc above the declaration lists every value with the documentation of its
+        // member.
+        Assert.Contains("/// ## Values", generated, StringComparison.Ordinal);
+        Assert.Contains("/// * [pending] — The resource is pending.", generated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_EnumType_ToWireRejectsUnknown()
+    {
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        var enumType = ExtractEnum(generated, "TestResourceStatus");
+
+        // toWireOf accepts a value of the enum or a string that names one, and it throws an
+        // ArgumentError that lists every value the enum accepts.
+        Assert.Contains("static String toWireOf(Object? value) {", enumType, StringComparison.Ordinal);
+        Assert.Contains("throw ArgumentError.value(", enumType, StringComparison.Ordinal);
+        Assert.Contains(
+            "'TestResourceStatus does not accept it. It accepts: pending, running, stopped, failed',",
+            enumType,
+            StringComparison.Ordinal);
+
+        // An enum argument goes through the validating form, never through the wire name directly.
+        Assert.Contains("args['status'] = TestResourceStatus.toWireOf(status);", generated, StringComparison.Ordinal);
+        Assert.DoesNotContain("args['status'] = status.toWire();", generated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AspireUnion_InterfaceHandleInput_GeneratesUnionGuard()
+    {
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        var module = ExtractClass(generated, "TestRedisResource");
+
+        // withUnionDependency accepts a string or any builder of IResourceWithConnectionString. A
+        // Dart class never extends another generated class, so the guard names the interface and
+        // every concrete wrapper that implements it.
+        Assert.Contains(
+            "args['dependency'] = AspireRuntime.requireUnion(dependency, (Object? value) => "
+                + "value is ResourceWithConnectionString || value is String || value is TestRedisResource, "
+                + "const <String>['ResourceWithConnectionString', 'String', 'TestRedisResource'], "
+                + "'Aspire.Hosting.CodeGeneration.Dart.Tests/withUnionDependency', 'dependency');",
+            module,
+            StringComparison.Ordinal);
+
+        // The guard raises an ArgumentError that names every accepted class.
+        var runtime = ReadResource("aspire_runtime.dart");
+        Assert.Contains("static Object? requireUnion(", runtime, StringComparison.Ordinal);
+        Assert.Contains("throw ArgumentError.value(", runtime, StringComparison.Ordinal);
+        Assert.Contains("It accepts: ${accepted.join(', ')}", runtime, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_MethodWithCancellationToken_GeneratesNamedParameter()
+    {
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        var module = ExtractClass(generated, "TestRedisResource");
+
+        // A CancellationToken is always a named parameter, even when the .NET parameter has no
+        // default, so the caller can stop the call with CancellationToken.cancel.
+        Assert.Contains(
+            "Future<String?> getStatusAsync({CancellationToken? cancellationToken}) async {",
+            module,
+            StringComparison.Ordinal);
+        Assert.Contains("args['cancellationToken'] = cancellationToken;", module, StringComparison.Ordinal);
+
+        // A token beside a required parameter keeps the required parameter positional.
+        Assert.Contains(
+            "Future<bool?> waitForReadyAsync(num timeout, {CancellationToken? cancellationToken}) async {",
+            module,
+            StringComparison.Ordinal);
+
+        // CancellationToken.create and cancel come from base.dart without a change.
+        var baseDart = ReadResource("base.dart");
+        Assert.Contains("factory CancellationToken.create()", baseDart, StringComparison.Ordinal);
+        Assert.Contains("Future<bool> cancel([AspireTransport? transport])", baseDart, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratedCode_FlattensSingleOptionalDtoOptionsParameter()
+    {
+        // withHttpCommand has one optional "options" data object, so the properties of the object
+        // become named parameters and the caller writes them directly.
+        var generated = GenerateSource(CreateContextFromBothAssemblies());
+
+        Assert.Contains(
+            "withHttpCommand(String path, String displayName, {CommandOptions? commandOptions,",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains("options['CommandName'] = commandName;", generated, StringComparison.Ordinal);
+        Assert.Contains("args['options'] = options;", generated, StringComparison.Ordinal);
+
+        // The map is only sent when the caller passed at least one property.
+        Assert.Contains("if (options.isNotEmpty) {", generated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratedCode_DoesNotFlattenWhenOptionsCoexistsWithCancellationToken()
+    {
+        // promptInput has an "options" data object and a cancellation token. Dart renders a token
+        // as its own named parameter, so the token is never flattened into the options map: it
+        // stays a separate argument beside it.
+        var generated = GenerateSource(CreateContextFromBothAssemblies());
+        var module = ExtractClass(generated, "InteractionService");
+        var promptInput = ExtractMethod(module, "promptInput");
+
+        Assert.Contains("{CancellationToken? cancellationToken,", promptInput, StringComparison.Ordinal);
+        Assert.Contains("args['cancellationToken'] = cancellationToken;", promptInput, StringComparison.Ordinal);
+        Assert.DoesNotContain("options['CancellationToken']", promptInput, StringComparison.Ordinal);
+        Assert.DoesNotContain("options['cancellationToken']", promptInput, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_CollectionIntrinsics_GenerateTypedListAndDict()
+    {
+        var files = _generator.GenerateDistributedApplication(CreateContextFromBothAssemblies());
+        var runtime = files["aspire_runtime.dart"];
+
+        // The wrappers are hand written in the runtime file and they carry the element type, so a
+        // caller reads a typed value instead of Object?.
+        Assert.Contains("class AspireList<T> extends AspireObject {", runtime, StringComparison.Ordinal);
+        Assert.Contains("class AspireDict<T> extends AspireObject {", runtime, StringComparison.Ordinal);
+        Assert.Contains("final T Function(Object?) decoder;", runtime, StringComparison.Ordinal);
+        Assert.Contains("Future<List<T>> toList() async {", runtime, StringComparison.Ordinal);
+        Assert.Contains("Future<Map<String, T>> toMap() async {", runtime, StringComparison.Ordinal);
+
+        foreach (var capabilityId in new[]
+        {
+            "Aspire.Hosting/List.toArray", "Aspire.Hosting/List.length", "Aspire.Hosting/List.get",
+            "Aspire.Hosting/List.add", "Aspire.Hosting/List.set", "Aspire.Hosting/List.insert",
+            "Aspire.Hosting/List.indexOf", "Aspire.Hosting/List.removeAt", "Aspire.Hosting/List.clear",
+            "Aspire.Hosting/Dict.toObject", "Aspire.Hosting/Dict.count", "Aspire.Hosting/Dict.get",
+            "Aspire.Hosting/Dict.set", "Aspire.Hosting/Dict.has", "Aspire.Hosting/Dict.remove",
+            "Aspire.Hosting/Dict.keys", "Aspire.Hosting/Dict.values", "Aspire.Hosting/Dict.clear"
+        })
+        {
+            var name = capabilityId["Aspire.Hosting/".Length..].Split('.')[1];
+            Assert.Contains($"'{capabilityId[..capabilityId.LastIndexOf('.')]}.$name'", runtime, StringComparison.Ordinal);
+        }
+
+        // Every capability the wrappers call has to exist in the hosting assembly.
+        var capabilityIds = ScanCapabilitiesFromHostingAssembly().Select(c => c.CapabilityId).ToHashSet(StringComparer.Ordinal);
+        Assert.Contains("Aspire.Hosting/List.length", capabilityIds);
+        Assert.Contains("Aspire.Hosting/Dict.count", capabilityIds);
+
+        // The wrappers name the target argument the way the scanner registered it.
+        Assert.Contains("'list': handle,", runtime, StringComparison.Ordinal);
+        Assert.Contains("'dict': handle,", runtime, StringComparison.Ordinal);
+
+        // A generated getter supplies the element decoder, so the wrapper is typed.
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        Assert.Contains("Future<AspireList<String?>> getTags() async {", generated, StringComparison.Ordinal);
+        Assert.Contains("Future<AspireDict<String?>> getMetadata() async {", generated, StringComparison.Ordinal);
+    }
+
+    // ── D2.4: context types, callbacks, reference expressions ────────────────
+
+    [Fact]
+    public void GenerateDistributedApplication_WithContextType_GeneratesPropertyCapabilities()
+    {
+        var capabilities = ScanCapabilitiesFromTestAssembly();
+
+        var nameGetter = capabilities.FirstOrDefault(c =>
+            c.CapabilityId == "Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestCallbackContext.name");
+        Assert.NotNull(nameGetter);
+        Assert.Equal(AtsCapabilityKind.PropertyGetter, nameGetter.CapabilityKind);
+        Assert.Equal("context", Assert.Single(nameGetter.Parameters).Name);
+
+        var nameSetter = capabilities.FirstOrDefault(c =>
+            c.CapabilityId == "Aspire.Hosting.CodeGeneration.TypeScript.Tests.TestTypes/TestCallbackContext.setName");
+        Assert.NotNull(nameSetter);
+        Assert.Equal(AtsCapabilityKind.PropertySetter, nameSetter.CapabilityKind);
+        Assert.Equal(2, nameSetter.Parameters.Count);
+
+        // A getter becomes a typed accessor and a setter returns the context, so a caller can chain
+        // the write back.
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        var module = ExtractClass(generated, "TestCallbackContext");
+
+        Assert.Contains("Future<String?> name() async {", module, StringComparison.Ordinal);
+        Assert.Contains("Future<TestCallbackContext> setName(String value) async {", module, StringComparison.Ordinal);
+        Assert.Contains("Future<num?> value() async {", module, StringComparison.Ordinal);
+
+        // A collection property arrives as a typed AspireList or AspireDict.
+        var collections = ExtractClass(generated, "TestMutableCollectionContext");
+        Assert.Contains("Future<AspireList<String?>> tags() async {", collections, StringComparison.Ordinal);
+        Assert.Contains("Future<AspireDict<num?>> counts() async {", collections, StringComparison.Ordinal);
+        Assert.Contains(
+            "Future<TestMutableCollectionContext> setTags(AspireList<String?> value) async {",
+            collections,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratedCode_TypedCallbackDecodesContextHandle()
+    {
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+        var module = ExtractClass(generated, "TestRedisResource");
+
+        // Every callback shape gets one typedef, so the caller sees a typed function instead of a
+        // bare Function.
+        Assert.Contains(
+            "typedef TestEnvironmentCallback = FutureOr<void> Function(TestEnvironmentContext arg);",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Future<TestRedisResource> testWithEnvironmentCallback(TestEnvironmentCallback callback) async {",
+            module,
+            StringComparison.Ordinal);
+
+        // The wrapper decodes the raw handle into the context class before the caller function runs.
+        Assert.Contains(
+            "final TestEnvironmentContext p0 = TestEnvironmentContext(AspireRuntime.requireHandle(a0, "
+                + "'Aspire.Hosting.CodeGeneration.Dart.Tests/testWithEnvironmentCallback'), transport);",
+            module,
+            StringComparison.Ordinal);
+
+        // A callback that returns a value sends the value back instead of a write-back map.
+        Assert.Contains("return await validator(p0);", module, StringComparison.Ordinal);
+
+        // An optional callback closes over a local, because a closure never promotes a captured
+        // variable to a non-null type.
+        Assert.Contains("final TestCallback callbackCallback = callback;", module, StringComparison.Ordinal);
+
+        // A multi-argument callback decodes every argument.
+        Assert.Contains(
+            "args['callback'] = (Object? a0, Object? a1) async {",
+            module,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratedCode_DtoCallbacksReturnMutatedArguments()
+    {
+        // A generated data object never changes in place, so a callback that receives one returns
+        // the changed object and the wrapper puts it in the positional write-back map.
+        var generated = GenerateSource(CreateContextFromBothAssemblies());
+
+        Assert.Contains(
+            "typedef ResourceUrlAnnotationCallback = FutureOr<ResourceUrlAnnotation?> "
+                + "Function(ResourceUrlAnnotation? obj);",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "final ResourceUrlAnnotation? p0 = ResourceUrlAnnotation.fromWire(a0);",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "final ResourceUrlAnnotation? changed = await callback(p0);",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains("'p0': (changed ?? p0)?.toJson(),", generated, StringComparison.Ordinal);
+
+        // A callback with no data object argument returns null, and the transport then echoes the
+        // arguments the host sent.
+        Assert.Contains("return null;", generated, StringComparison.Ordinal);
+        var transport = ReadResource("transport.dart");
+        Assert.Contains("'result': result == null ? args : AspireMarshal.encode(result),", transport, StringComparison.Ordinal);
+
+        // A field the decoder cannot convert becomes null instead of failing the whole object.
+        Assert.Contains("static ResourceUrlAnnotation? fromWire(Object? wire) => wire is Map", generated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratedCode_CallbackPropertiesAreWrapped()
+    {
+        var atsContext = CreateContextFromBothAssemblies();
+        var generated = GenerateSource(atsContext);
+
+        var options = Assert.Single(atsContext.DtoTypes, dto => dto.Name == "ProcessCommandExportOptions");
+        var createProcessSpec = Assert.Single(options.Properties, property => property.Name == "CreateProcessSpec");
+        Assert.True(createProcessSpec.IsCallback);
+
+        var module = ExtractClass(generated, "ProcessCommandExportOptions");
+
+        // A callback property is typed by the same typedef as a callback argument.
+        Assert.Contains("final ExecuteCommandCallback2? createProcessSpec;", module, StringComparison.Ordinal);
+
+        // fromJson no longer skips the property. The host sends a callback identifier that the guest
+        // cannot invoke, so the property stays null, and a guest function survives a round trip.
+        Assert.Contains(
+            "createProcessSpec: AspireRuntime.asCallback<ExecuteCommandCallback2>(json['CreateProcessSpec']),",
+            module,
+            StringComparison.Ordinal);
+
+        // toJson wraps the function, so the host sees the same typed arguments as a callback the
+        // caller passes to a capability.
+        Assert.Contains(
+            "final ExecuteCommandCallback2 createProcessSpecCallback = createProcessSpec!;",
+            module,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "final ExecuteCommandContext p0 = ExecuteCommandContext(AspireRuntime.requireHandle(a0, "
+                + "'ProcessCommandExportOptions.createProcessSpec'), AspireTransport.defaultInstance);",
+            module,
+            StringComparison.Ordinal);
+
+        // AspireTransport.request walks the arguments and registers every function it finds, so the
+        // wrapped closure travels as a callback identifier.
+        var transport = ReadResource("transport.dart");
+        Assert.Contains("return registerCallback(value);", transport, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratedCode_NullabilityFollowsAtsTypeRef()
+    {
+        // AtsTypeRef.IsNullable drives the return type and the decode, not a blanket rule. A handle
+        // normally decodes through requireHandle, which throws instead of returning null.
+        var context = CreateContextWithExtraCapability(new AtsCapabilityInfo
+        {
+            CapabilityId = "Aspire.Tests/getOptionalBuilder",
+            MethodName = "getOptionalBuilder",
+            Parameters =
+            [
+                new AtsParameterInfo { Name = "builder", Type = BuilderTypeRef() },
+                new AtsParameterInfo { Name = "fallback", Type = BuilderTypeRef(nullable: true), IsNullable = true }
+            ],
+            ReturnType = BuilderTypeRef(nullable: true),
+            TargetTypeId = AtsConstants.BuilderTypeId,
+            TargetType = BuilderTypeRef(),
+            TargetParameterName = "builder"
+        });
+
+        var generated = GenerateSource(context);
+
+        Assert.Contains(
+            "Future<DistributedApplicationBuilder?> getOptionalBuilder(DistributedApplicationBuilder? fallback) async {",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "return (result == null ? null : DistributedApplicationBuilder("
+                + "AspireRuntime.requireHandle(result, 'Aspire.Tests/getOptionalBuilder'), transport));",
+            generated,
+            StringComparison.Ordinal);
+
+        // A handle that the ATS type does not mark nullable keeps the non-null type.
+        Assert.Contains(
+            "Future<TestRedisResource> addTestRedis(String name, {num? port}) async {",
+            generated,
+            StringComparison.Ordinal);
+    }
+
+    // ── D2.4: documentation ──────────────────────────────────────────────────
+
+    [Fact]
+    public void GenerateDistributedApplication_WithTestTypes_EmitsXmlDocumentationAsDartdoc()
+    {
+        var generated = GenerateSource(CreateContextFromTestAssembly());
+
+        // The ats-* overrides win over the plain XML documentation.
+        Assert.Contains("/// Adds a test Redis resource from ATS documentation.", generated, StringComparison.Ordinal);
+        Assert.Contains("/// * [name] — The ATS resource name.", generated, StringComparison.Ordinal);
+        Assert.Contains("/// The ATS test Redis resource builder.", generated, StringComparison.Ordinal);
+        Assert.Contains("/// ## Parameters", generated, StringComparison.Ordinal);
+        Assert.Contains("/// ## Returns", generated, StringComparison.Ordinal);
+
+        // Remarks reach the dartdoc under the summary.
+        Assert.Contains(
+            "/// This method tests the factory method codegen pattern where a method on builder type A",
+            generated,
+            StringComparison.Ordinal);
+
+        // An empty ats-param and an empty ats-remarks suppress the plain documentation.
+        Assert.DoesNotContain("The optional Redis port.", generated, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Uses XML documentation instead of the attribute description when both are present.",
+            generated,
+            StringComparison.Ordinal);
+
+        // Type, property and enum member documentation all reach the dartdoc.
+        Assert.Contains("/// * [name] — The name of the test config.", generated, StringComparison.Ordinal);
+        Assert.Contains("/// * [pending] — The resource is pending.", generated, StringComparison.Ordinal);
+
+        // An obsolete capability keeps the Dart deprecation annotation. The test assembly declares
+        // none, so the check reads the hosting assembly.
+        Assert.Contains("@Deprecated(", GenerateSource(CreateContextFromBothAssemblies()), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenerateDistributedApplication_WithAtsReference_RendersDocLink()
+    {
+        var generated = GenerateSource(CreateContextFromBothAssemblies());
+
+        // The scanner writes <ats-see cref="!:type:IHost"/> as {@ats-ref type:IHost}. Dartdoc reads
+        // `{@...}` as a directive, so the marker never survives into the generated code.
+        Assert.Contains(
+            "Represents a distributed application that implements the `IHost` and `IAsyncDisposable` interfaces.",
+            generated,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("{@ats-ref", generated, StringComparison.Ordinal);
+
+        // A marker without a label becomes a backtick link. A marker with a label keeps the label
+        // and names the target after it, because dartdoc has no labelled link syntax.
+        Assert.Equal(
+            "See `Foo.bar` and the builder (`DistributedApplicationBuilder`).",
+            AtsDartCodeGenerator.ConvertAtsReferences(
+                "See {@ats-ref method:Foo.bar} and {@ats-ref type:DistributedApplicationBuilder|the builder}."));
+    }
+
+    [Fact]
+    public void GeneratedCode_EveryPublicMethodHasReturnType()
+    {
+        // Dart infers `dynamic` for a declaration that names no type, which would drop every
+        // generated type from the caller. Every generated member has to name its type.
+        var files = _generator.GenerateDistributedApplication(CreateContextFromBothAssemblies());
+
+        var sources = files
+            .Where(file => file.Key.StartsWith("aspire_generated", StringComparison.Ordinal)
+                || string.Equals(file.Key, "aspire.dart", StringComparison.Ordinal))
+            .OrderBy(file => file.Key, StringComparer.Ordinal)
+            .Select(file => file.Value);
+
+        var missing = new List<string>();
+        var checkedMembers = 0;
+
+        foreach (var source in sources)
+        {
+            foreach (var line in source.Split('\n'))
+            {
+                var trimmed = line.Trim();
+
+                // A method declaration ends with ") async {" and holds no assignment. A wrapper
+                // closure such as `args['callback'] = (Object? a0) async {` holds one.
+                if (trimmed.EndsWith(") async {", StringComparison.Ordinal)
+                    && trimmed.Contains('(', StringComparison.Ordinal)
+                    && !trimmed.Contains('=', StringComparison.Ordinal))
+                {
+                    checkedMembers++;
+                    if (!trimmed.StartsWith("Future<", StringComparison.Ordinal))
+                    {
+                        missing.Add(trimmed);
+                    }
+                    continue;
+                }
+
+                if (trimmed.StartsWith("static ", StringComparison.Ordinal)
+                    && trimmed.Contains(" get ", StringComparison.Ordinal))
+                {
+                    checkedMembers++;
+                    // "static <type> get <name> => ..." has four words before the arrow.
+                    if (trimmed.Split(' ').Length < 4)
+                    {
+                        missing.Add(trimmed);
+                    }
+                }
+            }
+        }
+
+        Assert.Empty(missing);
+        Assert.True(checkedMembers > 100, $"Expected many generated members, found {checkedMembers}.");
+    }
+
+    // ── D2.6: watch ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GeneratedCode_HasWatchScript()
+    {
+        var files = _generator.GenerateDistributedApplication(CreateContextFromTestAssembly());
+
+        var watch = files["watch.dart"];
+        Assert.Contains("Future<void> main(List<String> arguments) async {", watch, StringComparison.Ordinal);
+        Assert.Contains("[aspire-watch] restarting:", watch, StringComparison.Ordinal);
+        Assert.Contains("ProcessStartMode.inheritStdio", watch, StringComparison.Ordinal);
+        Assert.Contains("ProcessSignal.sigterm", watch, StringComparison.Ordinal);
+        Assert.Contains("ProcessSignal.sigkill", watch, StringComparison.Ordinal);
+
+        // The watcher is copied without a change, so the Dart tests cover exactly what ships.
+        Assert.Equal(ReadResource("watch.dart"), watch);
+
+        // The entry point must not import the watcher: watch.dart starts a child process and would
+        // run on every AppHost launch.
+        Assert.DoesNotContain("watch.dart", files["aspire.dart"], StringComparison.Ordinal);
+    }
+
     private static async Task<(int ExitCode, string Output)> RunAsync(
         string fileName,
         string workingDirectory,
@@ -548,6 +1082,50 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
         var end = source.IndexOf("\n}\n", start, StringComparison.Ordinal);
         return end < 0 ? source[start..] : source[start..(end + 3)];
     }
+
+    /// <summary>
+    /// Returns the body of one generated method, from its signature to its closing brace.
+    /// </summary>
+    private static string ExtractMethod(string source, string methodName)
+    {
+        var start = source.IndexOf($"> {methodName}(", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Generated code does not define {methodName}.");
+
+        var end = source.IndexOf("\n  }\n", start, StringComparison.Ordinal);
+        return end < 0 ? source[start..] : source[start..(end + 5)];
+    }
+
+    private static string ExtractEnum(string source, string enumName)
+    {
+        var start = source.IndexOf($"enum {enumName} ", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Generated code does not define {enumName}.");
+
+        var end = source.IndexOf("\n}\n", start, StringComparison.Ordinal);
+        return end < 0 ? source[start..] : source[start..(end + 3)];
+    }
+
+    private static AtsContext CreateContextWithExtraCapability(AtsCapabilityInfo capability)
+    {
+        var context = CreateContextFromTestAssembly();
+
+        return new AtsContext
+        {
+            Capabilities = [.. context.Capabilities, capability],
+            HandleTypes = context.HandleTypes,
+            DtoTypes = context.DtoTypes,
+            EnumTypes = context.EnumTypes,
+            ExportedValues = context.ExportedValues,
+            Diagnostics = context.Diagnostics
+        };
+    }
+
+    private static AtsTypeRef BuilderTypeRef(bool nullable = false) => new()
+    {
+        TypeId = AtsConstants.BuilderTypeId,
+        Category = AtsTypeCategory.Handle,
+        IsInterface = true,
+        IsNullable = nullable ? true : null
+    };
 
     private static string ReadResource(string name)
     {

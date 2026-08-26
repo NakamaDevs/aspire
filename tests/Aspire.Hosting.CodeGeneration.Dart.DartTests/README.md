@@ -5,6 +5,8 @@ guest project:
 
 - `src/Aspire.Hosting.CodeGeneration.Dart/Resources/base.dart`
 - `src/Aspire.Hosting.CodeGeneration.Dart/Resources/transport.dart`
+- `src/Aspire.Hosting.CodeGeneration.Dart/Resources/aspire_runtime.dart`
+- `src/Aspire.Hosting.CodeGeneration.Dart/Resources/watch.dart`
 
 The test files import those two files with a relative path, so the tests run
 the same bytes that a user gets in `.aspire/modules/`. The resources use the
@@ -26,6 +28,8 @@ dart analyze --fatal-infos
 | Path | Holds |
 |---|---|
 | `test/aspire_transport_test.dart` | framing, requests, callbacks, and lifecycle |
+| `test/aspire_runtime_test.dart` | reference expressions, typed callbacks, unions, collections |
+| `test/aspire_watch_test.dart` | the AppHost file watcher |
 | `test/env_child_test.dart` | the two cases that need an environment variable |
 | `test/support/fake_host.dart` | a fake AppHost on a temporary Unix socket |
 | `test/support/env_child.dart` | the guest process that `env_child_test.dart` starts |

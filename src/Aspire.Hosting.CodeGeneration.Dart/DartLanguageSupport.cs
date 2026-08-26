@@ -32,6 +32,12 @@ internal sealed class DartLanguageSupport : ILanguageSupport
 
     private const string LanguageDisplayName = "Dart";
 
+    /// <summary>
+    /// The watcher that <see cref="AtsDartCodeGenerator"/> emits beside the generated SDK. The CLI
+    /// runs the command from the AppHost directory, so the relative path resolves.
+    /// </summary>
+    private const string WatchScriptPath = ".aspire/modules/watch.dart";
+
     private static readonly string[] s_detectionPatterns = [AppHostFileName];
 
     /// <inheritdoc />
@@ -153,8 +159,15 @@ internal sealed class DartLanguageSupport : ILanguageSupport
             // `dart run` compiles the AppHost in memory on every launch, so there is no separate
             // build step to keep up to date.
             PreExecute = null,
-            // Watch mode arrives with D2.6.
-            WatchExecute = null,
+            // The generator emits watch.dart beside the SDK. The script polls the modification time
+            // of apphost.dart, of pubspec.yaml and of every `*.dart` file below the AppHost
+            // directory, and it restarts the AppHost on a change. The CLI replaces {appHostFile}
+            // with the AppHost path.
+            WatchExecute = new CommandSpec
+            {
+                Command = "dart",
+                Args = ["run", WatchScriptPath, "{appHostFile}"]
+            },
             Execute = new CommandSpec
             {
                 Command = "dart",
