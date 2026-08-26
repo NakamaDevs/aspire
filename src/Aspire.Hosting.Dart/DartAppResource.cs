@@ -29,8 +29,29 @@ namespace Aspire.Hosting.Dart;
 /// builder.Build().Run();
 /// </code>
 /// </example>
-/// <param name="name">The name of the resource in the application model.</param>
-/// <param name="workingDirectory">The working directory for the Dart application, typically the directory that contains <c>pubspec.yaml</c>.</param>
 [AspireExport(ExposeProperties = true)]
-public class DartAppResource(string name, string workingDirectory)
-    : ExecutableResource(name, "dart", workingDirectory), IResourceWithServiceDiscovery, IContainerFilesDestinationResource;
+public class DartAppResource
+    : ExecutableResource, IResourceWithServiceDiscovery, IContainerFilesDestinationResource
+{
+    /// <param name="name">The name of the resource in the application model.</param>
+    /// <param name="workingDirectory">The working directory for the Dart application, typically the directory that contains <c>pubspec.yaml</c>.</param>
+    public DartAppResource(string name, string workingDirectory)
+        : this(name, "dart", workingDirectory)
+    {
+    }
+
+    /// <summary>
+    /// Creates a Dart application resource that a different command starts.
+    /// </summary>
+    /// <remarks>
+    /// A Dart framework can supply its own command-line tool, for example <c>jaspr</c>. That tool
+    /// starts the application instead of <c>dart</c>, but the resource keeps the Dart behavior.
+    /// </remarks>
+    /// <param name="name">The name of the resource in the application model.</param>
+    /// <param name="command">The command that starts the application.</param>
+    /// <param name="workingDirectory">The working directory for the Dart application, typically the directory that contains <c>pubspec.yaml</c>.</param>
+    protected DartAppResource(string name, string command, string workingDirectory)
+        : base(name, command, workingDirectory)
+    {
+    }
+}

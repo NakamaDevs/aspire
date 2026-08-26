@@ -14,16 +14,58 @@ namespace Aspire.Hosting
         public static ApplicationModel.IResourceBuilder<Dart.DartAppResource> AddDartApp(this IDistributedApplicationBuilder builder, string name, string appDirectory, string entrypoint = "bin/main.dart") { throw null; }
 
         [AspireExport]
+        public static ApplicationModel.IResourceBuilder<Dart.JasprAppResource> AddJasprApp(this IDistributedApplicationBuilder builder, string name, string appDirectory) { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<Dart.ServerpodAppResource> AddServerpodApp(this IDistributedApplicationBuilder builder, string name, string serverDirectory) { throw null; }
+
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<T> WithAppArgs<T>(this ApplicationModel.IResourceBuilder<T> builder, params object[] args)
             where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithApplyMigrations<T>(this ApplicationModel.IResourceBuilder<T> builder, bool applyMigrations = true)
+            where T : Dart.ServerpodAppResource { throw null; }
 
         [AspireExport]
         public static ApplicationModel.IResourceBuilder<T> WithDartDefine<T>(this ApplicationModel.IResourceBuilder<T> builder, string key, string value)
             where T : Dart.DartAppResource { throw null; }
 
         [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithDartRunArgs<T>(this ApplicationModel.IResourceBuilder<T> builder, params string[] args)
+            where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithEntrypoint<T>(this ApplicationModel.IResourceBuilder<T> builder, string entrypoint)
+            where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithJasprDevPorts<T>(this ApplicationModel.IResourceBuilder<T> builder, int? webPort = null, int? proxyPort = null)
+            where T : Dart.JasprAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithJasprMode<T>(this ApplicationModel.IResourceBuilder<T> builder, Dart.JasprMode mode)
+            where T : Dart.JasprAppResource { throw null; }
+
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<T> WithPubGet<T>(this ApplicationModel.IResourceBuilder<T> builder, bool install = true)
             where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithRunCommand<T>(this ApplicationModel.IResourceBuilder<T> builder, string command, params object[] args)
+            where T : Dart.DartAppResource { throw null; }
+
+        [AspireExport("withDartServerpodDatabase", MethodName = "withServerpodDatabase")]
+        public static ApplicationModel.IResourceBuilder<T> WithServerpodDatabase<T>(this ApplicationModel.IResourceBuilder<T> builder, ApplicationModel.IResourceBuilder<ApplicationModel.IResourceWithConnectionString> database)
+            where T : Dart.ServerpodAppResource { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<T> WithServerpodMode<T>(this ApplicationModel.IResourceBuilder<T> builder, string mode)
+            where T : Dart.ServerpodAppResource { throw null; }
+
+        [AspireExport("withDartServerpodRedis", MethodName = "withServerpodRedis")]
+        public static ApplicationModel.IResourceBuilder<T> WithServerpodRedis<T>(this ApplicationModel.IResourceBuilder<T> builder, ApplicationModel.IResourceBuilder<ApplicationModel.IResourceWithConnectionString> cache)
+            where T : Dart.ServerpodAppResource { throw null; }
     }
 }
 
@@ -32,6 +74,27 @@ namespace Aspire.Hosting.Dart
     [AspireExport(ExposeProperties = true)]
     public partial class DartAppResource : ApplicationModel.ExecutableResource, IResourceWithServiceDiscovery, ApplicationModel.IResourceWithEndpoints, ApplicationModel.IResource, ApplicationModel.IContainerFilesDestinationResource
     {
+        protected DartAppResource(string name, string command, string workingDirectory) : base(default!, default!, default!) { }
+
         public DartAppResource(string name, string workingDirectory) : base(default!, default!, default!) { }
+    }
+
+    [AspireExport(ExposeProperties = true)]
+    public partial class JasprAppResource : DartAppResource
+    {
+        public JasprAppResource(string name, string workingDirectory) : base(default!, default!) { }
+    }
+
+    public enum JasprMode
+    {
+        Static = 0,
+        Server = 1,
+        Client = 2
+    }
+
+    [AspireExport(ExposeProperties = true)]
+    public partial class ServerpodAppResource : DartAppResource
+    {
+        public ServerpodAppResource(string name, string workingDirectory) : base(default!, default!) { }
     }
 }
