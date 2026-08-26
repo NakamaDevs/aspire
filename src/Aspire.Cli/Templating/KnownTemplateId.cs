@@ -59,6 +59,11 @@ internal static class KnownTemplateId
     public const string ElixirEmptyAppHost = "aspire-elixir-empty";
 
     /// <summary>
+    /// The template ID for the CLI Dart empty AppHost template.
+    /// </summary>
+    public const string DartEmptyAppHost = "aspire-dart-empty";
+
+    /// <summary>
     /// The template ID for the Go starter template (Redis + Go HTTP API).
     /// </summary>
     public const string GoStarter = "aspire-go-starter";
