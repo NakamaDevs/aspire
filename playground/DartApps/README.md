@@ -38,6 +38,10 @@ Aspire supplies `SERVERPOD_PASSWORD_database` and `SERVERPOD_PASSWORD_redis` fro
 and Redis resources; the other keys in the file (service secret, auth peppers) come from this
 file in development.
 
+A run on 2026-08-26 confirmed this path. With the placeholder values from the example file, `api`
+reached Running, `GET /` on its API endpoint returned 200, and `worker` logged
+`poll N api status=200`. Serverpod does not check the content of these values in development.
+
 ## Layout
 
 | Path | Holds |
@@ -54,8 +58,8 @@ file in development.
   needs `jaspr` only, because `AddJasprApp` starts `jaspr serve`.
 - A container runtime for the PostgreSQL and the Redis container.
 - Network access on the first run, because `dart pub get` reads from pub.dev.
-- `serverpod_api_server/config/passwords.yaml` must exist. `serverpod create` writes it, and the
-  Serverpod `.gitignore` keeps it out of version control. See "Known limits".
+- `serverpod_api_server/config/passwords.yaml` must exist. See
+  "Before the first run: Serverpod passwords" above.
 
 ## How to run
 
@@ -233,12 +237,6 @@ The `out` directory is a run artifact. Delete it after the check.
 
 ## Known limits
 
-- `serverpod_api_server/config/passwords.yaml` holds the Serverpod development passwords, the
-  service secret, and the authentication peppers. `serverpod create` generates the file, and the
-  Serverpod `.gitignore` keeps it out of version control. A fresh clone must therefore run
-  `serverpod create` again, or copy the file, before the `api` resource can start. Aspire supplies
-  the database password and the Redis password through `SERVERPOD_PASSWORD_database` and
-  `SERVERPOD_PASSWORD_redis`, but not the other values.
 - The first `site` start takes minutes. `jaspr serve` runs `build_runner`, which compiles the
   whole dependency tree. The resource reaches Running before the first page is ready, so a request
   can fail until the build ends.

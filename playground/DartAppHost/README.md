@@ -121,7 +121,7 @@ Serverpod 3.4.12, and Jaspr 0.23.4. The CLI came from
 | 5. Worker reads the API | Pass | `services__api__api__0=http://localhost:50703` on the worker resource. |
 | 6. Watch restart | Pass | See the watch section below. |
 | 7. Stop | Pass | `aspire stop` reported success. No `dart`, `dartvm`, `dartaotruntime`, or `jaspr` process of this playground remained. |
-| 8. Publish | Pass | See the publish section below. |
+| 8. Publish | Pass, with a defect | The pipeline succeeds and writes every artifact, but the AppHost process does not exit. See the publish section and "Known limits". |
 
 ### Step 3: resource states
 
@@ -199,6 +199,10 @@ out/worker.Dockerfile
 out/worker.Dockerfile.dockerignore
 ```
 
+The command does not return. The pipeline reported success 10 seconds after the start, and it
+wrote every file in the list above. The AppHost process stayed alive after that. See
+"`aspire publish` does not return" below.
+
 `out/docker-compose.yaml` holds the services `compose-dashboard`, `pg`, `cache`, `api`, `site`,
 `worker`, and `aspire`. The `api` service runs `--mode production --apply-migrations` and reads
 `SERVERPOD_RUN_MODE=production`.
@@ -234,6 +238,38 @@ Resource asResource(AspireObject resource) =>
 The wire value is the handle, so the host accepts the rebuilt wrapper. The generator should emit
 these conversions, or make each resource class implement the interface classes that its .NET type
 implements. Elixir does not show the problem, because Elixir is dynamically typed.
+
+### `aspire publish` does not return
+
+The publish pipeline succeeds and writes every artifact, but the Dart AppHost process does not
+exit. `aspire publish` waits for that process, so the command hangs. Stop it with `CTRL+C`, or
+stop the AppHost process, after the log prints `Pipeline succeeded`. The artifacts in `out` are
+complete at that point.
+
+One measured run:
+
+```
+16:10:39  aspire publish -o ./out starts
+16:10:49  ✅ 7/7 steps succeeded / ✅ Pipeline succeeded, all 6 files written
+16:13:22  dart apphost.dart --operation publish --step publish is still alive (2 m 33 s later);
+          killed by hand
+16:13:27  the CLI exits with code 0
+```
+
+An earlier attempt ran for the full 600-second command timeout in the same state.
+
+The cause is the transport lifetime, not the pipeline. `AspireTransport` in
+`src/Aspire.Hosting.CodeGeneration.Dart/Resources/transport.dart` opens a `Socket` and keeps a
+`listen` subscription on it. Nothing calls `transport.close()` after `app.run()` returns, and an
+active socket subscription keeps the Dart event loop alive, so `dart run apphost.dart` never
+exits. The scaffolded `apphost.dart` in
+`src/Aspire.Hosting.CodeGeneration.Dart/DartLanguageSupport.cs` ends with `await app.run();` and
+closes nothing.
+
+Run mode hides the problem, because the CLI stops the AppHost process itself. Elixir does not
+show it, because `elixir apphost.exs` halts the VM when the script ends, whatever the state of
+its `gen_tcp` socket. The C# AppHost in `../DartApps` is not affected:
+`dotnet run -- --publisher manifest` returns with exit code 0.
 
 ### A watch restart can break the Jaspr site
 
