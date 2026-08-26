@@ -1,0 +1,38 @@
+# Polyglot Dockerfile for Dart AppHost E2E tests.
+# Extends the shared polyglot base with the Dart SDK that Dart AppHosts need.
+#
+# The CLI runs apphost.dart with `dart run`, it restores the AppHost with `dart pub get`, and an
+# AddDartApp resource runs with `dart run`, so the Dart SDK must be on the PATH.
+#
+# The Ubuntu 24.04 archive carries no Dart package. The official `dart` image is built on Debian, so
+# this file copies the SDK out of it instead of adding a third-party apt repository. The SDK is
+# self-contained: it needs only a C library and a TLS library, which the base image already has.
+
+FROM dart:3.12 AS dart
+
+FROM aspire-e2e-polyglot-base
+
+ARG UBUNTU_APT_MIRROR=
+
+COPY tests/Shared/Docker/configure-ubuntu-apt-mirror.sh /usr/local/bin/
+RUN sh /usr/local/bin/configure-ubuntu-apt-mirror.sh "$UBUNTU_APT_MIRROR"
+
+COPY --from=dart /usr/lib/dart /usr/lib/dart
+
+ENV DART_SDK=/usr/lib/dart
+ENV PATH="/usr/lib/dart/bin:/root/.pub-cache/bin:${PATH}"
+
+# `dart pub get` writes to the cache directory. The AppHost manifest declares no dependency, so the
+# command needs no network access, but it still needs a writable cache.
+ENV PUB_CACHE=/root/.pub-cache
+RUN mkdir -p "$PUB_CACHE"
+
+# Fail the image build instead of the test run when the SDK is missing or incomplete. The probe also
+# proves that `dart pub get` works with no network access, which is what `aspire restore` needs.
+RUN dart --version && \
+    mkdir -p /tmp/dart-probe && cd /tmp/dart-probe && \
+    printf 'name: probe\npublish_to: none\nenvironment:\n  sdk: ^3.8.0\n' > pubspec.yaml && \
+    printf 'void main() { print("dart probe ok"); }\n' > main.dart && \
+    dart pub get && \
+    dart run main.dart && \
+    cd / && rm -rf /tmp/dart-probe

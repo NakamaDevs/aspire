@@ -496,9 +496,10 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
         Assert.Contains("final num? port;", dto, StringComparison.Ordinal);
         Assert.Contains("final bool? enabled;", dto, StringComparison.Ordinal);
 
-        // The wire form keeps the .NET property names and leaves out the null properties.
-        Assert.Contains("name: AspireRuntime.asString(json['Name']),", dto, StringComparison.Ordinal);
-        Assert.Contains("json['Name'] = name;", dto, StringComparison.Ordinal);
+        // The host marshals a data object with the camelCase naming policy, so the wire form uses
+        // the camelCase name and leaves out the null properties.
+        Assert.Contains("name: AspireRuntime.asString(json['name']),", dto, StringComparison.Ordinal);
+        Assert.Contains("json['name'] = name;", dto, StringComparison.Ordinal);
         Assert.Contains("Object? toWire() => toJson();", dto, StringComparison.Ordinal);
 
         // The property documentation reaches the class dartdoc above the declaration.
@@ -514,7 +515,7 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
 
         // A nested data object decodes into its own class.
         Assert.Contains("final TestConfigDto? config;", dto, StringComparison.Ordinal);
-        Assert.Contains("config: TestConfigDto.fromWire(json['Config']),", dto, StringComparison.Ordinal);
+        Assert.Contains("config: TestConfigDto.fromWire(json['config']),", dto, StringComparison.Ordinal);
 
         // A data object carries its collections by value, so no collection handle appears here.
         Assert.Contains("final List<String?>? tags;", dto, StringComparison.Ordinal);
@@ -629,7 +630,7 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
             "withHttpCommand(String path, String displayName, {CommandOptions? commandOptions,",
             generated,
             StringComparison.Ordinal);
-        Assert.Contains("options['CommandName'] = commandName;", generated, StringComparison.Ordinal);
+        Assert.Contains("options['commandName'] = commandName;", generated, StringComparison.Ordinal);
         Assert.Contains("args['options'] = options;", generated, StringComparison.Ordinal);
 
         // The map is only sent when the caller passed at least one property.
@@ -821,7 +822,7 @@ public class AtsDartCodeGeneratorTests(ITestOutputHelper outputHelper)
         // fromJson no longer skips the property. The host sends a callback identifier that the guest
         // cannot invoke, so the property stays null, and a guest function survives a round trip.
         Assert.Contains(
-            "createProcessSpec: AspireRuntime.asCallback<ExecuteCommandCallback2>(json['CreateProcessSpec']),",
+            "createProcessSpec: AspireRuntime.asCallback<ExecuteCommandCallback2>(json['createProcessSpec']),",
             module,
             StringComparison.Ordinal);
 

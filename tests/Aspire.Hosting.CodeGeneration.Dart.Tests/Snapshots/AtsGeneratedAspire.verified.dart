@@ -142,10 +142,10 @@ class TestConfigDto implements AspireWireValue {
 
   /// Builds the data object from its wire form.
   factory TestConfigDto.fromJson(Map<String, Object?> json) => TestConfigDto(
-    name: AspireRuntime.asString(json['Name']),
-    port: AspireRuntime.asNum(json['Port']),
-    enabled: AspireRuntime.asBool(json['Enabled']),
-    optionalField: AspireRuntime.asString(json['OptionalField']),
+    name: AspireRuntime.asString(json['name']),
+    port: AspireRuntime.asNum(json['port']),
+    enabled: AspireRuntime.asBool(json['enabled']),
+    optionalField: AspireRuntime.asString(json['optionalField']),
   );
 
   /// Returns the data object that [wire] holds, or null when [wire] is not an object.
@@ -171,16 +171,16 @@ class TestConfigDto implements AspireWireValue {
   Map<String, Object?> toJson() {
     final Map<String, Object?> json = <String, Object?>{};
     if (name != null) {
-      json['Name'] = name;
+      json['name'] = name;
     }
     if (port != null) {
-      json['Port'] = port;
+      json['port'] = port;
     }
     if (enabled != null) {
-      json['Enabled'] = enabled;
+      json['enabled'] = enabled;
     }
     if (optionalField != null) {
-      json['OptionalField'] = optionalField;
+      json['optionalField'] = optionalField;
     }
     return json;
   }
@@ -205,8 +205,8 @@ class TestDeeplyNestedDto implements AspireWireValue {
 
   /// Builds the data object from its wire form.
   factory TestDeeplyNestedDto.fromJson(Map<String, Object?> json) => TestDeeplyNestedDto(
-    nestedData: AspireRuntime.asMap<List<TestConfigDto?>?>(json['NestedData'], (Object? item) => AspireRuntime.asList<TestConfigDto?>(item, (Object? item) => TestConfigDto.fromWire(item))),
-    metadataArray: AspireRuntime.asList<Map<String, String?>?>(json['MetadataArray'], (Object? item) => AspireRuntime.asMap<String?>(item, (Object? item) => AspireRuntime.asString(item))),
+    nestedData: AspireRuntime.asMap<List<TestConfigDto?>?>(json['nestedData'], (Object? item) => AspireRuntime.asList<TestConfigDto?>(item, (Object? item) => TestConfigDto.fromWire(item))),
+    metadataArray: AspireRuntime.asList<Map<String, String?>?>(json['metadataArray'], (Object? item) => AspireRuntime.asMap<String?>(item, (Object? item) => AspireRuntime.asString(item))),
   );
 
   /// Returns the data object that [wire] holds, or null when [wire] is not an object.
@@ -226,10 +226,10 @@ class TestDeeplyNestedDto implements AspireWireValue {
   Map<String, Object?> toJson() {
     final Map<String, Object?> json = <String, Object?>{};
     if (nestedData != null) {
-      json['NestedData'] = nestedData;
+      json['nestedData'] = nestedData;
     }
     if (metadataArray != null) {
-      json['MetadataArray'] = metadataArray;
+      json['metadataArray'] = metadataArray;
     }
     return json;
   }
@@ -251,10 +251,10 @@ class TestNestedDto implements AspireWireValue {
 
   /// Builds the data object from its wire form.
   factory TestNestedDto.fromJson(Map<String, Object?> json) => TestNestedDto(
-    id: AspireRuntime.asString(json['Id']),
-    config: TestConfigDto.fromWire(json['Config']),
-    tags: AspireRuntime.asList<String?>(json['Tags'], (Object? item) => AspireRuntime.asString(item)),
-    counts: AspireRuntime.asMap<num?>(json['Counts'], (Object? item) => AspireRuntime.asNum(item)),
+    id: AspireRuntime.asString(json['id']),
+    config: TestConfigDto.fromWire(json['config']),
+    tags: AspireRuntime.asList<String?>(json['tags'], (Object? item) => AspireRuntime.asString(item)),
+    counts: AspireRuntime.asMap<num?>(json['counts'], (Object? item) => AspireRuntime.asNum(item)),
   );
 
   /// Returns the data object that [wire] holds, or null when [wire] is not an object.
@@ -262,16 +262,16 @@ class TestNestedDto implements AspireWireValue {
     ? TestNestedDto.fromJson(AspireRuntime.asObject(wire))
     : null;
 
-  /// The `Id` property.
+  /// The `id` property.
   final String? id;
 
-  /// The `Config` property.
+  /// The `config` property.
   final TestConfigDto? config;
 
-  /// The `Tags` property.
+  /// The `tags` property.
   final List<String?>? tags;
 
-  /// The `Counts` property.
+  /// The `counts` property.
   final Map<String, num?>? counts;
 
   /// Returns the wire form of the data object.
@@ -280,16 +280,16 @@ class TestNestedDto implements AspireWireValue {
   Map<String, Object?> toJson() {
     final Map<String, Object?> json = <String, Object?>{};
     if (id != null) {
-      json['Id'] = id;
+      json['id'] = id;
     }
     if (config != null) {
-      json['Config'] = config!.toJson();
+      json['config'] = config!.toJson();
     }
     if (tags != null) {
-      json['Tags'] = tags;
+      json['tags'] = tags;
     }
     if (counts != null) {
-      json['Counts'] = counts;
+      json['counts'] = counts;
     }
     return json;
   }
@@ -304,10 +304,10 @@ class TestNestedDto implements AspireWireValue {
 /// The values are snapped when the SDK is generated.
 abstract final class TestConfigs {
   /// The default test configuration.
-  static TestConfigDto? get default_ => TestConfigDto.fromWire(const <String, Object?>{'Name': 'default', 'Port': 6379, 'Enabled': true, 'OptionalField': 'cache'});
+  static TestConfigDto? get default_ => TestConfigDto.fromWire(const <String, Object?>{'name': 'default', 'port': 6379, 'enabled': true, 'optionalField': 'cache'});
 
   /// The exported `TestConfigs.Secure` value.
-  static TestConfigDto? get secure => TestConfigDto.fromWire(const <String, Object?>{'Name': 'secure', 'Port': 6380, 'Enabled': true, 'OptionalField': null});
+  static TestConfigDto? get secure => TestConfigDto.fromWire(const <String, Object?>{'name': 'secure', 'port': 6380, 'enabled': true, 'optionalField': null});
 
   /// The exported `TestConfigs.UnicodeGreeting` value.
   static String get unicodeGreeting => '你好こんにちは';
@@ -318,7 +318,7 @@ abstract final class TestConfigs {
 /// The values are snapped when the SDK is generated.
 abstract final class TestConfigsProfiles {
   /// The exported `TestConfigs.Profiles.Development` value.
-  static TestConfigDto? get development => TestConfigDto.fromWire(const <String, Object?>{'Name': 'development', 'Port': 5001, 'Enabled': false, 'OptionalField': null});
+  static TestConfigDto? get development => TestConfigDto.fromWire(const <String, Object?>{'name': 'development', 'port': 5001, 'enabled': false, 'optionalField': null});
 }
 
 /// A handle to the `Aspire.Hosting/Aspire.Hosting.IDistributedApplicationBuilder` object in the AppHost.

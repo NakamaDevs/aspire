@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Aspire.Shared.CodeGeneration;
 using Aspire.TypeSystem;
@@ -660,7 +661,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
     /// </remarks>
     private static (string DartType, string Expression) ExportedValueLiteral(DartModel model, AtsExportedValueInfo value)
     {
-        var literal = DartLiteral(value.Value);
+        var literal = DartLiteral(model, value.Value, value.Type);
         var typeRef = value.Type;
 
         if (typeRef is not null)
@@ -717,7 +718,16 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
         return ("Object?", literal);
     }
 
-    private static string DartLiteral(JsonNode? node)
+    /// <summary>
+    /// Renders one snapped exported value as a Dart literal.
+    /// </summary>
+    /// <remarks>
+    /// The ATS scanner snaps a data object with the .NET property names, and the generated
+    /// <c>fromJson</c> reads the wire names that the host uses. This method therefore renders the
+    /// property of a data object under its wire name. It needs <paramref name="typeRef"/> to do that,
+    /// because a dictionary key is data and must stay unchanged.
+    /// </remarks>
+    private static string DartLiteral(DartModel model, JsonNode? node, AtsTypeRef? typeRef)
     {
         switch (node)
         {
@@ -725,15 +735,16 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
                 return "null";
 
             case JsonArray array:
-                var items = array.Select(DartLiteral).ToList();
+                var elementType = typeRef?.Category is AtsTypeCategory.Array or AtsTypeCategory.List
+                    ? typeRef.ElementType
+                    : null;
+                var items = array.Select(item => DartLiteral(model, item, elementType)).ToList();
                 return items.Count == 0
                     ? "const <Object?>[]"
                     : "const <Object?>[" + string.Join(", ", items) + "]";
 
             case JsonObject jsonObject:
-                var entries = jsonObject
-                    .Select(pair => $"'{EscapeString(pair.Key)}': {DartLiteral(pair.Value)}")
-                    .ToList();
+                var entries = RenderObjectEntries(model, jsonObject, typeRef);
                 return entries.Count == 0
                     ? "const <String, Object?>{}"
                     : "const <String, Object?>{" + string.Join(", ", entries) + "}";
@@ -752,6 +763,42 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             default:
                 return "null";
         }
+    }
+
+    /// <summary>
+    /// Renders the entries of one snapped JSON object. See <see cref="DartLiteral"/>.
+    /// </summary>
+    private static List<string> RenderObjectEntries(DartModel model, JsonObject jsonObject, AtsTypeRef? typeRef)
+    {
+        // A data object carries its properties under the wire names, and the scanner snapped them
+        // under the .NET names, so the properties of the ATS type name the entries.
+        if (typeRef?.Category == AtsTypeCategory.Dto)
+        {
+            var dto = model.Context.DtoTypes.FirstOrDefault(candidate =>
+                string.Equals(candidate.TypeId, typeRef.TypeId, StringComparison.Ordinal));
+
+            if (dto is not null)
+            {
+                var properties = new List<string>();
+                foreach (var property in dto.Properties)
+                {
+                    if (jsonObject.TryGetPropertyValue(property.Name, out var propertyValue))
+                    {
+                        properties.Add(
+                            $"'{EscapeString(ToWireName(property.Name))}': {DartLiteral(model, propertyValue, property.Type)}");
+                    }
+                }
+
+                return properties;
+            }
+        }
+
+        // A dictionary key is data, so it stays unchanged.
+        var valueType = typeRef?.Category == AtsTypeCategory.Dict ? typeRef.ValueType : null;
+
+        return jsonObject
+            .Select(pair => $"'{EscapeString(pair.Key)}': {DartLiteral(model, pair.Value, valueType)}")
+            .ToList();
     }
 
     // ── Handle classes ───────────────────────────────────────────────────────
@@ -1862,6 +1909,17 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
             : sanitized;
     }
 
+    /// <summary>
+    /// Returns the wire name of a data object property.
+    /// </summary>
+    /// <remarks>
+    /// The host marshals a data object with <see cref="JsonNamingPolicy.CamelCase"/>, so the property
+    /// that .NET names <c>Url</c> arrives as <c>url</c>. The same policy names the property that the
+    /// host reads back after a callback changes a data object. This method therefore uses that policy
+    /// and not <see cref="ToCamelCase"/>, which also sanitizes an identifier for Dart.
+    /// </remarks>
+    private static string ToWireName(string name) => JsonNamingPolicy.CamelCase.ConvertName(name);
+
     private static string ToCamelCase(string name)
     {
         var sanitized = SanitizeIdentifier(name);
@@ -2192,7 +2250,7 @@ internal sealed class AtsDartCodeGenerator : ICodeGenerator
 
                         return new DartProperty(
                             names[property.Name],
-                            property.Name,
+                            ToWireName(property.Name),
                             property.Type,
                             property.IsCallback,
                             property.Description,
