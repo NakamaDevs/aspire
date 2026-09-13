@@ -734,6 +734,18 @@ internal static class CliE2EAutomatorHelpers
     }
 
     /// <summary>
+    /// Enables experimental Dart polyglot support for CLI tests.
+    /// </summary>
+    internal static async Task EnableExperimentalDartSupportAsync(
+        this Hex1bTerminalAutomator auto,
+        SequenceCounter counter)
+    {
+        await auto.TypeAsync("aspire config set features:experimentalPolyglot:dart true --global --non-interactive");
+        await auto.EnterAsync();
+        await auto.WaitForSuccessPromptAsync(counter);
+    }
+
+    /// <summary>
     /// Installs a specific GA version of the Aspire CLI using the install script.
     /// </summary>
     internal static async Task InstallAspireCliVersionAsync(

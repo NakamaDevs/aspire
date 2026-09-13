@@ -34,6 +34,7 @@ internal static class KnownFeatures
     public static string ExperimentalPolyglotGo => "experimentalPolyglot:go";
     public static string ExperimentalPolyglotPython => "experimentalPolyglot:python";
     public static string ExperimentalPolyglotElixir => "experimentalPolyglot:elixir";
+    public static string ExperimentalPolyglotDart => "experimentalPolyglot:dart";
     public static string NuGetSignatureVerificationEnabled => "nugetSignatureVerificationEnabled";
     public static string AspireSkillsRemoteFetchEnabled => "aspireSkillsRemoteFetchEnabled";
     public static string TerminalCommandsEnabled => "terminalCommandsEnabled";
@@ -89,6 +90,11 @@ internal static class KnownFeatures
         [ExperimentalPolyglotElixir] = new(
             ExperimentalPolyglotElixir,
             "Enable or disable experimental Elixir language support for polyglot Aspire applications",
+            DefaultValue: false),
+
+        [ExperimentalPolyglotDart] = new(
+            ExperimentalPolyglotDart,
+            "Enable or disable experimental Dart language support for polyglot Aspire applications",
             DefaultValue: false),
 
         [NuGetSignatureVerificationEnabled] = new(

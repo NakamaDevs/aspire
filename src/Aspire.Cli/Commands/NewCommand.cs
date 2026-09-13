@@ -157,6 +157,7 @@ internal sealed class NewCommand : BaseCommand
             KnownLanguageId.Java => KnownLanguageId.JavaDisplayName,
             KnownLanguageId.Rust => KnownLanguageId.RustDisplayName,
             KnownLanguageId.Elixir => KnownLanguageId.ElixirDisplayName,
+            KnownLanguageId.Dart => KnownLanguageId.DartDisplayName,
             _ => languageId
         };
     }

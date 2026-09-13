@@ -8,6 +8,7 @@ require_dotnet="false"
 require_polyglot="false"
 require_java="false"
 require_elixir="false"
+require_dart="false"
 
 usage() {
   cat <<'EOF'
@@ -23,6 +24,7 @@ Options:
   --require-polyglot <mode>   true, false, or auto. Defaults to false.
   --require-java <mode>       true, false, or auto. Defaults to false.
   --require-elixir <mode>     true, false, or auto. Defaults to false.
+  --require-dart <mode>       true, false, or auto. Defaults to false.
 
 Mode behavior:
   true   The tarball must exist. Load it, export IMAGE and REQUIRE=true.
@@ -115,6 +117,14 @@ while [[ $# -gt 0 ]]; do
       require_elixir="$(normalize_mode "--require-elixir" "${1#*=}")"
       shift
       ;;
+    --require-dart)
+      require_dart="$(normalize_mode "$1" "$(read_value_arg "$1" "${2:-}")")"
+      shift 2
+      ;;
+    --require-dart=*)
+      require_dart="$(normalize_mode "--require-dart" "${1#*=}")"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -200,3 +210,9 @@ load_image "Elixir polyglot" "$require_elixir" \
   "aspire-cli-e2e-polyglot-elixir:prebuilt" \
   "ASPIRE_E2E_POLYGLOT_ELIXIR_IMAGE" \
   "ASPIRE_E2E_REQUIRE_POLYGLOT_ELIXIR_IMAGE"
+
+load_image "Dart polyglot" "$require_dart" \
+  "aspire-cli-e2e-polyglot-dart.tar.gz" \
+  "aspire-cli-e2e-polyglot-dart:prebuilt" \
+  "ASPIRE_E2E_POLYGLOT_DART_IMAGE" \
+  "ASPIRE_E2E_REQUIRE_POLYGLOT_DART_IMAGE"

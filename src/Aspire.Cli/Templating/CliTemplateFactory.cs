@@ -25,7 +25,8 @@ internal sealed partial class CliTemplateFactory : ITemplateFactory
         KnownLanguageId.Go,
         KnownLanguageId.Java,
         KnownLanguageId.Rust,
-        KnownLanguageId.Elixir
+        KnownLanguageId.Elixir,
+        KnownLanguageId.Dart
     ];
 
     private static readonly HashSet<string> s_binaryTemplateExtensions =
@@ -200,6 +201,17 @@ internal sealed partial class CliTemplateFactory : ITemplateFactory
                 ApplyEmptyAppHostTemplateAsync,
                 runtime: TemplateRuntime.Cli,
                 languageId: KnownLanguageId.Elixir,
+                isEmpty: true,
+                showInPrompt: false),
+
+            new CallbackTemplate(
+                KnownTemplateId.DartEmptyAppHost,
+                "Empty (Dart AppHost)",
+                (ctx, projectName) => OutputPathHelper.GetUniqueDefaultOutputPath(projectName, ctx.WorkingDirectory.FullName),
+                cmd => AddOptionIfMissing(cmd, _localhostTldOption),
+                ApplyEmptyAppHostTemplateAsync,
+                runtime: TemplateRuntime.Cli,
+                languageId: KnownLanguageId.Dart,
                 isEmpty: true,
                 showInPrompt: false),
 

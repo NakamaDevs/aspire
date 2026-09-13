@@ -78,4 +78,14 @@ internal static class KnownLanguageId
     /// The display name for Elixir AppHost projects.
     /// </summary>
     public const string ElixirDisplayName = "Elixir";
+
+    /// <summary>
+    /// The language ID for Dart AppHost projects.
+    /// </summary>
+    public const string Dart = "dart";
+
+    /// <summary>
+    /// The display name for Dart AppHost projects.
+    /// </summary>
+    public const string DartDisplayName = "Dart";
 }

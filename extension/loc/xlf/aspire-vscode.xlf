@@ -232,6 +232,12 @@
     <trans-unit id="aspire-vscode.strings.installCliDailyBuild">
       <source xml:lang="en">Daily build (dev)</source>
     </trans-unit>
+    <trans-unit id="aspire-vscode.strings.dartLabel">
+      <source xml:lang="en">Dart</source>
+    </trans-unit>
+    <trans-unit id="aspire-vscode.strings.dartDisplayName">
+      <source xml:lang="en">Dart: {0}</source>
+    </trans-unit>
     <trans-unit id="aspire-vscode.strings.dashboard">
       <source xml:lang="en">Dashboard</source>
     </trans-unit>
@@ -820,6 +826,9 @@
     <trans-unit id="aspire-vscode.strings.debuggerSetupNotification">
       <source xml:lang="en">Set up {0} debugging support to debug resources in this app.</source>
     </trans-unit>
+    <trans-unit id="aspire-vscode.strings.dartCodeNotInstalledHint">
+      <source xml:lang="en">Set up {0} in the Extensions view to debug Dart resources started by this app.</source>
+    </trans-unit>
     <trans-unit id="aspire-vscode.strings.elixirLSNotInstalledHint">
       <source xml:lang="en">Set up {0} in the Extensions view to debug Elixir resources started by this app.</source>
     </trans-unit>
@@ -930,6 +939,9 @@
     </trans-unit>
     <trans-unit id="views.appHosts.errorWelcome">
       <source xml:lang="en">The Aspire panel workspace view requires Aspire CLI 13.2.0 or newer and an AppHost that references Aspire.Hosting 13.2.0 or newer. Install or update the Aspire CLI and update your AppHost package to get started.&#10;[Update Aspire CLI](command:aspire-vscode.updateSelf)&#10;[Refresh](command:aspire-vscode.globalRefreshAppHosts)</source>
+    </trans-unit>
+    <trans-unit id="aspire-vscode.strings.dartAppHostRunningWithoutDebugger">
+      <source xml:lang="en">The Dart AppHost script starts as a plain process without a debugger attached.</source>
     </trans-unit>
     <trans-unit id="aspire-vscode.strings.elixirAppHostRunningWithoutDebugger">
       <source xml:lang="en">The Elixir AppHost script is not a Mix project, so it starts without a debugger attached.</source>

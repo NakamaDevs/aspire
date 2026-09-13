@@ -27,7 +27,7 @@ The polyglot testing approach provides a way to write integration tests for Aspi
 3. Wait for resources to reach desired states
 4. Stop the AppHost when done
 
-Each language (TypeScript, Python, Elixir, Go, etc.) provides a thin wrapper library that spawns CLI commands and parses the structured JSON output.
+Each language (TypeScript, Python, Elixir, Dart, Go, etc.) provides a thin wrapper library that spawns CLI commands and parses the structured JSON output.
 
 ---
 
@@ -644,6 +644,40 @@ defmodule MyApp.ApiTest do
 end
 ```
 
+### Dart
+
+The Dart wrapper is a `package:test` helper. `AspireApp.start` runs
+`aspire start --format json`, reads `aspire describe --follow --format json`, and stops the
+AppHost with `aspire stop`. Every method returns a `Future`, as in the generated SDK.
+
+```dart
+import 'package:aspire_testing/aspire_testing.dart';
+import 'package:http/http.dart' as http;
+import 'package:test/test.dart';
+
+void main() {
+  late AspireApp app;
+
+  setUpAll(() async {
+    app = await AspireApp.start(project: './apphost.dart');
+  });
+
+  tearDownAll(() async {
+    await app.stop();
+  });
+
+  test('the API answers', () async {
+    await app.waitForResource('cache', state: 'Running', healthy: true);
+    await app.waitForResource('api', state: 'Running', healthy: true);
+
+    final url = app.getResource('api').getEndpoint('http').url;
+    final response = await http.get(Uri.parse('$url/api/products'));
+
+    expect(response.statusCode, 200);
+  });
+}
+```
+
 ### .NET
 
 For .NET tests that want CLI-based testing (instead of `Aspire.Hosting.Testing`):
@@ -782,6 +816,7 @@ async def test_list_products(api_url):
 ### Phase 3: Additional Languages
 - [ ] Python wrapper (`aspire-testing` pip package)
 - [ ] Elixir wrapper (an `aspire_testing` Hex package)
+- [ ] Dart wrapper (an `aspire_testing` pub package)
 - [ ] Go wrapper
 - [ ] .NET wrapper (for non-`TEntryPoint` scenarios)
 

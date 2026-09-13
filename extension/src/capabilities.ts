@@ -20,6 +20,8 @@ export type Capability =
     | 'vadimcn.vscode-lldb' // Rust debug adapter extension identifier on macOS/Linux (CodeLLDB)
     | 'elixir' // Support for running Elixir projects
     | 'JakeBecker.elixir-ls' // ElixirLS debug adapter extension identifier
+    | 'dart' // Support for running Dart projects
+    | 'Dart-Code.dart-code' // Dart-Code debug adapter extension identifier
     | 'node' // Support for running Node.js projects
     | 'bun' // Support for running Bun projects
     | 'oven.bun-vscode' // Bun debug adapter extension identifier
@@ -46,6 +48,7 @@ export const azureFunctionsExtensionId = 'ms-azuretools.vscode-azurefunctions';
 export const mauiExtensionId = 'ms-dotnettools.dotnet-maui';
 export const codeLldbExtensionId = 'vadimcn.vscode-lldb';
 export const elixirLSExtensionId = 'JakeBecker.elixir-ls';
+export const dartCodeExtensionId = 'Dart-Code.dart-code';
 
 export function isCsharpInstalled() {
     return isExtensionInstalled(csharpExtensionId);
@@ -83,6 +86,10 @@ export function isRustInstalled(platform: NodeJS.Platform = process.platform) {
 
 export function isElixirInstalled() {
     return isExtensionInstalled(elixirLSExtensionId);
+}
+
+export function isDartInstalled() {
+    return isExtensionInstalled(dartCodeExtensionId);
 }
 
 export function isAzureFunctionsExtensionInstalled() {
@@ -153,6 +160,11 @@ export function getSupportedCapabilities(platform: NodeJS.Platform = process.pla
     if (isElixirInstalled()) {
         capabilities.push("elixir");
         capabilities.push(elixirLSExtensionId);
+    }
+
+    if (isDartInstalled()) {
+        capabilities.push("dart");
+        capabilities.push(dartCodeExtensionId);
     }
 
     if (isNodeInstalled()) {

@@ -16,11 +16,12 @@ This document describes how the Aspire CLI supports non-.NET app hosts using the
 6. [Code Generation](#code-generation)
 7. [TypeScript Implementation](#typescript-implementation)
 8. [Elixir Implementation](#elixir-implementation)
-9. [CLI Integration](#cli-integration)
-10. [Configuration](#configuration)
-11. [Adding New Guest Languages](#adding-new-guest-languages)
-12. [Local Development Workflow](#local-development-workflow)
-13. [Security](#security)
+9. [Dart Implementation](#dart-implementation)
+10. [CLI Integration](#cli-integration)
+11. [Configuration](#configuration)
+12. [Adding New Guest Languages](#adding-new-guest-languages)
+13. [Local Development Workflow](#local-development-workflow)
+14. [Security](#security)
 
 ---
 
@@ -99,7 +100,7 @@ The Aspire CLI has evolved through several stages:
 
 1. **v1: dotnet CLI Wrapper** — Initially, the CLI was a thin wrapper around `dotnet run`, adding Aspire-specific features like dashboard integration, certificate management, and `aspire add` for NuGet packages.
 
-2. **v2: Polyglot Support (Current)** — The CLI now supports non-.NET app hosts. It orchestrates an AppHost Server (.NET) alongside guest runtimes (Node.js, Python, Go, Java, Rust, Elixir). Language-specific logic is moving to the server via `ILanguageSupport` implementations.
+2. **v2: Polyglot Support (Current)** — The CLI now supports non-.NET app hosts. It orchestrates an AppHost Server (.NET) alongside guest runtimes (Node.js, Python, Go, Java, Rust, Elixir, Dart). Language-specific logic is moving to the server via `ILanguageSupport` implementations.
 
 3. **v3: Thin Shell (Vision)** — The goal is for the CLI to become a pure orchestrator with no language-specific logic. All detection, scaffolding, and execution details will be provided by the server via `RuntimeSpec`. The CLI will simply interpret and execute these specs.
 
@@ -1471,6 +1472,232 @@ Code.require_file(".aspire/modules/aspire.ex", __DIR__)
 
 ---
 
+## Dart Implementation
+
+The Dart SDK targets Dart 3.8 and later. `Aspire.Hosting.CodeGeneration.Dart` generates it. The AppHost file is `apphost.dart`. The CLI restores it with `dart pub get` and runs it with `dart run apphost.dart`. `dart run` compiles the AppHost in memory on every launch, so there is no build step. Dart support is experimental. Enable it with `aspire config set features:experimentalPolyglot:dart true --global`.
+
+### Generated SDK Usage
+
+```dart
+import '.aspire/modules/aspire.dart';
+
+Future<void> main(List<String> args) async {
+  final builder = await createBuilder(args);
+
+  final db = await builder.addPostgres('db');
+  final appdb = await db.addDatabase('appdb');
+
+  final cache = await builder.addRedis('cache');
+
+  final api = await builder.addDartApp('api', './api');
+  await api.withReference(appdb);
+  await api.withReference(cache);
+  await api.withExternalHttpEndpoints();
+
+  final app = await builder.build();
+  await app.run();
+}
+```
+
+### SDK Shape
+
+The generator writes one Dart class for each handle type. Each class extends `AspireObject`, so it carries the `AspireHandle` that the host issued and the `AspireTransport` that produced it. Every capability that targets the type becomes a method of that class. An inherited capability is copied into each class.
+
+```dart
+class RedisResource extends AspireObject {
+  const RedisResource(super.handle, super.transport);
+
+  Future<RedisResource> withPersistence({num? interval, num? keysChangedThreshold}) async { … }
+}
+```
+
+Dart has no module namespace, so every generated name shares one scope. The generator assigns the names and fails the generation when two ATS types cannot get a distinct one.
+
+Every capability method returns `Future<T>`, so a call is always `await`ed. A required parameter stays positional, and an optional parameter becomes a named optional parameter. The method sends only the named parameters that the caller supplied, so the host keeps its own default for the rest.
+
+```dart
+final cache = await builder.addRedis('cache', port: 6380);
+```
+
+A method that a capability declares on an interface still returns the receiver class, so a chain of calls keeps the concrete type:
+
+```dart
+final redis = await (await (await builder.addRedis('cache'))
+        .withEnvironment('REDIS_MODE', 'standalone'))
+    .withPersistence();
+```
+
+`createBuilder(args)` is the entry point. It connects the transport, sends `Aspire.Hosting/createBuilder`, and returns the builder class. `build()` and `run()` are capability methods like every other.
+
+A failed capability throws `AspireError`, which implements `Exception`. The class holds `code`, `message`, `data`, and `capability`. The `code` value comes from the host (`CAPABILITY_NOT_FOUND`, `HANDLE_NOT_FOUND`, `TYPE_MISMATCH`, `INVALID_ARGUMENT`, `ARGUMENT_OUT_OF_RANGE`, `CALLBACK_ERROR`, `INTERNAL_ERROR`) or from the guest transport (`MISSING_SOCKET_PATH`, `CONNECTION_FAILED`, `CONNECTION_CLOSED`, `AUTHENTICATION_FAILED`, `TRANSPORT_ERROR`, `NOT_CONNECTED`). `AspireErrorCodes` holds every value.
+
+### Enums
+
+An ATS enum becomes a Dart `enum` that implements `AspireWireValue`. A value carries the .NET member name in `wireName`, and the member name is in lower camel case.
+
+```dart
+await container.withLifetime(ContainerLifetime.persistent);
+```
+
+Each enum has `toWire()`, `toWireOf(Object? value)`, and `fromWire(Object? wire)`. A generated method calls `toWireOf`, which accepts an enum value or a string that names one. A string lets an AppHost use a future member that the generated SDK does not know. An unknown value throws `ArgumentError`, and the message lists every value the enum accepts.
+
+### DTOs
+
+A DTO becomes an immutable Dart class with a `const` constructor, named optional parameters, `fromJson`, `fromWire`, `toJson`, and `toWire`. `toJson` leaves out a property that is null, so the host keeps its own default. `fromWire` returns null when the wire value is not an object, and a property that the decoder cannot convert becomes null instead of failing the whole object.
+
+The host marshals a DTO with the camelCase naming policy of `System.Text.Json`. The generated code therefore uses the camelCase name on the wire, and not the .NET property name.
+
+```dart
+const config = TestConfigDto(name: 'default', port: 6379);
+await redis.withConfig(config);
+```
+
+An exported value that is a DTO is snapped when the SDK is generated, so it needs no call:
+
+```dart
+final config = TestConfigs.default_;
+```
+
+### Callbacks
+
+A callback parameter takes a Dart function. Every distinct callback signature gets one `typedef`, and the return type is `FutureOr<T>`, so a callback can be synchronous or asynchronous.
+
+```dart
+typedef EnvironmentCallback = FutureOr<void> Function(EnvironmentCallbackContext arg);
+
+await container.withEnvironmentCallback((EnvironmentCallbackContext context) async {
+  final editor = await context.environment();
+  await editor.set_('MODE', 'production');
+});
+```
+
+The generated wrapper decodes each argument into its Dart type before it calls the function. A callback that receives a DTO must **return the changed object**, because a generated data object is immutable and the host cannot see a change to a local copy. The wrapper puts the returned object in the positional write-back map under `p0`, `p1`, and so on, and the host copies the properties onto its own object. A callback that returns null changes nothing, and the transport then echoes the arguments the host sent.
+
+```dart
+await api.withUrlForEndpoint('https', (ResourceUrlAnnotation? url) {
+  return ResourceUrlAnnotation(url: '/home', displayText: 'Home');
+});
+```
+
+The transport runs each host callback in its own asynchronous task, so a callback can invoke a capability without a deadlock.
+
+### Context Types
+
+A context type is a handle type, so it becomes a class with methods. A property getter becomes `name()`, and a property setter becomes `setName(value)`. Both return a `Future`. A name that Dart reserves gets a trailing underscore, so `Set` becomes `set_`.
+
+```dart
+final editor = await context.environment();
+await editor.set_('PORT', '8080');
+```
+
+### Reference Expressions
+
+`ref(parts)` builds a reference expression in the guest from a list of strings, numbers, and handles:
+
+```dart
+final endpoint = await cache.getEndpoint('tcp');
+final url = ref(<Object?>['redis://', endpoint]);
+await api.withEnvironment('CACHE_URL', url);
+```
+
+`ReferenceExpression` holds either a host handle or a format string with value providers. `getValueAsync()` resolves an expression that the host owns. A guest expression carries no handle, so that call throws `AspireError` with the code `INVALID_ARGUMENT`.
+
+### Cancellation
+
+`CancellationToken.create()` makes a token. A capability that accepts a token takes it as the named optional parameter `cancellationToken`. `token.cancel()` sends `cancelToken` to the host. The host also returns a token, so the token keeps its identity when it passes through other generated calls.
+
+```dart
+final token = CancellationToken.create();
+unawaited(Future<void>.delayed(const Duration(seconds: 5), token.cancel));
+final value = await endpoint.getValueAsync(cancellationToken: token);
+```
+
+### Collection Wrappers
+
+A mutable host collection becomes `AspireList<T>` or `AspireDict<T>`. Both extend `AspireObject`, so the collection stays in the host and every operation is one capability call. The guest therefore never holds a stale copy. The generator supplies the decoder, so an element arrives as the Dart type that the ATS element type names.
+
+| Class | Members |
+|-------|---------|
+| `AspireList<T>` | `toList()`, `length`, `elementAt(index)`, `add(value)`, `setAt(index, value)`, `insert(index, value)`, `indexOf(value)`, `removeAt(index)`, `clear()` |
+| `AspireDict<T>` | `toMap()`, `length`, `operator [](key)`, `set(key, value)`, `containsKey(key)`, `remove(key)`, `keys()`, `values()`, `clear()` |
+
+A read-only collection becomes a plain Dart `List` or `Map` instead, and a collection inside a DTO always travels by value.
+
+### Transport
+
+`AspireTransport` uses `dart:io` only. It connects to the Unix domain socket in `REMOTE_APP_HOST_SOCKET_PATH`:
+
+```dart
+await Socket.connect(InternetAddress(path, type: InternetAddressType.unix), 0);
+```
+
+The frame format is the LSP format:
+
+```
+Content-Length: <byte count>\r\n\r\n<utf8 json>
+```
+
+The transport sends `authenticate` first when `ASPIRE_REMOTE_APPHOST_TOKEN` is set. The CLI sets that variable. It then sends `invokeCapability` and `cancelToken`, and it answers `invokeCallback` from the host. A read loop owns the socket and completes the pending request when the response frame arrives, so no call blocks the event loop.
+
+`AspireTransport.connect()` stores the connection in `AspireTransport.defaultInstance`. A generated class holds the transport that produced its handle, so one AppHost can hold more than one connection.
+
+The transport has no pub dependency. `base.dart`, `transport.dart`, `aspire_runtime.dart`, and `watch.dart` are copied verbatim from the code generation package, so the scaffolded `pubspec.yaml` declares only a name and an SDK constraint and `dart pub get` needs no network access.
+
+### Watch
+
+`RuntimeSpec.WatchExecute` runs `dart run .aspire/modules/watch.dart <apphost file>`. The script starts the AppHost with inherited standard streams, then polls the modification time of the AppHost file, of `pubspec.yaml`, and of every `*.dart` file below the AppHost directory. On a change it stops the AppHost with SIGTERM, and with SIGKILL after five seconds, and starts it again. It writes `[aspire-watch] restarting: <file>` to standard error. `.dart_tool/`, `build/`, and every directory whose name starts with a dot are not watched. The `--once` option stops the script after the first run and returns the exit code of the AppHost.
+
+### Output
+
+`.aspire/modules/` holds the generated SDK:
+
+| File | Content |
+|------|---------|
+| `aspire.dart` | The library entry point. It imports and exports the three resource files, declares every generated part, and defines `createBuilder`. |
+| `base.dart` | `AspireWireValue`, `AspireHandle`, `AspireError`, `AspireErrorCodes`, `CancellationToken`, `AspireMarshal` |
+| `transport.dart` | `AspireTransport` |
+| `aspire_runtime.dart` | `AspireObject`, `AspireRuntime`, `ReferenceExpression`, `ref`, `AspireList`, `AspireDict` |
+| `aspire_generated.dart`, `aspire_generated_2.dart`, … | The generated declarations. The generator splits them so no file grows too large. Each one is a `part of 'aspire.dart'`. |
+| `watch.dart` | The watch script. `aspire.dart` never imports it. |
+
+`apphost.dart` loads the SDK with one line:
+
+```dart
+import '.aspire/modules/aspire.dart';
+```
+
+The scaffold also writes `pubspec.yaml`, `apphost.run.json`, and a `.gitignore` that holds `.aspire/` and `.dart_tool/`. `dart run` resolves a script only inside a package, so the language support treats a directory without `pubspec.yaml` as not a Dart AppHost.
+
+### Type Mapping
+
+| ATS Type | Dart |
+|----------|------|
+| `string`, `char`, `guid`, `uri` | `String` |
+| `number` | `num` |
+| `boolean` | `bool` |
+| `dateTime` | `DateTime` |
+| `dateOnly`, `timeOnly`, `timeSpan` | `String` |
+| `void` | `Future<void>` |
+| Handle | A class that extends `AspireObject` |
+| DTO | An immutable class that implements `AspireWireValue` |
+| Enum | A Dart `enum` that implements `AspireWireValue` |
+| Callback | A `typedef` that returns `FutureOr<T>` |
+| CancellationToken | `CancellationToken` |
+| Reference expression | `ReferenceExpression` |
+| Mutable list | `AspireList<T>` |
+| Mutable dictionary | `AspireDict<T>` |
+| Union | `Object?`, checked at run time by `AspireRuntime.requireUnion` |
+| Any other type | `Object?` |
+
+### Known Limits
+
+- **Windows named pipes are not supported.** The transport opens a `dart:io` Unix domain socket only.
+- **A guest AppHost cannot select a launch profile.** `GuestAppHostProject.SupportsLaunchProfiles` is `false`. The CLI reads the `https` profile of `apphost.run.json` when one exists, and the first profile otherwise.
+- **Dart support is experimental.** The CLI hides the language until `features:experimentalPolyglot:dart` is set.
+- **The generated SDK is large.** `dart run` compiles it in memory on every launch, which adds about one second to the start of the AppHost.
+
+---
+
 ## CLI Integration
 
 The CLI is responsible for:
@@ -1708,6 +1935,16 @@ private static readonly LanguageInfo[] s_allLanguages =
         DetectionPatterns: ["apphost.exs"],
         CodeGenerator: "Elixir",
         AppHostFileName: "apphost.exs"),
+    // An experimental language also needs IsExperimental and an entry in the feature-flag map,
+    // so the CLI hides it until the user enables the flag.
+    new LanguageInfo(
+        LanguageId: new LanguageId("dart"),
+        DisplayName: "Dart",
+        PackageName: "Aspire.Hosting.CodeGeneration.Dart",
+        DetectionPatterns: ["apphost.dart"],
+        CodeGenerator: "Dart",
+        AppHostFileName: "apphost.dart",
+        IsExperimental: true),
 ];
 ```
 
@@ -1864,6 +2101,10 @@ dotnet run --project /path/to/aspire/src/Aspire.Cli/Aspire.Cli.csproj -- init --
 
 # Create a new Elixir app
 dotnet run --project /path/to/aspire/src/Aspire.Cli/Aspire.Cli.csproj -- init --language elixir
+
+# Create a new Dart app. Dart is experimental, so enable the feature flag first:
+#   aspire config set features:experimentalPolyglot:dart true --global
+dotnet run --project /path/to/aspire/src/Aspire.Cli/Aspire.Cli.csproj -- init --language dart
 ```
 
 The `-l` (or `--language`) flag specifies the target language for scaffolding.
@@ -1897,6 +2138,8 @@ The `-d` (or `--debug`) flag enables additional diagnostic output, useful when d
 | Scaffold Python app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- init --language python` |
 | Scaffold TypeScript app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- init --language typescript` |
 | Scaffold Elixir app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- init --language elixir` |
+| Enable experimental Dart | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- config set features:experimentalPolyglot:dart true --global` |
+| Scaffold Dart app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- init --language dart` |
 | Run app | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- run` |
 | Run with debug output | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- run -d` |
 | Add integration | `dotnet run --project $ASPIRE_REPO_ROOT/src/Aspire.Cli/Aspire.Cli.csproj -- add` |

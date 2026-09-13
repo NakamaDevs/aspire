@@ -12,7 +12,7 @@ namespace Aspire.Cli.Projects;
 /// </summary>
 /// <remarks>
 /// This implementation provides a static list of supported languages.
-/// Experimental languages (Go, Java, Rust, Elixir) are filtered based on per-language feature flags.
+/// Experimental languages (Go, Java, Rust, Elixir, Dart) are filtered based on per-language feature flags.
 /// </remarks>
 internal sealed class DefaultLanguageDiscovery(IFeatures features) : ILanguageDiscovery
 {
@@ -78,6 +78,14 @@ internal sealed class DefaultLanguageDiscovery(IFeatures features) : ILanguageDi
             CodeGenerator: "Elixir",
             AppHostFileName: "apphost.exs",
             IsExperimental: true),
+        new LanguageInfo(
+            LanguageId: new LanguageId(KnownLanguageId.Dart),
+            DisplayName: KnownLanguageId.DartDisplayName,
+            PackageName: "Aspire.Hosting.CodeGeneration.Dart",
+            DetectionPatterns: ["apphost.dart"],
+            CodeGenerator: "Dart",
+            AppHostFileName: "apphost.dart",
+            IsExperimental: true),
     ];
 
     private static readonly Dictionary<string, string> s_experimentalFeatureFlags = new(StringComparer.OrdinalIgnoreCase)
@@ -87,6 +95,7 @@ internal sealed class DefaultLanguageDiscovery(IFeatures features) : ILanguageDi
         [KnownLanguageId.Java] = KnownFeatures.ExperimentalPolyglotJava,
         [KnownLanguageId.Rust] = KnownFeatures.ExperimentalPolyglotRust,
         [KnownLanguageId.Elixir] = KnownFeatures.ExperimentalPolyglotElixir,
+        [KnownLanguageId.Dart] = KnownFeatures.ExperimentalPolyglotDart,
     };
 
     /// <inheritdoc />

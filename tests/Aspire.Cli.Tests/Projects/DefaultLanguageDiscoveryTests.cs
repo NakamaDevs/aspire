@@ -78,6 +78,7 @@ public class DefaultLanguageDiscoveryTests(ITestOutputHelper outputHelper)
         Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Java));
         Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Rust));
         Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Elixir));
+        Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Dart));
     }
 
     [Theory]
@@ -86,6 +87,7 @@ public class DefaultLanguageDiscoveryTests(ITestOutputHelper outputHelper)
     [InlineData(KnownLanguageId.Java, "experimentalPolyglot:java")]
     [InlineData(KnownLanguageId.Rust, "experimentalPolyglot:rust")]
     [InlineData(KnownLanguageId.Elixir, "experimentalPolyglot:elixir")]
+    [InlineData(KnownLanguageId.Dart, "experimentalPolyglot:dart")]
     public async Task GetAvailableLanguagesAsync_IncludesExperimentalLanguageWhenFlagEnabled(string languageId, string featureFlag)
     {
         var features = new TestFeatures();
@@ -271,5 +273,36 @@ public class DefaultLanguageDiscoveryTests(ITestOutputHelper outputHelper)
         Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Elixir));
         Assert.Null(discovery.GetLanguageById(new LanguageId(KnownLanguageId.Elixir)));
         Assert.Null(discovery.GetLanguageByFile(new FileInfo(Path.Combine(Path.GetTempPath(), "apphost.exs"))));
+    }
+
+    [Fact]
+    public async Task DefaultLanguageDiscovery_IncludesDart_WhenFeatureEnabled()
+    {
+        var features = new TestFeatures();
+        features.SetFeature(KnownFeatures.ExperimentalPolyglotDart, true);
+        var discovery = new DefaultLanguageDiscovery(features);
+
+        var languages = (await discovery.GetAvailableLanguagesAsync().DefaultTimeout()).ToList();
+
+        var dart = languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Dart);
+        Assert.NotNull(dart);
+        Assert.Equal(KnownLanguageId.DartDisplayName, dart.DisplayName);
+        Assert.Equal("Aspire.Hosting.CodeGeneration.Dart", dart.PackageName);
+        Assert.Contains("apphost.dart", dart.DetectionPatterns);
+        Assert.Equal("Dart", dart.CodeGenerator);
+        Assert.Equal("apphost.dart", dart.AppHostFileName);
+        Assert.True(dart.IsExperimental);
+    }
+
+    [Fact]
+    public async Task DefaultLanguageDiscovery_HidesDart_WhenFeatureDisabled()
+    {
+        var discovery = new DefaultLanguageDiscovery(new TestFeatures());
+
+        var languages = (await discovery.GetAvailableLanguagesAsync().DefaultTimeout()).ToList();
+
+        Assert.Null(languages.FirstOrDefault(l => l.LanguageId.Value == KnownLanguageId.Dart));
+        Assert.Null(discovery.GetLanguageById(new LanguageId(KnownLanguageId.Dart)));
+        Assert.Null(discovery.GetLanguageByFile(new FileInfo(Path.Combine(Path.GetTempPath(), "apphost.dart"))));
     }
 }

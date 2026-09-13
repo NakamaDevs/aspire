@@ -56,6 +56,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
                 features.SetFeature(KnownFeatures.ExperimentalPolyglotPython, true);
                 features.SetFeature(KnownFeatures.ExperimentalPolyglotRust, true);
                 features.SetFeature(KnownFeatures.ExperimentalPolyglotElixir, true);
+                features.SetFeature(KnownFeatures.ExperimentalPolyglotDart, true);
                 return features;
             };
 
@@ -71,6 +72,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
         Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.GoEmptyAppHost && subcommand.Description == "Empty (Go AppHost)");
         Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.RustEmptyAppHost && subcommand.Description == "Empty (Rust AppHost)");
         Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.ElixirEmptyAppHost && subcommand.Description == "Empty (Elixir AppHost)");
+        Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.DartEmptyAppHost && subcommand.Description == "Empty (Dart AppHost)");
     }
 
     [Fact]
@@ -103,6 +105,38 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
         var command = provider.GetRequiredService<NewCommand>();
 
         Assert.DoesNotContain(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.ElixirEmptyAppHost);
+    }
+
+    [Fact]
+    public void NewCommand_ListsDartTemplate_WhenFeatureEnabled()
+    {
+        using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);
+        var services = CreateServiceCollection(workspace, options =>
+        {
+            options.FeatureFlagsFactory = _ =>
+            {
+                var features = new TestFeatures();
+                features.SetFeature(KnownFeatures.ExperimentalPolyglotDart, true);
+                return features;
+            };
+        });
+        using var provider = services.BuildServiceProvider();
+
+        var command = provider.GetRequiredService<NewCommand>();
+
+        Assert.Contains(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.DartEmptyAppHost && subcommand.Description == "Empty (Dart AppHost)");
+    }
+
+    [Fact]
+    public void NewCommand_HidesDartTemplate_WhenFeatureDisabled()
+    {
+        using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);
+        var services = CreateServiceCollection(workspace);
+        using var provider = services.BuildServiceProvider();
+
+        var command = provider.GetRequiredService<NewCommand>();
+
+        Assert.DoesNotContain(command.Subcommands, subcommand => subcommand.Name == KnownTemplateId.DartEmptyAppHost);
     }
 
     [Fact]
@@ -1121,6 +1155,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
         Assert.DoesNotContain(KnownLanguageId.GoDisplayName, promptedLanguages);
         Assert.DoesNotContain(KnownLanguageId.RustDisplayName, promptedLanguages);
         Assert.DoesNotContain(KnownLanguageId.ElixirDisplayName, promptedLanguages);
+        Assert.DoesNotContain(KnownLanguageId.DartDisplayName, promptedLanguages);
     }
 
     [Fact]
@@ -1184,6 +1219,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
         Assert.DoesNotContain(KnownLanguageId.GoDisplayName, promptedLanguages);
         Assert.DoesNotContain(KnownLanguageId.RustDisplayName, promptedLanguages);
         Assert.DoesNotContain(KnownLanguageId.ElixirDisplayName, promptedLanguages);
+        Assert.DoesNotContain(KnownLanguageId.DartDisplayName, promptedLanguages);
     }
 
     [Fact]
@@ -1386,6 +1422,7 @@ public class NewCommandTests(ITestOutputHelper outputHelper)
     [InlineData("go", "experimentalPolyglot:go", "apphost.go")]
     [InlineData("rust", "experimentalPolyglot:rust", "apphost.rs")]
     [InlineData("elixir", "experimentalPolyglot:elixir", "apphost.exs")]
+    [InlineData("dart", "experimentalPolyglot:dart", "apphost.dart")]
     public async Task NewCommandWithEmptyTemplateAndSourceOverridePersistsSourceForLaterRestore(string language, string? featureFlag, string scaffoldFileName)
     {
         using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);

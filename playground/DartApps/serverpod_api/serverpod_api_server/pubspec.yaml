@@ -1,0 +1,19 @@
+name: serverpod_api_server
+description: A Serverpod server for the Aspire DartApps playground.
+
+environment:
+  sdk: '^3.8.0'
+
+dependencies:
+  serverpod: 3.4.12
+  serverpod_auth_idp_server: 3.4.12
+
+dev_dependencies:
+  lints: '>=3.0.0 <7.0.0'
+  serverpod_test: 3.4.12
+  test: ^1.25.5
+
+serverpod:
+  scripts:
+    # Starts the server and applies migrations.
+    start: dart bin/main.dart --apply-migrations

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsAspireHost>true</IsAspireHost>
+    <UserSecretsId>2b0c9d0a-8f31-4c62-9c58-5a4d1e7f3a21</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AspireProjectOrPackageReference Include="Aspire.Hosting.AppHost" />
+    <AspireProjectOrPackageReference Include="Aspire.Hosting.Dart" />
+    <AspireProjectOrPackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <AspireProjectOrPackageReference Include="Aspire.Hosting.Redis" />
+  </ItemGroup>
+
+</Project>
